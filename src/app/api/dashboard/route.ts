@@ -9,6 +9,8 @@ export async function GET() {
     const today = todayISO();
     const now = currentTimeStr();
 
+    console.log(`[Dashboard] Checking for current shifts - Date: ${today}, Time: ${now}`);
+
     // Current shifts: all shifts happening right now (handles overlapping shifts)
     const currentShifts = await prisma.shift.findMany({
       where: {
@@ -25,6 +27,18 @@ export async function GET() {
       },
       orderBy: [{ startTime: "asc" }],
     });
+
+    console.log(`[Dashboard] Found ${currentShifts.length} current shift(s)`);
+    if (currentShifts.length > 0) {
+      console.log(`[Dashboard] Current shifts:`, currentShifts.map(s => ({
+        id: s.id,
+        date: s.date,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        label: s.label,
+        signupCount: s.signups.length
+      })));
+    }
 
     // Combine all current shifts into one view with all active mentors (deduplicated)
     const currentShift = currentShifts.length > 0

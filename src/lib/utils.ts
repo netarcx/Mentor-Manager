@@ -33,7 +33,7 @@ export function shiftDurationHours(startTime: string, endTime: string): number {
 }
 
 export function isShiftCurrent(shift: { date: string; startTime: string; endTime: string }): boolean {
-  const now = new Date();
+  const now = getCentralTime();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   if (shift.date !== today) return false;
 
@@ -44,12 +44,22 @@ export function isShiftCurrent(shift: { date: string; startTime: string; endTime
   return currentMinutes >= startH * 60 + startM && currentMinutes <= endH * 60 + endM;
 }
 
+// Get current date/time in Central Time Zone
+function getCentralTime(): Date {
+  // Create a date in Central Time by using toLocaleString
+  const nowUTC = new Date();
+  const centralTimeStr = nowUTC.toLocaleString("en-US", {
+    timeZone: "America/Chicago",
+  });
+  return new Date(centralTimeStr);
+}
+
 export function todayISO(): string {
-  const now = new Date();
+  const now = getCentralTime();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 export function currentTimeStr(): string {
-  const now = new Date();
+  const now = getCentralTime();
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }

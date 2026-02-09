@@ -32,6 +32,11 @@ export default function SettingsPage() {
   const [colorAccentBg, setColorAccentBg] = useState("#f3e8ff");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Countdown state
+  const [countdownEnabled, setCountdownEnabled] = useState(false);
+  const [countdownDate, setCountdownDate] = useState("");
+  const [countdownLabel, setCountdownLabel] = useState("");
+
   // Feedback state
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -55,7 +60,21 @@ export default function SettingsPage() {
         setError("Failed to load branding settings");
       }
     }
+
+    async function fetchCountdown() {
+      try {
+        const res = await fetch("/api/countdown");
+        const data = await res.json();
+        setCountdownEnabled(data.enabled);
+        setCountdownDate(data.targetDate);
+        setCountdownLabel(data.label);
+      } catch {
+        // Use defaults
+      }
+    }
+
     fetchBranding();
+    fetchCountdown();
   }, []);
 
   function showMessage(msg: string) {
@@ -211,6 +230,35 @@ export default function SettingsPage() {
     setColorNavy("#2d3748");
     setColorNavyDark("#1a202c");
     setColorAccentBg("#f3e8ff");
+  }
+
+  async function handleSaveCountdown(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading("countdown");
+
+    try {
+      const res = await fetch("/api/admin/settings/countdown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: countdownEnabled,
+          targetDate: countdownDate,
+          label: countdownLabel,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.error || "Failed to save countdown");
+        return;
+      }
+
+      showMessage("Countdown settings saved!");
+    } catch {
+      showError("Failed to save countdown");
+    } finally {
+      setLoading("");
+    }
   }
 
   return (
@@ -519,6 +567,67 @@ export default function SettingsPage() {
               PNG, JPG, GIF, SVG, or WebP. Max 2MB.
             </p>
           </div>
+        </div>
+
+        {/* Countdown Timer */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold mb-4">Dashboard Countdown Timer</h2>
+          <p className="text-sm text-slate-600 mb-4">
+            Display a countdown timer on the public dashboard (e.g., days until competition)
+          </p>
+
+          <form onSubmit={handleSaveCountdown} className="space-y-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="countdown-enabled"
+                checked={countdownEnabled}
+                onChange={(e) => setCountdownEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300"
+              />
+              <label htmlFor="countdown-enabled" className="text-sm font-medium">
+                Enable countdown timer
+              </label>
+            </div>
+
+            {countdownEnabled && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Event Label
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={countdownLabel}
+                    onChange={(e) => setCountdownLabel(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                    placeholder="e.g., Competition Day, Season Start"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Target Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={countdownDate}
+                    onChange={(e) => setCountdownDate(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+              </>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading === "countdown"}
+              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm"
+            >
+              {loading === "countdown" ? "Saving..." : "Save Countdown Settings"}
+            </button>
+          </form>
         </div>
 
         {/* Change Password */}

@@ -20,6 +20,12 @@ interface Branding {
   logoPath: string;
 }
 
+interface CountdownConfig {
+  enabled: boolean;
+  targetDate: string;
+  label: string;
+}
+
 function formatTimeDashboard(time: string): string {
   const [h, m] = time.split(":").map(Number);
   const ampm = h >= 12 ? "PM" : "AM";
@@ -121,6 +127,9 @@ export default function DashboardPage() {
   const [nextShift, setNextShift] = useState<ShiftWithSignups | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [branding, setBranding] = useState<Branding>({ appName: "Workshop Dashboard", logoPath: "" });
+  const [countdown, setCountdown] = useState<CountdownConfig>({ enabled: false, targetDate: "", label: "" });
+  const [timeRemaining, setTimeRemaining] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -145,14 +154,72 @@ export default function DashboardPage() {
       }
     }
 
+    async function fetchCountdown() {
+      try {
+        const res = await fetch("/api/countdown");
+        const data = await res.json();
+        setCountdown(data);
+      } catch {
+        // Use defaults
+      }
+    }
+
     fetchDashboard();
     fetchBranding();
+    fetchCountdown();
     const interval = setInterval(
       fetchDashboard,
       parseInt(process.env.NEXT_PUBLIC_REFRESH_INTERVAL || "30000")
     );
     return () => clearInterval(interval);
   }, []);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (!countdown.enabled || !countdown.targetDate) return;
+
+    function updateCountdown() {
+      const now = new Date();
+      const target = new Date(countdown.targetDate + "T00:00:00");
+      const diff = target.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeRemaining({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setTimeRemaining({ days, hours, minutes, seconds });
+    }
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [countdown]);
+
+  // Fullscreen state tracking
+  useEffect(() => {
+    function handleFullscreenChange() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {
+        // Fullscreen request failed
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  }
 
   return (
     <div className="min-h-screen bg-navy-dark text-white p-8">
@@ -164,10 +231,55 @@ export default function DashboardPage() {
             )}
             <h1 className="text-4xl font-bold">{branding.appName} Dashboard</h1>
           </div>
-          <div className="text-sm text-slate-500">
-            Last updated: {lastUpdate.toLocaleTimeString()}
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-slate-500">
+              Last updated: {lastUpdate.toLocaleTimeString()}
+            </div>
+            <button
+              onClick={toggleFullscreen}
+              className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm"
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              {isFullscreen ? (
+                <>
+                  <span className="text-lg">&#x26F6;</span>
+                  Exit Fullscreen
+                </>
+              ) : (
+                <>
+                  <span className="text-lg">&#x26F6;</span>
+                  Fullscreen
+                </>
+              )}
+            </button>
           </div>
         </div>
+
+        {countdown.enabled && countdown.targetDate && (
+          <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white shadow-lg">
+            <h2 className="text-2xl font-bold mb-4 text-center">
+              {countdown.label}
+            </h2>
+            <div className="grid grid-cols-4 gap-4 max-w-2xl mx-auto">
+              <div className="text-center">
+                <div className="text-5xl font-bold mb-2">{timeRemaining.days}</div>
+                <div className="text-sm uppercase tracking-wider opacity-90">Days</div>
+              </div>
+              <div className="text-center">
+                <div className="text-5xl font-bold mb-2">{timeRemaining.hours}</div>
+                <div className="text-sm uppercase tracking-wider opacity-90">Hours</div>
+              </div>
+              <div className="text-center">
+                <div className="text-5xl font-bold mb-2">{timeRemaining.minutes}</div>
+                <div className="text-sm uppercase tracking-wider opacity-90">Minutes</div>
+              </div>
+              <div className="text-center">
+                <div className="text-5xl font-bold mb-2">{timeRemaining.seconds}</div>
+                <div className="text-sm uppercase tracking-wider opacity-90">Seconds</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col lg:flex-row gap-6">
           <ShiftCard
