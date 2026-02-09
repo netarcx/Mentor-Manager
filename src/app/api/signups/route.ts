@@ -3,36 +3,15 @@ import { prisma } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
-    const { mentorId, shiftId, note } = await request.json();
+    const body = await request.json();
 
-    if (!mentorId || !shiftId) {
-      return NextResponse.json(
-        { error: "mentorId and shiftId are required" },
-        { status: 400 }
-      );
+    // Support batch signups: { mentorId, signups: [{ shiftId, note? }] }
+    if (body.signups && Array.isArray(body.signups)) {
+      return handleBatchSignup(body);
     }
 
-    const shift = await prisma.shift.findUnique({ where: { id: shiftId } });
-    if (!shift || shift.cancelled) {
-      return NextResponse.json(
-        { error: "Shift not found or cancelled" },
-        { status: 404 }
-      );
-    }
-
-    const signup = await prisma.signup.create({
-      data: {
-        mentorId,
-        shiftId,
-        note: note || "",
-      },
-      include: {
-        shift: true,
-        mentor: true,
-      },
-    });
-
-    return NextResponse.json(signup);
+    // Legacy single signup: { mentorId, shiftId, note? }
+    return handleSingleSignup(body);
   } catch (error: unknown) {
     if (
       error &&
@@ -50,4 +29,96 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+async function handleSingleSignup(body: {
+  mentorId?: number;
+  shiftId?: number;
+  note?: string;
+}) {
+  const { mentorId, shiftId, note } = body;
+
+  if (!mentorId || !shiftId) {
+    return NextResponse.json(
+      { error: "mentorId and shiftId are required" },
+      { status: 400 }
+    );
+  }
+
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId } });
+  if (!shift || shift.cancelled) {
+    return NextResponse.json(
+      { error: "Shift not found or cancelled" },
+      { status: 404 }
+    );
+  }
+
+  const signup = await prisma.signup.create({
+    data: {
+      mentorId,
+      shiftId,
+      note: note || "",
+    },
+    include: {
+      shift: true,
+      mentor: true,
+    },
+  });
+
+  return NextResponse.json(signup);
+}
+
+async function handleBatchSignup(body: {
+  mentorId?: number;
+  signups?: { shiftId: number; note?: string }[];
+}) {
+  const { mentorId, signups } = body;
+
+  if (!mentorId || !signups || signups.length === 0) {
+    return NextResponse.json(
+      { error: "mentorId and signups array are required" },
+      { status: 400 }
+    );
+  }
+
+  const shiftIds = signups.map((s) => s.shiftId);
+
+  // Validate all shifts in one query
+  const validShifts = await prisma.shift.findMany({
+    where: {
+      id: { in: shiftIds },
+      cancelled: false,
+    },
+    select: { id: true },
+  });
+
+  const validShiftIds = new Set(validShifts.map((s) => s.id));
+
+  // Filter to only valid shifts
+  const validSignups = signups.filter((s) => validShiftIds.has(s.shiftId));
+
+  if (validSignups.length === 0) {
+    return NextResponse.json(
+      { error: "No valid shifts found" },
+      { status: 404 }
+    );
+  }
+
+  // Create all signups in a single transaction, skipping duplicates
+  const results = await prisma.$transaction(
+    validSignups.map((s) =>
+      prisma.signup.create({
+        data: {
+          mentorId,
+          shiftId: s.shiftId,
+          note: s.note || "",
+        },
+      })
+    )
+  );
+
+  return NextResponse.json({
+    created: results.length,
+    signups: results,
+  });
 }

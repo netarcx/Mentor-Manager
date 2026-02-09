@@ -98,17 +98,19 @@ export default function SignupPage() {
     setError("");
 
     try {
-      const results = [];
-      for (const [shiftId, note] of selected) {
-        const res = await fetch("/api/signups", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mentorId, shiftId, note }),
-        });
-        const data = await res.json();
-        if (!res.ok && res.status !== 409) throw new Error(data.error);
-        results.push(data);
-      }
+      const signups = Array.from(selected, ([shiftId, note]) => ({
+        shiftId,
+        note,
+      }));
+
+      const res = await fetch("/api/signups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mentorId, signups }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
       setStep("done");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to sign up");
