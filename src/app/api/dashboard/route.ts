@@ -9,8 +9,8 @@ export async function GET() {
     const today = todayISO();
     const now = currentTimeStr();
 
-    // Current shift: today, started but not ended
-    const currentShift = await prisma.shift.findFirst({
+    // Current shifts: all shifts happening right now (handles overlapping shifts)
+    const currentShifts = await prisma.shift.findMany({
       where: {
         date: today,
         startTime: { lte: now },
@@ -23,7 +23,25 @@ export async function GET() {
           orderBy: { signedUpAt: "asc" },
         },
       },
+      orderBy: [{ startTime: "asc" }],
     });
+
+    // Combine all current shifts into one view with all active mentors (deduplicated)
+    const currentShift = currentShifts.length > 0
+      ? {
+          ...currentShifts[0],
+          label: currentShifts.length > 1
+            ? `${currentShifts.length} Active Shifts`
+            : currentShifts[0].label,
+          signups: Array.from(
+            new Map(
+              currentShifts
+                .flatMap(shift => shift.signups)
+                .map(signup => [signup.mentor.email || signup.mentor.id, signup])
+            ).values()
+          ),
+        }
+      : null;
 
     // Next shift: hasn't started yet
     const nextShift = await prisma.shift.findFirst({

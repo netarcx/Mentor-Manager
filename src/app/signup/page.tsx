@@ -127,14 +127,49 @@ export default function SignupPage() {
   }, {});
 
   if (step === "done") {
+    const calendarUrl = `/api/calendar?email=${encodeURIComponent(email)}`;
+    const fullCalendarUrl = typeof window !== "undefined"
+      ? `${window.location.origin}${calendarUrl}`
+      : calendarUrl;
+    const googleCalendarUrl = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(fullCalendarUrl)}`;
+
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">&#10003;</div>
         <h1 className="text-3xl font-bold mb-4">You&apos;re signed up!</h1>
-        <p className="text-slate-600 mb-8">
+        <p className="text-slate-600 mb-6">
           Thanks, {name}! You&apos;ve been signed up for {selected.size}{" "}
           shift{selected.size !== 1 ? "s" : ""}.
         </p>
+
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 mb-8">
+          <h3 className="font-semibold text-lg mb-3">
+            Add to Your Calendar
+          </h3>
+          <p className="text-sm text-slate-600 mb-4">
+            Keep track of your shifts by adding them to your calendar
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <a
+              href={calendarUrl}
+              download
+              className="inline-flex items-center justify-center gap-2 bg-white border-2 border-primary text-primary px-6 py-3 rounded-lg hover:bg-primary hover:text-white transition-colors font-medium"
+            >
+              <span className="text-xl">&#128197;</span>
+              Download Calendar (.ics)
+            </a>
+            <a
+              href={googleCalendarUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 bg-white border-2 border-blue-600 text-blue-600 px-6 py-3 rounded-lg hover:bg-blue-600 hover:text-white transition-colors font-medium"
+            >
+              <span className="text-xl">&#128198;</span>
+              Add to Google Calendar
+            </a>
+          </div>
+        </div>
+
         <button
           onClick={() => {
             setStep("info");

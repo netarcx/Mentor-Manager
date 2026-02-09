@@ -1,8 +1,40 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const searchParams = request.nextUrl.searchParams;
+    const email = searchParams.get("email");
+
+    // If email is provided, return that specific mentor with signups
+    if (email) {
+      const mentor = await prisma.mentor.findUnique({
+        where: { email: email.toLowerCase().trim() },
+        include: {
+          signups: {
+            include: {
+              shift: true,
+            },
+            orderBy: {
+              shift: {
+                date: "asc",
+              },
+            },
+          },
+        },
+      });
+
+      if (!mentor) {
+        return NextResponse.json(
+          { error: "Mentor not found" },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(mentor);
+    }
+
+    // Otherwise, return all mentors (list view)
     const mentors = await prisma.mentor.findMany({
       orderBy: { name: "asc" },
       select: { id: true, name: true, email: true },
