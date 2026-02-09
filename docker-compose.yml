@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - mentor-data:/app/data
+    environment:
+      - DATABASE_URL=file:/app/data/mentor-signup.db
+      - SESSION_SECRET=change-me-to-a-long-random-string-at-least-32-chars
+      - ADMIN_DEFAULT_PASSWORD=changeme
+      - NEXT_PUBLIC_APP_NAME=FRC Workshop Signup
+      - NEXT_PUBLIC_REFRESH_INTERVAL=30000
+    restart: unless-stopped
+
+volumes:
+  mentor-data:

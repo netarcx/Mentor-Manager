@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Mentor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  signups   Signup[]
+
+  @@map("mentors")
+}
+
+model ShiftTemplate {
+  id        Int     @id @default(autoincrement())
+  dayOfWeek Int     @map("day_of_week") // 0=Sunday, 6=Saturday
+  startTime String  @map("start_time") // "18:00"
+  endTime   String  @map("end_time") // "21:00"
+  label     String  @default("")
+  active    Boolean @default(true)
+  shifts    Shift[]
+
+  @@map("shift_templates")
+}
+
+model Shift {
+  id         Int            @id @default(autoincrement())
+  date       String // "2026-02-14" ISO date
+  startTime  String         @map("start_time")
+  endTime    String         @map("end_time")
+  label      String         @default("")
+  cancelled  Boolean        @default(false)
+  templateId Int?           @map("template_id")
+  template   ShiftTemplate? @relation(fields: [templateId], references: [id])
+  createdAt  DateTime       @default(now()) @map("created_at")
+  signups    Signup[]
+
+  @@unique([date, startTime, endTime])
+  @@map("shifts")
+}
+
+model Signup {
+  id         Int      @id @default(autoincrement())
+  mentorId   Int      @map("mentor_id")
+  shiftId    Int      @map("shift_id")
+  note       String   @default("")
+  signedUpAt DateTime @default(now()) @map("signed_up_at")
+  mentor     Mentor   @relation(fields: [mentorId], references: [id])
+  shift      Shift    @relation(fields: [shiftId], references: [id])
+
+  @@unique([mentorId, shiftId])
+  @@map("signups")
+}
+
+model Season {
+  id        Int    @id @default(autoincrement())
+  name      String // "2026 Build Season"
+  startDate String @map("start_date") // "2026-01-06"
+  endDate   String @map("end_date") // "2026-04-15"
+
+  @@map("seasons")
+}
+
+model Setting {
+  key   String @id
+  value String
+
+  @@map("settings")
+}

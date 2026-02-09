@@ -1,0 +1,12 @@
+export const SHIFT_GENERATION_WEEKS = 4;
+export const SESSION_COOKIE_NAME = "admin_session";
+export const SESSION_TTL = 60 * 60 * 24; // 24 hours in seconds
+export const DAYS_OF_WEEK = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
