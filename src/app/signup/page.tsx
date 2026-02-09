@@ -12,6 +12,12 @@ interface Shift {
   signups: { id: number; mentor: { name: string } }[];
 }
 
+interface Mentor {
+  id: number;
+  name: string;
+  email: string;
+}
+
 export default function SignupPage() {
   const [step, setStep] = useState<"info" | "shifts" | "done">("info");
   const [name, setName] = useState("");
@@ -21,13 +27,28 @@ export default function SignupPage() {
   const [selected, setSelected] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [existingMentors, setExistingMentors] = useState<Mentor[]>([]);
 
   useEffect(() => {
     fetch("/api/shifts")
       .then((r) => r.json())
       .then((data) => setShifts(data.shifts || []))
       .catch(() => setError("Failed to load shifts"));
+
+    fetch("/api/mentors")
+      .then((r) => r.json())
+      .then((data) => setExistingMentors(data.mentors || []))
+      .catch(() => {});
   }, []);
+
+  function handleSelectMentor(mentorIdStr: string) {
+    if (!mentorIdStr) return;
+    const mentor = existingMentors.find((m) => m.id === Number(mentorIdStr));
+    if (mentor) {
+      setName(mentor.name);
+      setEmail(mentor.email);
+    }
+  }
 
   async function handleIdentify(e: React.FormEvent) {
     e.preventDefault();
@@ -136,39 +157,71 @@ export default function SignupPage() {
       )}
 
       {step === "info" && (
-        <form onSubmit={handleIdentify} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Your Name</label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              placeholder="John Smith"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              placeholder="john@example.com"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
-          >
-            {loading ? "Loading..." : "Continue"}
-          </button>
-        </form>
+        <div>
+          {existingMentors.length > 0 && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-1">
+                Returning mentor?
+              </label>
+              <select
+                onChange={(e) => handleSelectMentor(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2 bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                defaultValue=""
+              >
+                <option value="">Select your name...</option>
+                {existingMentors.map((mentor) => (
+                  <option key={mentor.id} value={mentor.id}>
+                    {mentor.name} ({mentor.email})
+                  </option>
+                ))}
+              </select>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-background px-2 text-slate-500">
+                    or enter your info below
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleIdentify} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Your Name</label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                placeholder="John Smith"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                placeholder="john@example.com"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+            >
+              {loading ? "Loading..." : "Continue"}
+            </button>
+          </form>
+        </div>
       )}
 
       {step === "shifts" && (

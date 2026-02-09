@@ -1,6 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+export async function GET() {
+  try {
+    const mentors = await prisma.mentor.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true },
+    });
+
+    return NextResponse.json({ mentors });
+  } catch {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { name, email } = await request.json();
