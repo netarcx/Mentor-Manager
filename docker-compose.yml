@@ -11,6 +11,7 @@ services:
       - ADMIN_DEFAULT_PASSWORD=changeme
       - NEXT_PUBLIC_APP_NAME=FRC Workshop Signup
       - NEXT_PUBLIC_REFRESH_INTERVAL=30000
+      - COOKIE_SECURE=false
     restart: unless-stopped
 
 volumes:

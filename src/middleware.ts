@@ -16,6 +16,11 @@ export async function middleware(request: NextRequest) {
         "this-is-a-fallback-secret-that-should-be-changed-in-production",
       cookieName: SESSION_COOKIE_NAME,
       ttl: SESSION_TTL,
+      cookieOptions: {
+        secure: process.env.COOKIE_SECURE === "true",
+        httpOnly: true,
+        sameSite: "lax" as const,
+      },
     });
 
     if (!session.isAdmin) {

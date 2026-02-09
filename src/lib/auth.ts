@@ -11,7 +11,7 @@ const sessionOptions = {
   cookieName: SESSION_COOKIE_NAME,
   ttl: SESSION_TTL,
   cookieOptions: {
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "true",
     httpOnly: true,
     sameSite: "lax" as const,
   },
