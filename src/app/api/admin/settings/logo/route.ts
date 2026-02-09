@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { writeFile, unlink } from "fs/promises";
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
       create: { key: "logo_path", value: filename },
     });
 
+    revalidatePath("/", "layout");
     return NextResponse.json({ success: true, logoPath: filename });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -93,6 +95,7 @@ export async function DELETE() {
       create: { key: "logo_path", value: "" },
     });
 
+    revalidatePath("/", "layout");
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

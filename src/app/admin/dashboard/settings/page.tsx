@@ -144,7 +144,7 @@ export default function SettingsPage() {
         return;
       }
 
-      showMessage("Branding saved! Refresh the page to see changes.");
+      showMessage("Branding saved!");
     } catch {
       showError("Failed to save branding");
     } finally {
@@ -173,7 +173,7 @@ export default function SettingsPage() {
         return;
       }
 
-      showMessage("Logo uploaded! Refresh the page to see changes.");
+      showMessage("Logo uploaded!");
       const brandingRes = await fetch("/api/branding");
       const brandingData: Branding = await brandingRes.json();
       setBranding(brandingData);
@@ -195,7 +195,7 @@ export default function SettingsPage() {
 
       if (!res.ok) throw new Error("Failed to remove logo");
 
-      showMessage("Logo removed! Refresh the page to see changes.");
+      showMessage("Logo removed!");
       setBranding((prev) => prev ? { ...prev, logoPath: "" } : prev);
     } catch {
       showError("Failed to remove logo");

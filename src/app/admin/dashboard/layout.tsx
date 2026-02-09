@@ -7,6 +7,7 @@ const navItems = [
   { href: "/admin/dashboard", label: "Overview" },
   { href: "/admin/dashboard/templates", label: "Templates" },
   { href: "/admin/dashboard/shifts", label: "Shifts" },
+  { href: "/admin/dashboard/bulk-signup", label: "Bulk Signup" },
   { href: "/admin/dashboard/seasons", label: "Seasons" },
   { href: "/admin/dashboard/settings", label: "Settings" },
 ];
