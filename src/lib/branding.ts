@@ -42,20 +42,25 @@ export function getDefaultBranding(): Branding {
 }
 
 export async function getBranding(): Promise<Branding> {
-  const keys = Object.keys(keyMap);
-  const settings = await prisma.setting.findMany({
-    where: { key: { in: keys } },
-  });
+  try {
+    const keys = Object.keys(keyMap);
+    const settings = await prisma.setting.findMany({
+      where: { key: { in: keys } },
+    });
 
-  const branding = { ...defaults };
-  for (const setting of settings) {
-    const field = keyMap[setting.key];
-    if (field && setting.value) {
-      branding[field] = setting.value;
+    const branding = { ...defaults };
+    for (const setting of settings) {
+      const field = keyMap[setting.key];
+      if (field && setting.value) {
+        branding[field] = setting.value;
+      }
     }
-  }
 
-  return branding;
+    return branding;
+  } catch {
+    // DB not available (e.g. during Docker build / static generation)
+    return { ...defaults };
+  }
 }
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
