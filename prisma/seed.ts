@@ -7,17 +7,23 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  // Seed admin password
-  const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || "changeme";
-  const hash = await bcryptjs.hash(defaultPassword, 10);
-
-  await prisma.setting.upsert({
+  // Seed admin password (only if not already set)
+  const existing = await prisma.setting.findUnique({
     where: { key: "admin_password" },
-    update: { value: hash },
-    create: { key: "admin_password", value: hash },
   });
 
-  console.log(`Admin password set (default: "${defaultPassword}")`);
+  if (!existing) {
+    const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || "changeme";
+    const hash = await bcryptjs.hash(defaultPassword, 10);
+
+    await prisma.setting.create({
+      data: { key: "admin_password", value: hash },
+    });
+
+    console.log(`Admin password set (default: "${defaultPassword}")`);
+  } else {
+    console.log("Admin password already exists, skipping");
+  }
 
   // Seed default branding values (only if not already set)
   const brandingDefaults: Record<string, string> = {

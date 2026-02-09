@@ -7,12 +7,9 @@ cd /app
 echo "Running database migrations..."
 node node_modules/prisma/build/index.js migrate deploy
 
-# Seed database on first run
-if [ ! -f /app/data/.seeded ]; then
-  echo "Seeding database..."
-  node node_modules/tsx/dist/cli.mjs prisma/seed.ts
-  touch /app/data/.seeded
-fi
+# Seed defaults (idempotent — only creates values that don't exist yet)
+echo "Seeding defaults..."
+node node_modules/tsx/dist/cli.mjs prisma/seed.ts
 
 # Start the application
 echo "Starting application..."
