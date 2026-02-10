@@ -19,6 +19,21 @@ fi
 echo "Seeding defaults..."
 node node_modules/tsx/dist/cli.mjs prisma/seed.ts
 
+# Start background reminder scheduler
+if [ -n "$CRON_SECRET" ]; then
+  echo "Starting reminder scheduler (hourly check)..."
+  (
+    # Wait for the app to be ready before first check
+    sleep 60
+    while true; do
+      curl -s -X POST "http://localhost:${PORT:-3000}/api/admin/notifications/send-reminders" \
+        -H "Content-Type: application/json" \
+        -H "x-api-key: $CRON_SECRET" || true
+      sleep 3600
+    done
+  ) &
+fi
+
 # Start the application
 echo "Starting application..."
 exec node server.js

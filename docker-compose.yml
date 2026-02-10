@@ -12,6 +12,14 @@ services:
       - NEXT_PUBLIC_APP_NAME=FRC Workshop Signup
       - NEXT_PUBLIC_REFRESH_INTERVAL=30000
       - COOKIE_SECURE=false
+      - APPRISE_URL=http://apprise:8000
+      - CRON_SECRET=change-me-to-a-random-secret
+    depends_on:
+      - apprise
+    restart: unless-stopped
+
+  apprise:
+    image: caronc/apprise:latest
     restart: unless-stopped
 
 volumes:

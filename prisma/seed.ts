@@ -47,6 +47,27 @@ async function main() {
 
   console.log("Default branding settings seeded");
 
+  // Seed default notification settings (only if not already set)
+  const notificationDefaults: Record<string, string> = {
+    notifications_enabled: "false",
+    notifications_smtp_url: "",
+    notifications_broadcast_urls: "",
+    notifications_reminder_day: "1",
+    notifications_reminder_time: "09:00",
+    notifications_look_ahead_days: "7",
+    notifications_last_reminder_sent: "",
+  };
+
+  for (const [key, value] of Object.entries(notificationDefaults)) {
+    await prisma.setting.upsert({
+      where: { key },
+      update: {},
+      create: { key, value },
+    });
+  }
+
+  console.log("Default notification settings seeded");
+
   // Seed a default season if none exists
   const seasonCount = await prisma.season.count();
   if (seasonCount === 0) {

@@ -37,6 +37,21 @@ export default function SettingsPage() {
   const [countdownDate, setCountdownDate] = useState("");
   const [countdownLabel, setCountdownLabel] = useState("");
 
+  // Notification state
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  const [notifSmtpUrl, setNotifSmtpUrl] = useState("");
+  const [notifBroadcastUrls, setNotifBroadcastUrls] = useState("");
+  const [notifReminderDay, setNotifReminderDay] = useState("1");
+  const [notifReminderTime, setNotifReminderTime] = useState("09:00");
+  const [notifLookAheadDays, setNotifLookAheadDays] = useState(7);
+  const [notifLastSent, setNotifLastSent] = useState("");
+  const [notifAppriseHealthy, setNotifAppriseHealthy] = useState<boolean | null>(null);
+  const [notifPreview, setNotifPreview] = useState<{
+    mentors: { id: number; name: string; email: string }[];
+    upcomingShifts: { id: number; date: string; startTime: string; endTime: string; label: string; signupCount: number }[];
+    lookAheadDays: number;
+  } | null>(null);
+
   // Feedback state
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -73,8 +88,28 @@ export default function SettingsPage() {
       }
     }
 
+    async function fetchNotifications() {
+      try {
+        const res = await fetch("/api/admin/notifications/settings");
+        if (res.ok) {
+          const data = await res.json();
+          setNotifEnabled(data.enabled);
+          setNotifSmtpUrl(data.smtpUrl);
+          setNotifBroadcastUrls(data.broadcastUrls);
+          setNotifReminderDay(data.reminderDay);
+          setNotifReminderTime(data.reminderTime);
+          setNotifLookAheadDays(data.lookAheadDays);
+          setNotifLastSent(data.lastReminderSent);
+          setNotifAppriseHealthy(data.appriseHealthy);
+        }
+      } catch {
+        // Use defaults
+      }
+    }
+
     fetchBranding();
     fetchCountdown();
+    fetchNotifications();
   }, []);
 
   function showMessage(msg: string) {
@@ -231,6 +266,107 @@ export default function SettingsPage() {
     setColorNavyDark("#1a202c");
     setColorAccentBg("#f3e8ff");
   }
+
+  async function handleSaveNotifications(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading("notifications");
+
+    try {
+      const res = await fetch("/api/admin/notifications/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: notifEnabled,
+          smtpUrl: notifSmtpUrl,
+          broadcastUrls: notifBroadcastUrls,
+          reminderDay: notifReminderDay,
+          reminderTime: notifReminderTime,
+          lookAheadDays: notifLookAheadDays,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.error || "Failed to save notification settings");
+        return;
+      }
+
+      showMessage("Notification settings saved!");
+    } catch {
+      showError("Failed to save notification settings");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleSendTest() {
+    setLoading("notif-test");
+
+    try {
+      const res = await fetch("/api/admin/notifications/test", { method: "POST" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || "Test notification failed");
+        return;
+      }
+
+      showMessage("Test notification sent!");
+    } catch {
+      showError("Failed to send test notification");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handlePreviewReminders() {
+    setLoading("notif-preview");
+
+    try {
+      const res = await fetch("/api/admin/notifications/preview");
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || "Failed to load preview");
+        return;
+      }
+
+      setNotifPreview(data);
+    } catch {
+      showError("Failed to load preview");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleSendReminders() {
+    setLoading("notif-send");
+
+    try {
+      const res = await fetch("/api/admin/notifications/send-reminders", { method: "POST" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || "Failed to send reminders");
+        return;
+      }
+
+      const parts = [];
+      if (data.mentorsSent > 0) parts.push(`${data.mentorsSent} mentor email(s) sent`);
+      if (data.broadcastSent) parts.push("broadcast sent");
+      if (data.errors?.length > 0) parts.push(`${data.errors.length} error(s)`);
+
+      showMessage(parts.length > 0 ? `Reminders sent: ${parts.join(", ")}` : "No reminders to send");
+      setNotifLastSent(new Date().toISOString());
+      setNotifPreview(null);
+    } catch {
+      showError("Failed to send reminders");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   async function handleSaveCountdown(e: React.FormEvent) {
     e.preventDefault();
@@ -628,6 +764,195 @@ export default function SettingsPage() {
               {loading === "countdown" ? "Saving..." : "Save Countdown Settings"}
             </button>
           </form>
+        </div>
+
+        {/* Notifications */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Notifications</h2>
+            {notifAppriseHealthy !== null && (
+              <span className={`text-xs px-2 py-1 rounded-full ${notifAppriseHealthy ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                Apprise {notifAppriseHealthy ? "connected" : "unreachable"}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-slate-600 mb-4">
+            Send weekly email reminders to mentors who haven&apos;t signed up for upcoming shifts.
+          </p>
+
+          <form onSubmit={handleSaveNotifications} className="space-y-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="notif-enabled"
+                checked={notifEnabled}
+                onChange={(e) => setNotifEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300"
+              />
+              <label htmlFor="notif-enabled" className="text-sm font-medium">
+                Enable notifications
+              </label>
+            </div>
+
+            {notifEnabled && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    SMTP URL
+                  </label>
+                  <input
+                    type="password"
+                    value={notifSmtpUrl}
+                    onChange={(e) => setNotifSmtpUrl(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 font-mono text-sm"
+                    placeholder="mailto://user:pass@smtp.gmail.com"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Apprise mailto URL for sending individual mentor emails. Leave blank to skip email notifications.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Broadcast URLs
+                  </label>
+                  <textarea
+                    value={notifBroadcastUrls}
+                    onChange={(e) => setNotifBroadcastUrls(e.target.value)}
+                    rows={3}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 font-mono text-sm"
+                    placeholder={"slack://token@channel\ndiscord://webhook_id/webhook_token"}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    One Apprise URL per line. Summary notifications go here (Slack, Discord, etc.)
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Reminder Day
+                    </label>
+                    <select
+                      value={notifReminderDay}
+                      onChange={(e) => setNotifReminderDay(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                    >
+                      {DAY_NAMES.map((name, i) => (
+                        <option key={i} value={String(i)}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Reminder Time
+                    </label>
+                    <input
+                      type="time"
+                      value={notifReminderTime}
+                      onChange={(e) => setNotifReminderTime(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Look-ahead Days
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={notifLookAheadDays}
+                      onChange={(e) => setNotifLookAheadDays(parseInt(e.target.value) || 7)}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                    />
+                  </div>
+                </div>
+
+                {notifLastSent && (
+                  <p className="text-xs text-slate-500">
+                    Last reminder sent: {new Date(notifLastSent).toLocaleString()}
+                  </p>
+                )}
+              </>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                disabled={loading === "notifications"}
+                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm"
+              >
+                {loading === "notifications" ? "Saving..." : "Save Settings"}
+              </button>
+
+              {notifEnabled && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleSendTest}
+                    disabled={loading === "notif-test"}
+                    className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-sm"
+                  >
+                    {loading === "notif-test" ? "Sending..." : "Send Test"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePreviewReminders}
+                    disabled={loading === "notif-preview"}
+                    className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-sm"
+                  >
+                    {loading === "notif-preview" ? "Loading..." : "Preview"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendReminders}
+                    disabled={loading === "notif-send"}
+                    className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 text-sm"
+                  >
+                    {loading === "notif-send" ? "Sending..." : "Send Reminders Now"}
+                  </button>
+                </>
+              )}
+            </div>
+          </form>
+
+          {notifPreview && (
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <h3 className="text-sm font-semibold mb-2">
+                Preview — {notifPreview.mentors.length} mentor(s) would be notified
+              </h3>
+
+              {notifPreview.mentors.length > 0 ? (
+                <div className="mb-3">
+                  <p className="text-xs text-slate-500 mb-1">Mentors without signups in the next {notifPreview.lookAheadDays} days:</p>
+                  <ul className="text-sm space-y-1">
+                    {notifPreview.mentors.map((m) => (
+                      <li key={m.id} className="text-slate-700">
+                        {m.name} <span className="text-slate-400">({m.email})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-sm text-green-600 mb-3">All mentors have signed up for upcoming shifts!</p>
+              )}
+
+              {notifPreview.upcomingShifts.length > 0 && (
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Upcoming shifts:</p>
+                  <ul className="text-sm space-y-1">
+                    {notifPreview.upcomingShifts.map((s) => (
+                      <li key={s.id} className="text-slate-700">
+                        {s.date} {s.startTime}–{s.endTime}
+                        {s.label ? ` (${s.label})` : ""} — {s.signupCount} signed up
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Change Password */}
