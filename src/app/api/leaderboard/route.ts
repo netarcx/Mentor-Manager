@@ -60,23 +60,27 @@ export async function GET(request: Request) {
       mentorMap.set(key, existing);
     }
 
-    // Add manual hour adjustments
-    const adjustments = await prisma.hourAdjustment.findMany({
-      include: { mentor: true },
-      where: { date: adjustmentDateFilter },
-    });
+    // Add manual hour adjustments (gracefully skip if table doesn't exist yet)
+    try {
+      const adjustments = await prisma.hourAdjustment.findMany({
+        include: { mentor: true },
+        where: { date: adjustmentDateFilter },
+      });
 
-    for (const adj of adjustments) {
-      const key = adj.mentor.email;
-      const existing = mentorMap.get(key) || {
-        name: adj.mentor.name,
-        email: adj.mentor.email,
-        hours: 0,
-        shifts: 0,
-        adjustmentHours: 0,
-      };
-      existing.adjustmentHours += adj.hours;
-      mentorMap.set(key, existing);
+      for (const adj of adjustments) {
+        const key = adj.mentor.email;
+        const existing = mentorMap.get(key) || {
+          name: adj.mentor.name,
+          email: adj.mentor.email,
+          hours: 0,
+          shifts: 0,
+          adjustmentHours: 0,
+        };
+        existing.adjustmentHours += adj.hours;
+        mentorMap.set(key, existing);
+      }
+    } catch {
+      // hour_adjustments table may not exist yet if prisma db push hasn't run
     }
 
     const mentors = Array.from(mentorMap.values())
@@ -100,7 +104,7 @@ export async function GET(request: Request) {
       mentorCount: mentors.length,
     };
 
-    return NextResponse.json({ mentors, stats });
+    return NextResponse.json({ mentors, stats, today });
   } catch {
     return NextResponse.json(
       { error: "Internal server error" },
