@@ -51,6 +51,8 @@ export default function SettingsPage() {
     upcomingShifts: { id: number; date: string; startTime: string; endTime: string; label: string; signupCount: number }[];
     lookAheadDays: number;
   } | null>(null);
+  const [testEmail, setTestEmail] = useState("");
+  const [showTestEmail, setShowTestEmail] = useState(false);
 
   // Feedback state
   const [message, setMessage] = useState("");
@@ -361,6 +363,36 @@ export default function SettingsPage() {
       setNotifPreview(null);
     } catch {
       showError("Failed to send reminders");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleSendTestEmail() {
+    if (!testEmail || !testEmail.includes("@")) {
+      showError("Please enter a valid email address");
+      return;
+    }
+
+    setLoading("notif-test-email");
+
+    try {
+      const res = await fetch("/api/admin/notifications/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: testEmail }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || "Test email failed");
+        return;
+      }
+
+      showMessage(`Test reminder sent to ${testEmail}!`);
+      setShowTestEmail(false);
+    } catch {
+      showError("Failed to send test email");
     } finally {
       setLoading("");
     }
@@ -894,7 +926,14 @@ export default function SettingsPage() {
                     disabled={loading === "notif-test"}
                     className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-sm"
                   >
-                    {loading === "notif-test" ? "Sending..." : "Send Test"}
+                    {loading === "notif-test" ? "Sending..." : "Test Connection"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowTestEmail(!showTestEmail)}
+                    className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors text-sm"
+                  >
+                    Send Test to Me
                   </button>
                   <button
                     type="button"
@@ -915,6 +954,34 @@ export default function SettingsPage() {
                 </>
               )}
             </div>
+
+            {showTestEmail && notifEnabled && (
+              <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <label className="block text-sm font-medium mb-1">
+                  Send a test reminder email to:
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    placeholder="your-email@example.com"
+                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendTestEmail}
+                    disabled={loading === "notif-test-email"}
+                    className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm whitespace-nowrap"
+                  >
+                    {loading === "notif-test-email" ? "Sending..." : "Send"}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Sends a realistic reminder email to just this address (not to mentors).
+                </p>
+              </div>
+            )}
           </form>
 
           {notifPreview && (
@@ -941,14 +1008,25 @@ export default function SettingsPage() {
               {notifPreview.upcomingShifts.length > 0 && (
                 <div>
                   <p className="text-xs text-slate-500 mb-1">Upcoming shifts:</p>
-                  <ul className="text-sm space-y-1">
-                    {notifPreview.upcomingShifts.map((s) => (
-                      <li key={s.id} className="text-slate-700">
-                        {s.date} {s.startTime}–{s.endTime}
-                        {s.label ? ` (${s.label})` : ""} — {s.signupCount} signed up
-                      </li>
-                    ))}
-                  </ul>
+                  {Object.entries(
+                    notifPreview.upcomingShifts.reduce<Record<string, typeof notifPreview.upcomingShifts>>((acc, s) => {
+                      (acc[s.date] ??= []).push(s);
+                      return acc;
+                    }, {})
+                  ).map(([date, shifts]) => (
+                    <div key={date} className="mb-2">
+                      <p className="text-sm font-medium text-slate-800">{date}</p>
+                      <ul className="text-sm space-y-1 ml-2">
+                        {shifts.map((s) => (
+                          <li key={s.id} className={s.signupCount < 2 ? "text-amber-700 font-medium" : "text-slate-700"}>
+                            {s.startTime}–{s.endTime}
+                            {s.label ? ` (${s.label})` : ""} — {s.signupCount} signed up
+                            {s.signupCount < 2 && " \u26A0\uFE0F Needs mentors!"}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

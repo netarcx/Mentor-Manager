@@ -1,7 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { todayISO, formatDate, formatTime } from "@/lib/utils";
+import { todayISO, formatTime, formatDateMedium } from "@/lib/utils";
 import { sendNotification, buildMailtoUrl } from "@/lib/apprise";
+import { MIN_MENTOR_SIGNUPS } from "@/lib/constants";
 
 // --- Settings keys ---
 
@@ -151,6 +152,46 @@ export async function previewReminders(): Promise<ReminderPreview> {
   };
 }
 
+interface ShiftSummaryItem {
+  date: string;
+  startTime: string;
+  endTime: string;
+  label: string;
+  signupCount: number;
+}
+
+export function buildShiftSummary(shifts: ShiftSummaryItem[]): string {
+  if (shifts.length === 0) return "  (No upcoming shifts)";
+
+  const grouped = new Map<string, ShiftSummaryItem[]>();
+  for (const shift of shifts) {
+    const existing = grouped.get(shift.date);
+    if (existing) {
+      existing.push(shift);
+    } else {
+      grouped.set(shift.date, [shift]);
+    }
+  }
+
+  const lines: string[] = [];
+  for (const [date, dayShifts] of grouped) {
+    lines.push(formatDateMedium(date));
+    for (const s of dayShifts) {
+      const timeRange = `${formatTime(s.startTime)}-${formatTime(s.endTime)}`;
+      const label = s.label ? ` (${s.label})` : "";
+      const warning = s.signupCount < MIN_MENTOR_SIGNUPS ? " \u26A0\uFE0F Needs mentors!" : "";
+      lines.push(`  ${timeRange}${label} \u2014 ${s.signupCount} signed up${warning}`);
+    }
+    lines.push("");
+  }
+
+  if (lines.length > 0 && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+
+  return lines.join("\n");
+}
+
 export interface SendResult {
   mentorsSent: number;
   broadcastSent: boolean;
@@ -168,16 +209,14 @@ export async function sendReminders(): Promise<SendResult> {
     return { mentorsSent: 0, broadcastSent: false, errors: ["No mentors need reminders"] };
   }
 
-  // Build shift summary for email body
-  const shiftLines = preview.upcomingShifts
-    .map((s) => `  ${formatDate(s.date)} ${formatTime(s.startTime)}-${formatTime(s.endTime)}${s.label ? ` (${s.label})` : ""} — ${s.signupCount} signed up`)
-    .join("\n");
+  // Build shift summary for email body (grouped by day with warnings)
+  const shiftSummary = buildShiftSummary(preview.upcomingShifts);
 
   // Send individual mentor emails via SMTP
   if (settings.smtpUrl) {
     for (const mentor of preview.mentors) {
       const url = buildMailtoUrl(settings.smtpUrl, mentor.email);
-      const body = `Hi ${mentor.name},\n\nYou haven't signed up for any upcoming shifts in the next ${settings.lookAheadDays} days. Here are the available shifts:\n\n${shiftLines}\n\nPlease sign up at your earliest convenience!`;
+      const body = `Hi ${mentor.name},\n\nYou haven't signed up for any upcoming shifts in the next ${settings.lookAheadDays} days. Here are the available shifts:\n\n${shiftSummary}\n\nPlease sign up at your earliest convenience!`;
 
       const result = await sendNotification(
         [url],
@@ -202,7 +241,7 @@ export async function sendReminders(): Promise<SendResult> {
 
   if (broadcastUrlList.length > 0) {
     const mentorNames = preview.mentors.map((m) => m.name).join(", ");
-    const broadcastBody = `Weekly Reminder Summary\n\n${preview.mentors.length} mentor(s) have not signed up for shifts in the next ${settings.lookAheadDays} days:\n${mentorNames}\n\nUpcoming shifts:\n${shiftLines}`;
+    const broadcastBody = `Weekly Reminder Summary\n\n${preview.mentors.length} mentor(s) have not signed up for shifts in the next ${settings.lookAheadDays} days:\n${mentorNames}\n\nUpcoming shifts:\n${shiftSummary}`;
 
     const result = await sendNotification(
       broadcastUrlList,
@@ -227,4 +266,26 @@ export async function sendReminders(): Promise<SendResult> {
   });
 
   return { mentorsSent, broadcastSent, errors };
+}
+
+export async function sendTestReminder(recipientEmail: string): Promise<{ ok: boolean; error?: string }> {
+  const settings = await getNotificationSettings();
+  const preview = await previewReminders();
+
+  if (!settings.smtpUrl) {
+    return { ok: false, error: "No SMTP URL configured" };
+  }
+
+  const shiftSummary = buildShiftSummary(preview.upcomingShifts);
+
+  const body = `Hi Admin (Test),\n\nThis is a test of the mentor reminder email. Below is what mentors who haven't signed up would see.\n\n${preview.mentors.length} mentor(s) currently need reminders.\n\nAvailable shifts in the next ${settings.lookAheadDays} days:\n\n${shiftSummary}\n\nPlease sign up at your earliest convenience!`;
+
+  const url = buildMailtoUrl(settings.smtpUrl, recipientEmail);
+
+  return sendNotification(
+    [url],
+    "Reminder: Sign Up for Upcoming Shifts (TEST)",
+    body,
+    "info"
+  );
 }

@@ -26,6 +26,16 @@ export function formatDateLong(dateStr: string): string {
   });
 }
 
+export function formatDateMedium(dateStr: string): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function shiftDurationHours(startTime: string, endTime: string): number {
   const [startH, startM] = startTime.split(":").map(Number);
   const [endH, endM] = endTime.split(":").map(Number);
