@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { shiftDurationHours } from "@/lib/utils";
+import { shiftDurationHours, todayISO } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -8,15 +8,20 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get("seasonId");
+    const today = todayISO();
 
-    let dateFilter: { gte?: string; lte?: string } | undefined;
+    // Build date filter: always cap at today so future shifts don't count
+    let shiftDateFilter: { gte?: string; lte: string } = { lte: today };
+    let adjustmentDateFilter: { gte?: string; lte: string } = { lte: today };
 
     if (seasonId && seasonId !== "all") {
       const season = await prisma.season.findUnique({
         where: { id: parseInt(seasonId) },
       });
       if (season) {
-        dateFilter = { gte: season.startDate, lte: season.endDate };
+        const endCap = season.endDate < today ? season.endDate : today;
+        shiftDateFilter = { gte: season.startDate, lte: endCap };
+        adjustmentDateFilter = { gte: season.startDate, lte: season.endDate };
       }
     }
 
@@ -25,21 +30,17 @@ export async function GET(request: Request) {
         mentor: true,
         shift: true,
       },
-      where: dateFilter
-        ? {
-            shift: {
-              date: dateFilter,
-              cancelled: false,
-            },
-          }
-        : {
-            shift: { cancelled: false },
-          },
+      where: {
+        shift: {
+          date: shiftDateFilter,
+          cancelled: false,
+        },
+      },
     });
 
     const mentorMap = new Map<
       string,
-      { name: string; email: string; hours: number; shifts: number }
+      { name: string; email: string; hours: number; shifts: number; adjustmentHours: number }
     >();
 
     for (const signup of signups) {
@@ -49,6 +50,7 @@ export async function GET(request: Request) {
         email: signup.mentor.email,
         hours: 0,
         shifts: 0,
+        adjustmentHours: 0,
       };
       existing.hours += shiftDurationHours(
         signup.shift.startTime,
@@ -58,14 +60,34 @@ export async function GET(request: Request) {
       mentorMap.set(key, existing);
     }
 
+    // Add manual hour adjustments
+    const adjustments = await prisma.hourAdjustment.findMany({
+      include: { mentor: true },
+      where: { date: adjustmentDateFilter },
+    });
+
+    for (const adj of adjustments) {
+      const key = adj.mentor.email;
+      const existing = mentorMap.get(key) || {
+        name: adj.mentor.name,
+        email: adj.mentor.email,
+        hours: 0,
+        shifts: 0,
+        adjustmentHours: 0,
+      };
+      existing.adjustmentHours += adj.hours;
+      mentorMap.set(key, existing);
+    }
+
     const mentors = Array.from(mentorMap.values())
-      .sort((a, b) => b.hours - a.hours)
       .map((m) => ({
         mentorName: m.name,
         mentorEmail: m.email,
-        totalHours: Math.round(m.hours * 10) / 10,
+        totalHours: Math.round((m.hours + m.adjustmentHours) * 10) / 10,
         shiftCount: m.shifts,
-      }));
+        adjustmentHours: Math.round(m.adjustmentHours * 10) / 10,
+      }))
+      .sort((a, b) => b.totalHours - a.totalHours);
 
     const totalHours = mentors.reduce((sum, m) => sum + m.totalHours, 0);
     const stats = {
