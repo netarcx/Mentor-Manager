@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "backup": "bash backup.sh backup",
+    "backup:restore": "bash backup.sh restore",
+    "backup:list": "bash backup.sh list"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
