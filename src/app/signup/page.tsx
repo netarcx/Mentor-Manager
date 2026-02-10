@@ -25,15 +25,20 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [mentorId, setMentorId] = useState<number | null>(null);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [today, setToday] = useState("");
+  const [showPast, setShowPast] = useState(false);
   const [selected, setSelected] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [existingMentors, setExistingMentors] = useState<Mentor[]>([]);
 
   useEffect(() => {
-    fetch("/api/shifts")
+    fetch("/api/shifts?includePast=true")
       .then((r) => r.json())
-      .then((data) => setShifts(data.shifts || []))
+      .then((data) => {
+        setShifts(data.shifts || []);
+        setToday(data.today || "");
+      })
       .catch(() => setError("Failed to load shifts"));
 
     fetch("/api/mentors")
@@ -120,8 +125,13 @@ export default function SignupPage() {
     }
   }
 
+  // Split shifts into upcoming and past
+  const upcomingShifts = today ? shifts.filter((s) => s.date >= today) : shifts;
+  const pastShifts = today ? shifts.filter((s) => s.date < today) : [];
+  const visibleShifts = showPast ? shifts : upcomingShifts;
+
   // Group shifts by date
-  const shiftsByDate = shifts.reduce<Record<string, Shift[]>>((acc, shift) => {
+  const shiftsByDate = visibleShifts.reduce<Record<string, Shift[]>>((acc, shift) => {
     if (!acc[shift.date]) acc[shift.date] = [];
     acc[shift.date].push(shift);
     return acc;
@@ -264,10 +274,20 @@ export default function SignupPage() {
 
       {step === "shifts" && (
         <div>
-          <p className="text-slate-600 mb-6">
-            Welcome, <strong>{name}</strong>! Select the shifts you&apos;ll attend
-            and optionally add a note.
-          </p>
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-slate-600">
+              Welcome, <strong>{name}</strong>! Select the shifts you&apos;ll attend
+              and optionally add a note.
+            </p>
+            {pastShifts.length > 0 && (
+              <button
+                onClick={() => setShowPast(!showPast)}
+                className="text-sm text-slate-500 hover:text-slate-700 whitespace-nowrap ml-4 underline"
+              >
+                {showPast ? "Hide past shifts" : `Show past shifts (${pastShifts.length})`}
+              </button>
+            )}
+          </div>
 
           {Object.keys(shiftsByDate).length === 0 ? (
             <p className="text-slate-500 italic">
@@ -275,26 +295,32 @@ export default function SignupPage() {
             </p>
           ) : (
             <div className="space-y-6">
-              {Object.entries(shiftsByDate).map(([date, dateShifts]) => (
+              {Object.entries(shiftsByDate).map(([date, dateShifts]) => {
+                const isPastDate = today && date < today;
+                return (
                 <div key={date}>
-                  <h3 className="font-semibold text-lg mb-2 text-navy">
+                  <h3 className={`font-semibold text-lg mb-2 ${isPastDate ? "text-slate-400" : "text-navy"}`}>
                     {formatDate(date)}
+                    {isPastDate && <span className="ml-2 text-xs font-normal text-slate-400">(past)</span>}
                   </h3>
                   <div className="space-y-2">
                     {dateShifts.map((shift) => {
-                      const isSelected = selected.has(shift.id);
-                      const needsHelp = shift.signups.length < MIN_MENTOR_SIGNUPS && isWithinDays(shift.date, 7);
+                      const isPast = today && shift.date < today;
+                      const isSelected = !isPast && selected.has(shift.id);
+                      const needsHelp = !isPast && shift.signups.length < MIN_MENTOR_SIGNUPS && isWithinDays(shift.date, 7);
                       return (
                         <div
                           key={shift.id}
-                          className={`border rounded-lg p-4 transition-colors cursor-pointer ${
-                            isSelected
-                              ? "border-primary bg-accent-bg"
-                              : needsHelp
-                                ? "border-amber-300 bg-amber-50 hover:border-amber-400"
-                                : "border-slate-200 hover:border-slate-300"
+                          className={`border rounded-lg p-4 transition-colors ${
+                            isPast
+                              ? "border-slate-100 bg-slate-50 opacity-60"
+                              : isSelected
+                                ? "border-primary bg-accent-bg cursor-pointer"
+                                : needsHelp
+                                  ? "border-amber-300 bg-amber-50 hover:border-amber-400 cursor-pointer"
+                                  : "border-slate-200 hover:border-slate-300 cursor-pointer"
                           }`}
-                          onClick={() => toggleShift(shift.id)}
+                          onClick={() => !isPast && toggleShift(shift.id)}
                         >
                           <div className="flex items-center justify-between">
                             <div>
@@ -342,7 +368,8 @@ export default function SignupPage() {
                     })}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
