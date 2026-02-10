@@ -63,3 +63,14 @@ export function currentTimeStr(): string {
   const now = getCentralTime();
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
+
+export function isWithinDays(dateStr: string, days: number): boolean {
+  const today = todayISO();
+  const [ty, tm, td] = today.split("-").map(Number);
+  const [sy, sm, sd] = dateStr.split("-").map(Number);
+  const todayDate = new Date(ty, tm - 1, td);
+  const shiftDate = new Date(sy, sm - 1, sd);
+  const diffMs = shiftDate.getTime() - todayDate.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  return diffDays >= 0 && diffDays <= days;
+}

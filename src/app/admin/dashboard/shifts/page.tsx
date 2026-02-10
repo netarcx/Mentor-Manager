@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { isWithinDays } from "@/lib/utils";
+import { MIN_MENTOR_SIGNUPS } from "@/lib/constants";
 
 interface Shift {
   id: number;
@@ -184,11 +186,13 @@ export default function ShiftsPage() {
               </tr>
             </thead>
             <tbody>
-              {shifts.map((s) => (
+              {shifts.map((s) => {
+                const needsHelp = !s.cancelled && s._count.signups < MIN_MENTOR_SIGNUPS && isWithinDays(s.date, 7);
+                return (
                 <tr
                   key={s.id}
                   className={`border-t border-slate-100 hover:bg-slate-50 ${
-                    s.cancelled ? "opacity-50" : ""
+                    s.cancelled ? "opacity-50" : needsHelp ? "bg-amber-50" : ""
                   }`}
                 >
                   <td className="px-4 py-3 font-medium">{s.date}</td>
@@ -209,7 +213,15 @@ export default function ShiftsPage() {
                       {s.templateId ? "Template" : "Manual"}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{s._count.signups}</td>
+                  <td className="px-4 py-3">
+                    {needsHelp ? (
+                      <span className="bg-amber-100 text-amber-700 text-xs font-medium px-2 py-1 rounded">
+                        {s._count.signups} &#9888;
+                      </span>
+                    ) : (
+                      s._count.signups
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     {s.cancelled ? (
                       <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
@@ -238,7 +250,8 @@ export default function ShiftsPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { formatDate, formatTime } from "@/lib/utils";
+import { formatDate, formatTime, isWithinDays } from "@/lib/utils";
+import { MIN_MENTOR_SIGNUPS } from "@/lib/constants";
 
 interface Shift {
   id: number;
@@ -282,13 +283,16 @@ export default function SignupPage() {
                   <div className="space-y-2">
                     {dateShifts.map((shift) => {
                       const isSelected = selected.has(shift.id);
+                      const needsHelp = shift.signups.length < MIN_MENTOR_SIGNUPS && isWithinDays(shift.date, 7);
                       return (
                         <div
                           key={shift.id}
                           className={`border rounded-lg p-4 transition-colors cursor-pointer ${
                             isSelected
                               ? "border-primary bg-accent-bg"
-                              : "border-slate-200 hover:border-slate-300"
+                              : needsHelp
+                                ? "border-amber-300 bg-amber-50 hover:border-amber-400"
+                                : "border-slate-200 hover:border-slate-300"
                           }`}
                           onClick={() => toggleShift(shift.id)}
                         >
@@ -304,8 +308,13 @@ export default function SignupPage() {
                                 </span>
                               )}
                             </div>
-                            <span className="text-sm text-slate-500">
+                            <span className={`text-sm ${needsHelp ? "text-amber-700 font-medium" : "text-slate-500"}`}>
                               {shift.signups.length} signed up
+                              {needsHelp && (
+                                <span className="ml-2 bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded">
+                                  Needs mentors!
+                                </span>
+                              )}
                             </span>
                           </div>
                           {shift.signups.length > 0 && (
