@@ -104,9 +104,27 @@ async function handleBatchSignup(body: {
     );
   }
 
-  // Create all signups in a single transaction, skipping duplicates
+  // Filter out shifts the mentor is already signed up for
+  const existingSignups = await prisma.signup.findMany({
+    where: {
+      mentorId,
+      shiftId: { in: validSignups.map((s) => s.shiftId) },
+    },
+    select: { shiftId: true },
+  });
+  const alreadySignedUp = new Set(existingSignups.map((s) => s.shiftId));
+  const newSignups = validSignups.filter((s) => !alreadySignedUp.has(s.shiftId));
+
+  if (newSignups.length === 0) {
+    return NextResponse.json(
+      { error: "Already signed up for all selected shifts" },
+      { status: 409 }
+    );
+  }
+
+  // Create all signups in a single transaction
   const results = await prisma.$transaction(
-    validSignups.map((s) =>
+    newSignups.map((s) =>
       prisma.signup.create({
         data: {
           mentorId,
@@ -119,6 +137,7 @@ async function handleBatchSignup(body: {
 
   return NextResponse.json({
     created: results.length,
+    skipped: alreadySignedUp.size,
     signups: results,
   });
 }

@@ -10,7 +10,7 @@ interface Shift {
   startTime: string;
   endTime: string;
   label: string;
-  signups: { id: number; mentor: { name: string } }[];
+  signups: { id: number; mentor: { id: number; name: string } }[];
 }
 
 interface Mentor {
@@ -306,21 +306,25 @@ export default function SignupPage() {
                   <div className="space-y-2">
                     {dateShifts.map((shift) => {
                       const isPast = today && shift.date < today;
-                      const isSelected = !isPast && selected.has(shift.id);
-                      const needsHelp = !isPast && shift.signups.length < MIN_MENTOR_SIGNUPS && isWithinDays(shift.date, 7);
+                      const alreadySignedUp = mentorId !== null && shift.signups.some((s) => s.mentor.id === mentorId);
+                      const isDisabled = isPast || alreadySignedUp;
+                      const isSelected = !isDisabled && selected.has(shift.id);
+                      const needsHelp = !isDisabled && shift.signups.length < MIN_MENTOR_SIGNUPS && isWithinDays(shift.date, 7);
                       return (
                         <div
                           key={shift.id}
                           className={`border rounded-lg p-4 transition-colors ${
                             isPast
                               ? "border-slate-100 bg-slate-50 opacity-60"
-                              : isSelected
-                                ? "border-primary bg-accent-bg cursor-pointer"
-                                : needsHelp
-                                  ? "border-amber-300 bg-amber-50 hover:border-amber-400 cursor-pointer"
-                                  : "border-slate-200 hover:border-slate-300 cursor-pointer"
+                              : alreadySignedUp
+                                ? "border-green-200 bg-green-50"
+                                : isSelected
+                                  ? "border-primary bg-accent-bg cursor-pointer"
+                                  : needsHelp
+                                    ? "border-amber-300 bg-amber-50 hover:border-amber-400 cursor-pointer"
+                                    : "border-slate-200 hover:border-slate-300 cursor-pointer"
                           }`}
-                          onClick={() => !isPast && toggleShift(shift.id)}
+                          onClick={() => !isDisabled && toggleShift(shift.id)}
                         >
                           <div className="flex items-center justify-between">
                             <div>
@@ -334,8 +338,13 @@ export default function SignupPage() {
                                 </span>
                               )}
                             </div>
-                            <span className={`text-sm ${needsHelp ? "text-amber-700 font-medium" : "text-slate-500"}`}>
+                            <span className={`text-sm ${alreadySignedUp ? "text-green-700 font-medium" : needsHelp ? "text-amber-700 font-medium" : "text-slate-500"}`}>
                               {shift.signups.length} signed up
+                              {alreadySignedUp && (
+                                <span className="ml-2 bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">
+                                  You&apos;re signed up
+                                </span>
+                              )}
                               {needsHelp && (
                                 <span className="ml-2 bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded">
                                   Needs mentors!
