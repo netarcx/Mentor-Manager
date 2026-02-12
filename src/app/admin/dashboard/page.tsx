@@ -33,12 +33,14 @@ export default function AdminOverview() {
       .finally(() => setLoading(false));
   }, []);
 
-  const allSignups = shifts.flatMap((s) =>
-    s.signups.map((signup: SignupRow) => ({
-      ...signup,
-      shift: { date: s.date, startTime: s.startTime, endTime: s.endTime, label: s.label },
-    }))
-  );
+  const allSignups = shifts
+    .flatMap((s) =>
+      s.signups.map((signup: SignupRow) => ({
+        ...signup,
+        shift: { date: s.date, startTime: s.startTime, endTime: s.endTime, label: s.label },
+      }))
+    )
+    .sort((a, b) => new Date(b.signedUpAt).getTime() - new Date(a.signedUpAt).getTime());
 
   return (
     <div>
@@ -83,6 +85,9 @@ export default function AdminOverview() {
                 <th className="px-4 py-3 text-left text-sm font-semibold">
                   Note
                 </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">
+                  Signed Up
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -108,6 +113,9 @@ export default function AdminOverview() {
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-500">
                     {signup.note || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-400">
+                    {new Date(signup.signedUpAt).toLocaleString()}
                   </td>
                 </tr>
               ))}
