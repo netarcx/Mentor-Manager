@@ -35,8 +35,10 @@ async function handleSingleSignup(body: {
   mentorId?: number;
   shiftId?: number;
   note?: string;
+  customStartTime?: string;
+  customEndTime?: string;
 }) {
-  const { mentorId, shiftId, note } = body;
+  const { mentorId, shiftId, note, customStartTime, customEndTime } = body;
 
   if (!mentorId || !shiftId) {
     return NextResponse.json(
@@ -58,6 +60,8 @@ async function handleSingleSignup(body: {
       mentorId,
       shiftId,
       note: note || "",
+      customStartTime: customStartTime || null,
+      customEndTime: customEndTime || null,
     },
     include: {
       shift: true,
@@ -70,7 +74,7 @@ async function handleSingleSignup(body: {
 
 async function handleBatchSignup(body: {
   mentorId?: number;
-  signups?: { shiftId: number; note?: string }[];
+  signups?: { shiftId: number; note?: string; customStartTime?: string; customEndTime?: string }[];
 }) {
   const { mentorId, signups } = body;
 
@@ -130,6 +134,8 @@ async function handleBatchSignup(body: {
           mentorId,
           shiftId: s.shiftId,
           note: s.note || "",
+          customStartTime: s.customStartTime || null,
+          customEndTime: s.customEndTime || null,
         },
       })
     )

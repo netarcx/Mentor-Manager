@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface ShiftWithSignups {
   id: number;
@@ -11,6 +11,8 @@ interface ShiftWithSignups {
   signups: {
     id: number;
     note: string;
+    customStartTime: string | null;
+    customEndTime: string | null;
     mentor: { name: string };
   }[];
 }
@@ -111,6 +113,11 @@ function ShiftCard({
                 <div>
                   <div className="text-white font-medium text-lg">
                     {signup.mentor.name}
+                    {(signup.customStartTime || signup.customEndTime) && (
+                      <span className="ml-2 text-sm font-normal text-slate-400">
+                        {formatTimeDashboard(signup.customStartTime || shift.startTime)} - {formatTimeDashboard(signup.customEndTime || shift.endTime)}
+                      </span>
+                    )}
                   </div>
                   {signup.note && (
                     <div className="text-sm text-slate-400">{signup.note}</div>
@@ -136,12 +143,31 @@ export default function DashboardPage() {
   const [timeRemaining, setTimeRemaining] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [quote, setQuote] = useState<QuoteData | null>(null);
+  const [zoom, setZoom] = useState(100);
+  const prevShiftIdRef = useRef<number | null | undefined>(undefined);
 
   useEffect(() => {
     async function fetchDashboard() {
       try {
         const res = await fetch("/api/dashboard");
         const data = await res.json();
+        const newShiftId = data.currentShift?.id ?? null;
+
+        // Play sound on shift change (skip the very first load)
+        if (
+          prevShiftIdRef.current !== undefined &&
+          newShiftId !== prevShiftIdRef.current
+        ) {
+          try {
+            const audio = new Audio("/api/sound");
+            audio.volume = 0.3;
+            await audio.play();
+          } catch {
+            // No sound configured or autoplay blocked
+          }
+        }
+        prevShiftIdRef.current = newShiftId;
+
         setCurrentShift(data.currentShift);
         setNextShift(data.nextShift);
         setLastUpdate(new Date());
@@ -243,7 +269,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-navy-dark text-white p-8">
+    <div className="min-h-screen bg-navy-dark text-white p-8" style={{ zoom: `${zoom}%` }}>
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
@@ -255,6 +281,23 @@ export default function DashboardPage() {
           <div className="flex items-center gap-4">
             <div className="text-sm text-slate-500">
               Last updated: {lastUpdate.toLocaleTimeString()}
+            </div>
+            <div className="flex items-center bg-slate-700 rounded-lg">
+              <button
+                onClick={() => setZoom((z) => Math.max(50, z - 10))}
+                className="hover:bg-slate-600 text-white px-3 py-2 rounded-l-lg transition-colors text-sm font-bold"
+                title="Zoom Out"
+              >
+                &minus;
+              </button>
+              <span className="text-xs text-slate-300 px-1 min-w-[3rem] text-center">{zoom}%</span>
+              <button
+                onClick={() => setZoom((z) => Math.min(150, z + 10))}
+                className="hover:bg-slate-600 text-white px-3 py-2 rounded-r-lg transition-colors text-sm font-bold"
+                title="Zoom In"
+              >
+                +
+              </button>
             </div>
             <button
               onClick={toggleFullscreen}

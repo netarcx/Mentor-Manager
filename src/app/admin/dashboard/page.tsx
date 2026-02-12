@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 interface SignupRow {
   id: number;
   note: string;
+  customStartTime: string | null;
+  customEndTime: string | null;
   signedUpAt: string;
   mentor: { name: string; email: string };
   shift: { date: string; startTime: string; endTime: string; label: string };
@@ -98,6 +100,11 @@ export default function AdminOverview() {
                   <td className="px-4 py-3">{signup.shift.date}</td>
                   <td className="px-4 py-3">
                     {signup.shift.startTime} - {signup.shift.endTime}
+                    {(signup.customStartTime || signup.customEndTime) && (
+                      <div className="text-xs text-primary">
+                        Attending: {signup.customStartTime || signup.shift.startTime} - {signup.customEndTime || signup.shift.endTime}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-500">
                     {signup.note || "—"}

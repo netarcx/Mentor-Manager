@@ -27,7 +27,7 @@ export default function SignupPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [today, setToday] = useState("");
   const [showPast, setShowPast] = useState(false);
-  const [selected, setSelected] = useState<Map<number, string>>(new Map());
+  const [selected, setSelected] = useState<Map<number, { note: string; customStartTime: string; customEndTime: string }>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [existingMentors, setExistingMentors] = useState<Mentor[]>([]);
@@ -78,22 +78,25 @@ export default function SignupPage() {
     }
   }
 
-  function toggleShift(shiftId: number) {
+  function toggleShift(shift: Shift) {
     setSelected((prev) => {
       const next = new Map(prev);
-      if (next.has(shiftId)) {
-        next.delete(shiftId);
+      if (next.has(shift.id)) {
+        next.delete(shift.id);
       } else {
-        next.set(shiftId, "");
+        next.set(shift.id, { note: "", customStartTime: shift.startTime, customEndTime: shift.endTime });
       }
       return next;
     });
   }
 
-  function setNote(shiftId: number, note: string) {
+  function updateSelection(shiftId: number, updates: Partial<{ note: string; customStartTime: string; customEndTime: string }>) {
     setSelected((prev) => {
       const next = new Map(prev);
-      next.set(shiftId, note);
+      const current = next.get(shiftId);
+      if (current) {
+        next.set(shiftId, { ...current, ...updates });
+      }
       return next;
     });
   }
@@ -104,10 +107,17 @@ export default function SignupPage() {
     setError("");
 
     try {
-      const signups = Array.from(selected, ([shiftId, note]) => ({
-        shiftId,
-        note,
-      }));
+      const signups = Array.from(selected, ([shiftId, data]) => {
+        const shift = shifts.find((s) => s.id === shiftId);
+        const hasCustomStart = shift && data.customStartTime !== shift.startTime;
+        const hasCustomEnd = shift && data.customEndTime !== shift.endTime;
+        return {
+          shiftId,
+          note: data.note,
+          ...(hasCustomStart && { customStartTime: data.customStartTime }),
+          ...(hasCustomEnd && { customEndTime: data.customEndTime }),
+        };
+      });
 
       const res = await fetch("/api/signups", {
         method: "POST",
@@ -324,7 +334,7 @@ export default function SignupPage() {
                                     ? "border-amber-300 bg-amber-50 hover:border-amber-400 cursor-pointer"
                                     : "border-slate-200 hover:border-slate-300 cursor-pointer"
                           }`}
-                          onClick={() => !isDisabled && toggleShift(shift.id)}
+                          onClick={() => !isDisabled && toggleShift(shift)}
                         >
                           <div className="flex items-center justify-between">
                             <div>
@@ -360,13 +370,37 @@ export default function SignupPage() {
                             </div>
                           )}
                           {isSelected && (
-                            <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-slate-500 w-16">Arriving</label>
+                                <input
+                                  type="time"
+                                  value={selected.get(shift.id)?.customStartTime || shift.startTime}
+                                  min={shift.startTime}
+                                  max={shift.endTime}
+                                  onChange={(e) =>
+                                    updateSelection(shift.id, { customStartTime: e.target.value })
+                                  }
+                                  className="border border-slate-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                                />
+                                <label className="text-xs text-slate-500 w-16">Leaving</label>
+                                <input
+                                  type="time"
+                                  value={selected.get(shift.id)?.customEndTime || shift.endTime}
+                                  min={shift.startTime}
+                                  max={shift.endTime}
+                                  onChange={(e) =>
+                                    updateSelection(shift.id, { customEndTime: e.target.value })
+                                  }
+                                  className="border border-slate-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                                />
+                              </div>
                               <input
                                 type="text"
                                 placeholder="Add a note (optional) e.g. 'Bringing pizza'"
-                                value={selected.get(shift.id) || ""}
+                                value={selected.get(shift.id)?.note || ""}
                                 onChange={(e) =>
-                                  setNote(shift.id, e.target.value)
+                                  updateSelection(shift.id, { note: e.target.value })
                                 }
                                 className="w-full border border-slate-300 rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                               />

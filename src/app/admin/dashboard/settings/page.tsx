@@ -31,6 +31,8 @@ export default function SettingsPage() {
   const [colorNavyDark, setColorNavyDark] = useState("#1a202c");
   const [colorAccentBg, setColorAccentBg] = useState("#f3e8ff");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const soundInputRef = useRef<HTMLInputElement>(null);
+  const [soundPath, setSoundPath] = useState("");
 
   // Countdown state
   const [countdownEnabled, setCountdownEnabled] = useState(false);
@@ -109,9 +111,19 @@ export default function SettingsPage() {
       }
     }
 
+    async function fetchSound() {
+      try {
+        const res = await fetch("/api/sound", { method: "HEAD" });
+        setSoundPath(res.ok ? "configured" : "");
+      } catch {
+        // No sound configured
+      }
+    }
+
     fetchBranding();
     fetchCountdown();
     fetchNotifications();
+    fetchSound();
   }, []);
 
   function showMessage(msg: string) {
@@ -255,6 +267,56 @@ export default function SettingsPage() {
       setBranding((prev) => prev ? { ...prev, logoPath: "" } : prev);
     } catch {
       showError("Failed to remove logo");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleSoundUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading("sound");
+
+    try {
+      const formData = new FormData();
+      formData.append("sound", file);
+
+      const res = await fetch("/api/admin/settings/sound", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.error || "Failed to upload sound");
+        return;
+      }
+
+      showMessage("Shift change sound uploaded!");
+      setSoundPath("configured");
+    } catch {
+      showError("Failed to upload sound");
+    } finally {
+      setLoading("");
+      if (soundInputRef.current) soundInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemoveSound() {
+    setLoading("sound");
+
+    try {
+      const res = await fetch("/api/admin/settings/sound", {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to remove sound");
+
+      showMessage("Shift change sound removed!");
+      setSoundPath("");
+    } catch {
+      showError("Failed to remove sound");
     } finally {
       setLoading("");
     }
@@ -733,6 +795,64 @@ export default function SettingsPage() {
             />
             <p className="text-xs text-slate-500 mt-1">
               PNG, JPG, GIF, SVG, or WebP. Max 2MB.
+            </p>
+          </div>
+        </div>
+
+        {/* Shift Change Sound */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold mb-4">Shift Change Sound</h2>
+          <p className="text-sm text-slate-600 mb-4">
+            Upload a sound that plays on the dashboard when a shift change occurs. Plays at low volume.
+          </p>
+
+          {soundPath ? (
+            <div className="mb-4">
+              <div className="flex items-center gap-4">
+                <div className="bg-slate-100 rounded-lg px-4 py-3">
+                  <span className="text-sm text-slate-600">Sound uploaded</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const audio = new Audio("/api/sound");
+                      audio.volume = 0.3;
+                      audio.play().catch(() => {});
+                    }}
+                    className="text-primary hover:text-primary-dark text-sm underline"
+                  >
+                    Preview
+                  </button>
+                  <button
+                    onClick={handleRemoveSound}
+                    disabled={loading === "sound"}
+                    className="text-red-600 hover:text-red-700 text-sm underline"
+                  >
+                    {loading === "sound" ? "Removing..." : "Remove"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500 mb-4">
+              No sound uploaded. The dashboard will be silent on shift changes.
+            </p>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Upload Sound
+            </label>
+            <input
+              ref={soundInputRef}
+              type="file"
+              accept="audio/mpeg,audio/wav,audio/ogg,audio/webm"
+              onChange={handleSoundUpload}
+              disabled={loading === "sound"}
+              className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark file:cursor-pointer disabled:opacity-50"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              MP3, WAV, OGG, or WebM. Max 5MB. Short sounds work best.
             </p>
           </div>
         </div>

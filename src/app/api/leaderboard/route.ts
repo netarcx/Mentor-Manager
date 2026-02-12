@@ -52,10 +52,9 @@ export async function GET(request: Request) {
         shifts: 0,
         adjustmentHours: 0,
       };
-      existing.hours += shiftDurationHours(
-        signup.shift.startTime,
-        signup.shift.endTime
-      );
+      const startTime = signup.customStartTime || signup.shift.startTime;
+      const endTime = signup.customEndTime || signup.shift.endTime;
+      existing.hours += shiftDurationHours(startTime, endTime);
       existing.shifts += 1;
       mentorMap.set(key, existing);
     }
