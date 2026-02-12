@@ -33,7 +33,7 @@ export default function SignupPage() {
   const [existingMentors, setExistingMentors] = useState<Mentor[]>([]);
 
   useEffect(() => {
-    fetch("/api/shifts?includePast=true")
+    fetch("/api/shifts")
       .then((r) => r.json())
       .then((data) => {
         setShifts(data.shifts || []);
@@ -289,14 +289,21 @@ export default function SignupPage() {
               Welcome, <strong>{name}</strong>! Select the shifts you&apos;ll attend
               and optionally add a note.
             </p>
-            {pastShifts.length > 0 && (
-              <button
-                onClick={() => setShowPast(!showPast)}
-                className="text-sm text-slate-500 hover:text-slate-700 whitespace-nowrap ml-4 underline"
-              >
-                {showPast ? "Hide past shifts" : `Show past shifts (${pastShifts.length})`}
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (!showPast) {
+                  // Lazy-load past shifts on first toggle
+                  fetch("/api/shifts?includePast=true")
+                    .then((r) => r.json())
+                    .then((data) => setShifts(data.shifts || []))
+                    .catch(() => {});
+                }
+                setShowPast(!showPast);
+              }}
+              className="text-sm text-slate-500 hover:text-slate-700 whitespace-nowrap ml-4 underline"
+            >
+              {showPast ? "Hide past shifts" : "Show past shifts"}
+            </button>
           </div>
 
           {Object.keys(shiftsByDate).length === 0 ? (

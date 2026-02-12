@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 
 interface ShiftWithSignups {
   id: number;
@@ -50,12 +50,126 @@ function formatDateDashboard(dateStr: string): string {
   });
 }
 
+// Isolated countdown timer — re-renders only itself every second
+const CountdownTimer = memo(function CountdownTimer({
+  config,
+}: {
+  config: CountdownConfig;
+}) {
+  const [timeRemaining, setTimeRemaining] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    if (!config.enabled || !config.targetDate) return;
+
+    function updateCountdown() {
+      const now = new Date();
+      const target = new Date(config.targetDate + "T00:00:00");
+      const diff = target.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeRemaining({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+
+      setTimeRemaining({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+      });
+    }
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [config]);
+
+  if (!config.enabled || !config.targetDate) return null;
+
+  return (
+    <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white shadow-lg">
+      <h2 className="text-2xl font-bold mb-4 text-center">{config.label}</h2>
+      <div className="grid grid-cols-4 gap-4 max-w-2xl mx-auto">
+        {(["days", "hours", "minutes", "seconds"] as const).map((unit) => (
+          <div key={unit} className="text-center">
+            <div className="text-5xl font-bold mb-2">{timeRemaining[unit]}</div>
+            <div className="text-sm uppercase tracking-wider opacity-90">{unit}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+// Isolated cleanup countdown — re-renders only itself every second
+const CleanupCountdown = memo(function CleanupCountdown({
+  currentShift,
+  nextShift,
+}: {
+  currentShift: ShiftWithSignups | null;
+  nextShift: ShiftWithSignups | null;
+}) {
+  const [cleanupSeconds, setCleanupSeconds] = useState<number | null>(null);
+  const cleanupSoundPlayedRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    function getSecondsUntilShiftEnd(): number | null {
+      if (!currentShift) return null;
+      if (nextShift && nextShift.date === currentShift.date) return null;
+
+      const now = new Date();
+      const [endH, endM] = currentShift.endTime.split(":").map(Number);
+      const [year, month, day] = currentShift.date.split("-").map(Number);
+      const endTime = new Date(year, month - 1, day, endH, endM, 0);
+      const diff = Math.floor((endTime.getTime() - now.getTime()) / 1000);
+      return diff > 0 ? diff : null;
+    }
+
+    function tick() {
+      const secs = getSecondsUntilShiftEnd();
+
+      if (
+        secs !== null &&
+        secs <= 20 * 60 &&
+        currentShift &&
+        cleanupSoundPlayedRef.current !== currentShift.id
+      ) {
+        cleanupSoundPlayedRef.current = currentShift.id;
+        const audio = new Audio("/api/cleanup-sound");
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      }
+
+      if (secs !== null && secs <= 10 * 60) {
+        setCleanupSeconds(secs);
+      } else {
+        setCleanupSeconds(null);
+      }
+    }
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [currentShift, nextShift]);
+
+  if (cleanupSeconds === null) return null;
+
+  return (
+    <div className="bg-amber-500/20 border-2 border-amber-500 rounded-2xl p-6 mb-6 text-center animate-pulse">
+      <div className="text-amber-400 text-lg font-semibold uppercase tracking-wider mb-1">
+        Cleanup Time
+      </div>
+      <div className="text-5xl font-bold text-white">
+        {Math.floor(cleanupSeconds / 60)}:{(cleanupSeconds % 60).toString().padStart(2, "0")}
+      </div>
+    </div>
+  );
+});
+
 function MentorAvatar({
   mentor,
-  onUploaded,
 }: {
   mentor: { id: number; name: string; avatarPath: string };
-  onUploaded: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarKey, setAvatarKey] = useState(0);
@@ -74,12 +188,10 @@ function MentorAvatar({
       });
       if (res.ok) {
         setAvatarKey((k) => k + 1);
-        onUploaded();
       }
     } catch {
       // Silent fail
     }
-    // Reset input so same file can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -114,16 +226,16 @@ function MentorAvatar({
   );
 }
 
-function ShiftCard({
+const MemoMentorAvatar = memo(MentorAvatar);
+
+const ShiftCard = memo(function ShiftCard({
   shift,
   title,
   isCurrent,
-  onAvatarUploaded,
 }: {
   shift: ShiftWithSignups | null;
   title: string;
   isCurrent?: boolean;
-  onAvatarUploaded: () => void;
 }) {
   if (!shift) {
     return (
@@ -173,7 +285,7 @@ function ShiftCard({
                 key={signup.id}
                 className="flex items-center gap-3 bg-slate-700/50 rounded-lg px-4 py-3"
               >
-                <MentorAvatar mentor={signup.mentor} onUploaded={onAvatarUploaded} />
+                <MemoMentorAvatar mentor={signup.mentor} />
                 <div>
                   <div className="text-white font-medium text-lg">
                     {signup.mentor.name}
@@ -194,28 +306,23 @@ function ShiftCard({
       </div>
     </div>
   );
-}
+});
 
 export default function DashboardPage() {
-  const [currentShift, setCurrentShift] = useState<ShiftWithSignups | null>(
-    null
-  );
+  const [currentShift, setCurrentShift] = useState<ShiftWithSignups | null>(null);
   const [nextShift, setNextShift] = useState<ShiftWithSignups | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [branding, setBranding] = useState<Branding>({ appName: "Workshop Dashboard", logoPath: "" });
   const [countdown, setCountdown] = useState<CountdownConfig>({ enabled: false, targetDate: "", label: "" });
-  const [timeRemaining, setTimeRemaining] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [quote, setQuote] = useState<QuoteData | null>(null);
   const [zoom, setZoom] = useState(100);
-  const [cleanupSeconds, setCleanupSeconds] = useState<number | null>(null);
   const [goals, setGoals] = useState("");
   const [goalsSaved, setGoalsSaved] = useState(false);
   const prevShiftIdRef = useRef<number | null | undefined>(undefined);
-  const cleanupSoundPlayedRef = useRef<number | null>(null);
   const goalsSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function fetchDashboard() {
+  const fetchDashboard = useCallback(async () => {
     try {
       const res = await fetch("/api/dashboard");
       const data = await res.json();
@@ -239,94 +346,25 @@ export default function DashboardPage() {
       setCurrentShift(data.currentShift);
       setNextShift(data.nextShift);
       setLastUpdate(new Date());
+
+      // Update non-shift data from the consolidated response
+      if (data.branding) setBranding(data.branding);
+      if (data.countdown) setCountdown(data.countdown);
+      if (data.quote !== undefined) setQuote(data.quote);
+      if (data.goals !== undefined) setGoals(data.goals);
     } catch {
       // Silent fail on polling
     }
-  }
+  }, []);
 
   useEffect(() => {
-    async function fetchBranding() {
-      try {
-        const res = await fetch("/api/branding");
-        const data = await res.json();
-        setBranding(data);
-      } catch {
-        // Use defaults
-      }
-    }
-
-    async function fetchCountdown() {
-      try {
-        const res = await fetch("/api/countdown");
-        const data = await res.json();
-        setCountdown(data);
-      } catch {
-        // Use defaults
-      }
-    }
-
-    async function fetchQuote() {
-      try {
-        const res = await fetch("/api/quote");
-        const data = await res.json();
-        setQuote(data.quote);
-      } catch {
-        // Use defaults
-      }
-    }
-
-    async function fetchGoals() {
-      try {
-        const res = await fetch("/api/goals");
-        const data = await res.json();
-        setGoals(data.text || "");
-      } catch {
-        // Use defaults
-      }
-    }
-
     fetchDashboard();
-    fetchBranding();
-    fetchCountdown();
-    fetchQuote();
-    fetchGoals();
     const dashboardInterval = setInterval(
       fetchDashboard,
       parseInt(process.env.NEXT_PUBLIC_REFRESH_INTERVAL || "30000")
     );
-    const quoteInterval = setInterval(fetchQuote, 3600000); // Refresh quote every hour
-    return () => {
-      clearInterval(dashboardInterval);
-      clearInterval(quoteInterval);
-    };
-  }, []);
-
-  // Countdown timer effect
-  useEffect(() => {
-    if (!countdown.enabled || !countdown.targetDate) return;
-
-    function updateCountdown() {
-      const now = new Date();
-      const target = new Date(countdown.targetDate + "T00:00:00");
-      const diff = target.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        setTimeRemaining({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-        return;
-      }
-
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeRemaining({ days, hours, minutes, seconds });
-    }
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [countdown]);
+    return () => clearInterval(dashboardInterval);
+  }, [fetchDashboard]);
 
   // Fullscreen state tracking
   useEffect(() => {
@@ -337,50 +375,6 @@ export default function DashboardPage() {
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
-
-  // Cleanup countdown + sound effect
-  useEffect(() => {
-    function getSecondsUntilShiftEnd(): number | null {
-      if (!currentShift) return null;
-      // Check if this is the last shift of the day
-      if (nextShift && nextShift.date === currentShift.date) return null;
-
-      const now = new Date();
-      const [endH, endM] = currentShift.endTime.split(":").map(Number);
-      const [year, month, day] = currentShift.date.split("-").map(Number);
-      const endTime = new Date(year, month - 1, day, endH, endM, 0);
-      const diff = Math.floor((endTime.getTime() - now.getTime()) / 1000);
-      return diff > 0 ? diff : null;
-    }
-
-    function tick() {
-      const secs = getSecondsUntilShiftEnd();
-
-      // Play cleanup sound once at 20 minutes before end
-      if (
-        secs !== null &&
-        secs <= 20 * 60 &&
-        currentShift &&
-        cleanupSoundPlayedRef.current !== currentShift.id
-      ) {
-        cleanupSoundPlayedRef.current = currentShift.id;
-        const audio = new Audio("/api/cleanup-sound");
-        audio.volume = 0.3;
-        audio.play().catch(() => {});
-      }
-
-      // Show countdown when within 10 minutes
-      if (secs !== null && secs <= 10 * 60) {
-        setCleanupSeconds(secs);
-      } else {
-        setCleanupSeconds(null);
-      }
-    }
-
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-  }, [currentShift, nextShift]);
 
   function handleGoalsChange(text: string) {
     setGoals(text);
@@ -403,9 +397,7 @@ export default function DashboardPage() {
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {
-        // Fullscreen request failed
-      });
+      document.documentElement.requestFullscreen().catch(() => {});
     } else {
       document.exitFullscreen();
     }
@@ -462,51 +454,16 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {countdown.enabled && countdown.targetDate && (
-          <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white shadow-lg">
-            <h2 className="text-2xl font-bold mb-4 text-center">
-              {countdown.label}
-            </h2>
-            <div className="grid grid-cols-4 gap-4 max-w-2xl mx-auto">
-              <div className="text-center">
-                <div className="text-5xl font-bold mb-2">{timeRemaining.days}</div>
-                <div className="text-sm uppercase tracking-wider opacity-90">Days</div>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl font-bold mb-2">{timeRemaining.hours}</div>
-                <div className="text-sm uppercase tracking-wider opacity-90">Hours</div>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl font-bold mb-2">{timeRemaining.minutes}</div>
-                <div className="text-sm uppercase tracking-wider opacity-90">Minutes</div>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl font-bold mb-2">{timeRemaining.seconds}</div>
-                <div className="text-sm uppercase tracking-wider opacity-90">Seconds</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {cleanupSeconds !== null && (
-          <div className="bg-amber-500/20 border-2 border-amber-500 rounded-2xl p-6 mb-6 text-center animate-pulse">
-            <div className="text-amber-400 text-lg font-semibold uppercase tracking-wider mb-1">
-              Cleanup Time
-            </div>
-            <div className="text-5xl font-bold text-white">
-              {Math.floor(cleanupSeconds / 60)}:{(cleanupSeconds % 60).toString().padStart(2, "0")}
-            </div>
-          </div>
-        )}
+        <CountdownTimer config={countdown} />
+        <CleanupCountdown currentShift={currentShift} nextShift={nextShift} />
 
         <div className="flex flex-col lg:flex-row gap-6">
           <ShiftCard
             shift={currentShift}
             title="Current Shift"
             isCurrent={true}
-            onAvatarUploaded={fetchDashboard}
           />
-          <ShiftCard shift={nextShift} title="Next Shift" onAvatarUploaded={fetchDashboard} />
+          <ShiftCard shift={nextShift} title="Next Shift" />
         </div>
 
         <div className="mt-8 bg-slate-800 rounded-2xl p-6">

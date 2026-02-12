@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { prisma } from "./db";
 
 export interface Branding {
@@ -41,7 +42,22 @@ export function getDefaultBranding(): Branding {
   return { ...defaults };
 }
 
-export async function getBranding(): Promise<Branding> {
+// In-memory cache with 5-minute TTL
+let cachedBranding: Branding | null = null;
+let cacheExpiry = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export function invalidateBrandingCache() {
+  cachedBranding = null;
+  cacheExpiry = 0;
+}
+
+async function fetchBrandingFromDb(): Promise<Branding> {
+  const now = Date.now();
+  if (cachedBranding && now < cacheExpiry) {
+    return { ...cachedBranding };
+  }
+
   try {
     const keys = Object.keys(keyMap);
     const settings = await prisma.setting.findMany({
@@ -56,12 +72,18 @@ export async function getBranding(): Promise<Branding> {
       }
     }
 
-    return branding;
+    cachedBranding = branding;
+    cacheExpiry = now + CACHE_TTL;
+    return { ...branding };
   } catch {
     // DB not available (e.g. during Docker build / static generation)
     return { ...defaults };
   }
 }
+
+// React.cache() deduplicates calls within a single server render pass
+// (so generateMetadata + RootLayout share one call per request)
+export const getBranding = cache(fetchBrandingFromDb);
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 

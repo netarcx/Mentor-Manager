@@ -59,6 +59,8 @@ model Signup {
   shift           Shift    @relation(fields: [shiftId], references: [id])
 
   @@unique([mentorId, shiftId])
+  @@index([shiftId])
+  @@index([mentorId])
   @@map("signups")
 }
 
@@ -80,6 +82,8 @@ model HourAdjustment {
   createdAt DateTime @default(now()) @map("created_at")
   mentor    Mentor   @relation(fields: [mentorId], references: [id])
 
+  @@index([mentorId])
+  @@index([date])
   @@map("hour_adjustments")
 }
 
