@@ -42,22 +42,7 @@ export function getDefaultBranding(): Branding {
   return { ...defaults };
 }
 
-// In-memory cache with 5-minute TTL
-let cachedBranding: Branding | null = null;
-let cacheExpiry = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-export function invalidateBrandingCache() {
-  cachedBranding = null;
-  cacheExpiry = 0;
-}
-
 async function fetchBrandingFromDb(): Promise<Branding> {
-  const now = Date.now();
-  if (cachedBranding && now < cacheExpiry) {
-    return { ...cachedBranding };
-  }
-
   try {
     const keys = Object.keys(keyMap);
     const settings = await prisma.setting.findMany({
@@ -72,9 +57,7 @@ async function fetchBrandingFromDb(): Promise<Branding> {
       }
     }
 
-    cachedBranding = branding;
-    cacheExpiry = now + CACHE_TTL;
-    return { ...branding };
+    return branding;
   } catch {
     // DB not available (e.g. during Docker build / static generation)
     return { ...defaults };

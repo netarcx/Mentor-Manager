@@ -53,8 +53,10 @@ function formatDateDashboard(dateStr: string): string {
 // Isolated countdown timer — re-renders only itself every second
 const CountdownTimer = memo(function CountdownTimer({
   config,
+  tv,
 }: {
   config: CountdownConfig;
+  tv: boolean;
 }) {
   const [timeRemaining, setTimeRemaining] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
@@ -88,12 +90,12 @@ const CountdownTimer = memo(function CountdownTimer({
 
   return (
     <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white shadow-lg">
-      <h2 className="text-2xl font-bold mb-4 text-center">{config.label}</h2>
+      <h2 className={`${tv ? "text-3xl" : "text-2xl"} font-bold mb-4 text-center`}>{config.label}</h2>
       <div className="grid grid-cols-4 gap-4 max-w-2xl mx-auto">
         {(["days", "hours", "minutes", "seconds"] as const).map((unit) => (
           <div key={unit} className="text-center">
-            <div className="text-5xl font-bold mb-2">{timeRemaining[unit]}</div>
-            <div className="text-sm uppercase tracking-wider opacity-90">{unit}</div>
+            <div className={`${tv ? "text-7xl" : "text-5xl"} font-bold mb-2`}>{timeRemaining[unit]}</div>
+            <div className={`${tv ? "text-base" : "text-sm"} uppercase tracking-wider opacity-90`}>{unit}</div>
           </div>
         ))}
       </div>
@@ -105,9 +107,11 @@ const CountdownTimer = memo(function CountdownTimer({
 const CleanupCountdown = memo(function CleanupCountdown({
   currentShift,
   nextShift,
+  tv,
 }: {
   currentShift: ShiftWithSignups | null;
   nextShift: ShiftWithSignups | null;
+  tv: boolean;
 }) {
   const [cleanupSeconds, setCleanupSeconds] = useState<number | null>(null);
   const cleanupSoundPlayedRef = useRef<number | null>(null);
@@ -156,10 +160,10 @@ const CleanupCountdown = memo(function CleanupCountdown({
 
   return (
     <div className="bg-amber-500/20 border-2 border-amber-500 rounded-2xl p-6 mb-6 text-center animate-pulse">
-      <div className="text-amber-400 text-lg font-semibold uppercase tracking-wider mb-1">
+      <div className={`text-amber-400 ${tv ? "text-2xl" : "text-lg"} font-semibold uppercase tracking-wider mb-1`}>
         Cleanup Time
       </div>
-      <div className="text-5xl font-bold text-white">
+      <div className={`${tv ? "text-7xl" : "text-5xl"} font-bold text-white`}>
         {Math.floor(cleanupSeconds / 60)}:{(cleanupSeconds % 60).toString().padStart(2, "0")}
       </div>
     </div>
@@ -168,8 +172,10 @@ const CleanupCountdown = memo(function CleanupCountdown({
 
 function MentorAvatar({
   mentor,
+  tv,
 }: {
   mentor: { id: number; name: string; avatarPath: string };
+  tv: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarKey, setAvatarKey] = useState(0);
@@ -195,6 +201,9 @@ function MentorAvatar({
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  const size = tv ? "w-14 h-14" : "w-10 h-10";
+  const textSize = tv ? "text-xl" : "text-lg";
+
   return (
     <>
       <input
@@ -206,7 +215,7 @@ function MentorAvatar({
       />
       <div
         onClick={() => fileInputRef.current?.click()}
-        className="w-10 h-10 rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary-light transition-all overflow-hidden"
+        className={`${size} rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary-light transition-all overflow-hidden`}
         title="Click to set profile picture"
       >
         {mentor.avatarPath ? (
@@ -217,7 +226,7 @@ function MentorAvatar({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-primary-light/30 flex items-center justify-center text-primary-light font-bold text-lg">
+          <div className={`w-full h-full bg-primary-light/30 flex items-center justify-center text-primary-light font-bold ${textSize}`}>
             {mentor.name.charAt(0).toUpperCase()}
           </div>
         )}
@@ -232,71 +241,73 @@ const ShiftCard = memo(function ShiftCard({
   shift,
   title,
   isCurrent,
+  tv,
 }: {
   shift: ShiftWithSignups | null;
   title: string;
   isCurrent?: boolean;
+  tv: boolean;
 }) {
   if (!shift) {
     return (
-      <div className="bg-slate-800 rounded-2xl p-8 flex-1">
-        <h2 className="text-2xl font-bold text-slate-400 mb-4">{title}</h2>
-        <p className="text-slate-500 text-xl">No shift scheduled</p>
+      <div className={`bg-slate-800 rounded-2xl ${tv ? "p-10" : "p-8"} flex-1`}>
+        <h2 className={`${tv ? "text-3xl" : "text-2xl"} font-bold text-slate-400 mb-4`}>{title}</h2>
+        <p className={`text-slate-500 ${tv ? "text-2xl" : "text-xl"}`}>No shift scheduled</p>
       </div>
     );
   }
 
   return (
     <div
-      className={`rounded-2xl p-8 flex-1 ${
+      className={`rounded-2xl ${tv ? "p-10" : "p-8"} flex-1 ${
         isCurrent
           ? "bg-primary-light/15 border-2 border-primary-light"
           : "bg-slate-800"
       }`}
     >
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-white">{title}</h2>
+        <h2 className={`${tv ? "text-3xl" : "text-2xl"} font-bold text-white`}>{title}</h2>
         {isCurrent && (
-          <span className="bg-primary-light text-primary-dark text-sm font-bold px-3 py-1 rounded-full animate-pulse">
+          <span className={`bg-primary-light text-primary-dark ${tv ? "text-base px-4 py-1.5" : "text-sm px-3 py-1"} font-bold rounded-full animate-pulse`}>
             LIVE
           </span>
         )}
       </div>
-      <div className="text-3xl font-bold text-white mb-1">
+      <div className={`${tv ? "text-4xl" : "text-3xl"} font-bold text-white mb-1`}>
         {formatTimeDashboard(shift.startTime)} - {formatTimeDashboard(shift.endTime)}
       </div>
-      <div className="text-xl text-slate-400 mb-2">
+      <div className={`${tv ? "text-2xl" : "text-xl"} text-slate-400 mb-2`}>
         {formatDateDashboard(shift.date)}
       </div>
       {shift.label && (
-        <div className="text-lg text-primary-light mb-4">{shift.label}</div>
+        <div className={`${tv ? "text-xl" : "text-lg"} text-primary-light mb-4`}>{shift.label}</div>
       )}
 
       <div className="mt-6">
-        <div className="text-sm text-slate-400 uppercase tracking-wider mb-3">
+        <div className={`${tv ? "text-base" : "text-sm"} text-slate-400 uppercase tracking-wider mb-3`}>
           Mentors ({shift.signups.length})
         </div>
         {shift.signups.length === 0 ? (
           <p className="text-slate-500 italic">No one signed up yet</p>
         ) : (
-          <div className="space-y-2">
+          <div className={`${tv ? "space-y-3" : "space-y-2"}`}>
             {shift.signups.map((signup) => (
               <div
                 key={signup.id}
-                className="flex items-center gap-3 bg-slate-700/50 rounded-lg px-4 py-3"
+                className={`flex items-center gap-3 bg-slate-700/50 rounded-lg ${tv ? "px-5 py-4" : "px-4 py-3"}`}
               >
-                <MemoMentorAvatar mentor={signup.mentor} />
+                <MemoMentorAvatar mentor={signup.mentor} tv={tv} />
                 <div>
-                  <div className="text-white font-medium text-lg">
+                  <div className={`text-white font-medium ${tv ? "text-xl" : "text-lg"}`}>
                     {signup.mentor.name}
                     {(signup.customStartTime || signup.customEndTime) && (
-                      <span className="ml-2 text-sm font-normal text-slate-400">
+                      <span className={`ml-2 ${tv ? "text-base" : "text-sm"} font-normal text-slate-400`}>
                         {formatTimeDashboard(signup.customStartTime || shift.startTime)} - {formatTimeDashboard(signup.customEndTime || shift.endTime)}
                       </span>
                     )}
                   </div>
                   {signup.note && (
-                    <div className="text-sm text-slate-400">{signup.note}</div>
+                    <div className={`${tv ? "text-base" : "text-sm"} text-slate-400`}>{signup.note}</div>
                   )}
                 </div>
               </div>
@@ -317,6 +328,7 @@ export default function DashboardPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [quote, setQuote] = useState<QuoteData | null>(null);
   const [zoom, setZoom] = useState(100);
+  const [tvMode, setTvMode] = useState(false);
   const [goals, setGoals] = useState("");
   const [goalsSaved, setGoalsSaved] = useState(false);
   const prevShiftIdRef = useRef<number | null | undefined>(undefined);
@@ -405,17 +417,18 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-navy-dark text-white">
-      <div className="p-8 max-w-6xl mx-auto" style={{ zoom: `${zoom}%` }}>
+      <div className={`${tvMode ? "p-10" : "p-8"} ${tvMode ? "" : "max-w-6xl"} mx-auto`} style={{ zoom: `${zoom}%` }}>
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             {branding.logoPath && (
-              <img src="/api/logo" alt="" className="h-12 w-auto" />
+              <img src="/api/logo" alt="" className={`${tvMode ? "h-16" : "h-12"} w-auto`} />
             )}
-            <h1 className="text-4xl font-bold">{branding.appName} Dashboard</h1>
+            <h1 className={`${tvMode ? "text-5xl" : "text-4xl"} font-bold`}>{branding.appName}</h1>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-slate-500">
-              Last updated: {lastUpdate.toLocaleTimeString()}
+          <div className="flex items-center gap-3">
+            <div className={`${tvMode ? "text-base" : "text-sm"} text-slate-500`}>
+              {lastUpdate.toLocaleTimeString()}
             </div>
             <div className="flex items-center bg-slate-700 rounded-lg">
               <button
@@ -435,40 +448,41 @@ export default function DashboardPage() {
               </button>
             </div>
             <button
+              onClick={() => setTvMode(!tvMode)}
+              className={`${tvMode ? "bg-primary text-white" : "bg-slate-700 text-white"} hover:bg-slate-600 px-4 py-2 rounded-lg transition-colors text-sm font-semibold`}
+              title={tvMode ? "Switch to Desktop view" : "Switch to TV view"}
+            >
+              {tvMode ? "TV" : "TV"}
+            </button>
+            <button
               onClick={toggleFullscreen}
               className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm"
               title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
             >
-              {isFullscreen ? (
-                <>
-                  <span className="text-lg">&#x26F6;</span>
-                  Exit Fullscreen
-                </>
-              ) : (
-                <>
-                  <span className="text-lg">&#x26F6;</span>
-                  Fullscreen
-                </>
-              )}
+              <span className="text-lg">&#x26F6;</span>
+              {!tvMode && (isFullscreen ? "Exit Fullscreen" : "Fullscreen")}
             </button>
           </div>
         </div>
 
-        <CountdownTimer config={countdown} />
-        <CleanupCountdown currentShift={currentShift} nextShift={nextShift} />
+        <CountdownTimer config={countdown} tv={tvMode} />
+        <CleanupCountdown currentShift={currentShift} nextShift={nextShift} tv={tvMode} />
 
+        {/* Shift Cards */}
         <div className="flex flex-col lg:flex-row gap-6">
           <ShiftCard
             shift={currentShift}
             title="Current Shift"
             isCurrent={true}
+            tv={tvMode}
           />
-          <ShiftCard shift={nextShift} title="Next Shift" />
+          <ShiftCard shift={nextShift} title="Next Shift" tv={tvMode} />
         </div>
 
-        <div className="mt-8 bg-slate-800 rounded-2xl p-6">
+        {/* Goals */}
+        <div className={`mt-8 bg-slate-800 rounded-2xl ${tvMode ? "p-8" : "p-6"}`}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-white">Today&apos;s Goals</h2>
+            <h2 className={`${tvMode ? "text-2xl" : "text-lg"} font-semibold text-white`}>Today&apos;s Goals</h2>
             {goalsSaved && (
               <span className="text-xs text-green-400">Saved</span>
             )}
@@ -477,11 +491,12 @@ export default function DashboardPage() {
             value={goals}
             onChange={(e) => handleGoalsChange(e.target.value)}
             placeholder="What are we working on today?"
-            rows={4}
-            className="w-full bg-slate-700/50 text-white rounded-lg px-4 py-3 text-lg placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none"
+            rows={tvMode ? 3 : 4}
+            className={`w-full bg-slate-700/50 text-white rounded-lg px-4 py-3 ${tvMode ? "text-xl" : "text-lg"} placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none`}
           />
         </div>
 
+        {/* Quote */}
         {quote && (
           <div
             onClick={async () => {
@@ -491,13 +506,13 @@ export default function DashboardPage() {
                 if (data.quote) setQuote(data.quote);
               } catch { /* ignore */ }
             }}
-            className="mt-8 bg-slate-800/50 rounded-2xl p-6 text-center cursor-pointer hover:bg-slate-800/70 transition-colors"
+            className={`mt-8 bg-slate-800/50 rounded-2xl ${tvMode ? "p-8" : "p-6"} text-center cursor-pointer hover:bg-slate-800/70 transition-colors`}
           >
-            <p className="text-xl text-slate-300 italic">
+            <p className={`${tvMode ? "text-2xl" : "text-xl"} text-slate-300 italic`}>
               &ldquo;{quote.text}&rdquo;
             </p>
             {quote.author && (
-              <p className="text-sm text-slate-500 mt-2">&mdash; {quote.author}</p>
+              <p className={`${tvMode ? "text-base" : "text-sm"} text-slate-500 mt-2`}>&mdash; {quote.author}</p>
             )}
           </div>
         )}

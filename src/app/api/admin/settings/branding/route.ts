@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { isValidHexColor, invalidateBrandingCache } from "@/lib/branding";
+import { isValidHexColor } from "@/lib/branding";
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
@@ -60,8 +60,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // Clear in-memory branding cache and revalidate all pages
-    invalidateBrandingCache();
+    // Revalidate all pages so the root layout picks up new branding
     revalidatePath("/", "layout");
 
     return NextResponse.json({ success: true, updated: updates.length });
