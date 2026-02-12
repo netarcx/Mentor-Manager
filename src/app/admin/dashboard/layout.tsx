@@ -10,6 +10,7 @@ const navItems = [
   { href: "/admin/dashboard/bulk-signup", label: "Bulk Signup" },
   { href: "/admin/dashboard/mentors", label: "Mentors" },
   { href: "/admin/dashboard/seasons", label: "Seasons" },
+  { href: "/admin/dashboard/quotes", label: "Quotes" },
   { href: "/admin/dashboard/settings", label: "Settings" },
 ];
 

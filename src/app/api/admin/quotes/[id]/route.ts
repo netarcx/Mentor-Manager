@@ -1,0 +1,53 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { isAdminAuthenticated } from "@/lib/auth";
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { id } = await params;
+    const data = await request.json();
+
+    const quote = await prisma.quote.update({
+      where: { id: parseInt(id) },
+      data: {
+        ...(data.text !== undefined && { text: data.text }),
+        ...(data.author !== undefined && { author: data.author }),
+        ...(data.active !== undefined && { active: data.active }),
+      },
+    });
+
+    return NextResponse.json(quote);
+  } catch {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { id } = await params;
+    await prisma.quote.delete({ where: { id: parseInt(id) } });
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

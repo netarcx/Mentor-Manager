@@ -26,6 +26,11 @@ interface CountdownConfig {
   label: string;
 }
 
+interface QuoteData {
+  text: string;
+  author: string;
+}
+
 function formatTimeDashboard(time: string): string {
   const [h, m] = time.split(":").map(Number);
   const ampm = h >= 12 ? "PM" : "AM";
@@ -130,6 +135,7 @@ export default function DashboardPage() {
   const [countdown, setCountdown] = useState<CountdownConfig>({ enabled: false, targetDate: "", label: "" });
   const [timeRemaining, setTimeRemaining] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [quote, setQuote] = useState<QuoteData | null>(null);
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -164,14 +170,29 @@ export default function DashboardPage() {
       }
     }
 
+    async function fetchQuote() {
+      try {
+        const res = await fetch("/api/quote");
+        const data = await res.json();
+        setQuote(data.quote);
+      } catch {
+        // Use defaults
+      }
+    }
+
     fetchDashboard();
     fetchBranding();
     fetchCountdown();
-    const interval = setInterval(
+    fetchQuote();
+    const dashboardInterval = setInterval(
       fetchDashboard,
       parseInt(process.env.NEXT_PUBLIC_REFRESH_INTERVAL || "30000")
     );
-    return () => clearInterval(interval);
+    const quoteInterval = setInterval(fetchQuote, 3600000); // Refresh quote every hour
+    return () => {
+      clearInterval(dashboardInterval);
+      clearInterval(quoteInterval);
+    };
   }, []);
 
   // Countdown timer effect
@@ -289,6 +310,17 @@ export default function DashboardPage() {
           />
           <ShiftCard shift={nextShift} title="Next Shift" />
         </div>
+
+        {quote && (
+          <div className="mt-8 bg-slate-800/50 rounded-2xl p-6 text-center">
+            <p className="text-xl text-slate-300 italic">
+              &ldquo;{quote.text}&rdquo;
+            </p>
+            {quote.author && (
+              <p className="text-sm text-slate-500 mt-2">&mdash; {quote.author}</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
