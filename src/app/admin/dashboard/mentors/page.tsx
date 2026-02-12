@@ -29,6 +29,8 @@ export default function MentorsPage() {
     reason: "",
     date: new Date().toISOString().split("T")[0],
   });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -98,6 +100,38 @@ export default function MentorsPage() {
       fetchData();
     } catch {
       showError("Failed to create adjustment");
+    }
+  }
+
+  function startEditing(mentor: Mentor) {
+    setEditingId(mentor.id);
+    setEditName(mentor.name);
+  }
+
+  async function handleSaveName(id: number) {
+    if (!editName.trim()) {
+      showError("Name cannot be empty");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/mentors/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName.trim() }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.error || "Failed to update name");
+        return;
+      }
+
+      setEditingId(null);
+      showMessage("Name updated!");
+      fetchData();
+    } catch {
+      showError("Failed to update name");
     }
   }
 
@@ -308,6 +342,9 @@ export default function MentorsPage() {
                     <th className="px-4 py-3 text-left text-sm font-semibold">
                       Email
                     </th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -316,8 +353,48 @@ export default function MentorsPage() {
                       key={m.id}
                       className="border-t border-slate-100 hover:bg-slate-50"
                     >
-                      <td className="px-4 py-3 font-medium">{m.name}</td>
+                      <td className="px-4 py-3">
+                        {editingId === m.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSaveName(m.id);
+                                if (e.key === "Escape") setEditingId(null);
+                              }}
+                              className="border border-slate-300 rounded-lg px-3 py-1 text-sm w-48"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleSaveName(m.id)}
+                              className="text-sm text-primary hover:underline"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="text-sm text-slate-400 hover:underline"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="font-medium">{m.name}</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-slate-500">{m.email}</td>
+                      <td className="px-4 py-3 text-right">
+                        {editingId !== m.id && (
+                          <button
+                            onClick={() => startEditing(m)}
+                            className="text-sm text-primary hover:underline"
+                          >
+                            Edit Name
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

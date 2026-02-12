@@ -13,7 +13,7 @@ interface ShiftWithSignups {
     note: string;
     customStartTime: string | null;
     customEndTime: string | null;
-    mentor: { name: string };
+    mentor: { id: number; name: string; avatarPath: string };
   }[];
 }
 
@@ -50,14 +50,80 @@ function formatDateDashboard(dateStr: string): string {
   });
 }
 
+function MentorAvatar({
+  mentor,
+  onUploaded,
+}: {
+  mentor: { id: number; name: string; avatarPath: string };
+  onUploaded: () => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarKey, setAvatarKey] = useState(0);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    try {
+      const res = await fetch(`/api/mentors/${mentor.id}/avatar`, {
+        method: "POST",
+        body: formData,
+      });
+      if (res.ok) {
+        setAvatarKey((k) => k + 1);
+        onUploaded();
+      }
+    } catch {
+      // Silent fail
+    }
+    // Reset input so same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  return (
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+      <div
+        onClick={() => fileInputRef.current?.click()}
+        className="w-10 h-10 rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary-light transition-all overflow-hidden"
+        title="Click to set profile picture"
+      >
+        {mentor.avatarPath ? (
+          <img
+            key={avatarKey}
+            src={`/api/mentors/${mentor.id}/avatar?v=${avatarKey}`}
+            alt={mentor.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-primary-light/30 flex items-center justify-center text-primary-light font-bold text-lg">
+            {mentor.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 function ShiftCard({
   shift,
   title,
   isCurrent,
+  onAvatarUploaded,
 }: {
   shift: ShiftWithSignups | null;
   title: string;
   isCurrent?: boolean;
+  onAvatarUploaded: () => void;
 }) {
   if (!shift) {
     return (
@@ -107,9 +173,7 @@ function ShiftCard({
                 key={signup.id}
                 className="flex items-center gap-3 bg-slate-700/50 rounded-lg px-4 py-3"
               >
-                <div className="w-10 h-10 bg-primary-light/30 rounded-full flex items-center justify-center text-primary-light font-bold text-lg">
-                  {signup.mentor.name.charAt(0).toUpperCase()}
-                </div>
+                <MentorAvatar mentor={signup.mentor} onUploaded={onAvatarUploaded} />
                 <div>
                   <div className="text-white font-medium text-lg">
                     {signup.mentor.name}
@@ -144,38 +208,43 @@ export default function DashboardPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [quote, setQuote] = useState<QuoteData | null>(null);
   const [zoom, setZoom] = useState(100);
+  const [cleanupSeconds, setCleanupSeconds] = useState<number | null>(null);
+  const [goals, setGoals] = useState("");
+  const [goalsSaved, setGoalsSaved] = useState(false);
   const prevShiftIdRef = useRef<number | null | undefined>(undefined);
+  const cleanupSoundPlayedRef = useRef<number | null>(null);
+  const goalsSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function fetchDashboard() {
+    try {
+      const res = await fetch("/api/dashboard");
+      const data = await res.json();
+      const newShiftId = data.currentShift?.id ?? null;
+
+      // Play sound on shift change (skip the very first load)
+      if (
+        prevShiftIdRef.current !== undefined &&
+        newShiftId !== prevShiftIdRef.current
+      ) {
+        try {
+          const audio = new Audio("/api/sound");
+          audio.volume = 0.3;
+          await audio.play();
+        } catch {
+          // No sound configured or autoplay blocked
+        }
+      }
+      prevShiftIdRef.current = newShiftId;
+
+      setCurrentShift(data.currentShift);
+      setNextShift(data.nextShift);
+      setLastUpdate(new Date());
+    } catch {
+      // Silent fail on polling
+    }
+  }
 
   useEffect(() => {
-    async function fetchDashboard() {
-      try {
-        const res = await fetch("/api/dashboard");
-        const data = await res.json();
-        const newShiftId = data.currentShift?.id ?? null;
-
-        // Play sound on shift change (skip the very first load)
-        if (
-          prevShiftIdRef.current !== undefined &&
-          newShiftId !== prevShiftIdRef.current
-        ) {
-          try {
-            const audio = new Audio("/api/sound");
-            audio.volume = 0.3;
-            await audio.play();
-          } catch {
-            // No sound configured or autoplay blocked
-          }
-        }
-        prevShiftIdRef.current = newShiftId;
-
-        setCurrentShift(data.currentShift);
-        setNextShift(data.nextShift);
-        setLastUpdate(new Date());
-      } catch {
-        // Silent fail on polling
-      }
-    }
-
     async function fetchBranding() {
       try {
         const res = await fetch("/api/branding");
@@ -206,10 +275,21 @@ export default function DashboardPage() {
       }
     }
 
+    async function fetchGoals() {
+      try {
+        const res = await fetch("/api/goals");
+        const data = await res.json();
+        setGoals(data.text || "");
+      } catch {
+        // Use defaults
+      }
+    }
+
     fetchDashboard();
     fetchBranding();
     fetchCountdown();
     fetchQuote();
+    fetchGoals();
     const dashboardInterval = setInterval(
       fetchDashboard,
       parseInt(process.env.NEXT_PUBLIC_REFRESH_INTERVAL || "30000")
@@ -257,6 +337,69 @@ export default function DashboardPage() {
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
+
+  // Cleanup countdown + sound effect
+  useEffect(() => {
+    function getSecondsUntilShiftEnd(): number | null {
+      if (!currentShift) return null;
+      // Check if this is the last shift of the day
+      if (nextShift && nextShift.date === currentShift.date) return null;
+
+      const now = new Date();
+      const [endH, endM] = currentShift.endTime.split(":").map(Number);
+      const [year, month, day] = currentShift.date.split("-").map(Number);
+      const endTime = new Date(year, month - 1, day, endH, endM, 0);
+      const diff = Math.floor((endTime.getTime() - now.getTime()) / 1000);
+      return diff > 0 ? diff : null;
+    }
+
+    function tick() {
+      const secs = getSecondsUntilShiftEnd();
+
+      // Play cleanup sound once at 20 minutes before end
+      if (
+        secs !== null &&
+        secs <= 20 * 60 &&
+        currentShift &&
+        cleanupSoundPlayedRef.current !== currentShift.id
+      ) {
+        cleanupSoundPlayedRef.current = currentShift.id;
+        const audio = new Audio("/api/cleanup-sound");
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      }
+
+      // Show countdown when within 10 minutes
+      if (secs !== null && secs <= 10 * 60) {
+        setCleanupSeconds(secs);
+      } else {
+        setCleanupSeconds(null);
+      }
+    }
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [currentShift, nextShift]);
+
+  function handleGoalsChange(text: string) {
+    setGoals(text);
+    setGoalsSaved(false);
+    if (goalsSaveTimeoutRef.current) clearTimeout(goalsSaveTimeoutRef.current);
+    goalsSaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await fetch("/api/goals", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        setGoalsSaved(true);
+        setTimeout(() => setGoalsSaved(false), 2000);
+      } catch {
+        // Silent fail
+      }
+    }, 1000);
+  }
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -345,13 +488,41 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {cleanupSeconds !== null && (
+          <div className="bg-amber-500/20 border-2 border-amber-500 rounded-2xl p-6 mb-6 text-center animate-pulse">
+            <div className="text-amber-400 text-lg font-semibold uppercase tracking-wider mb-1">
+              Cleanup Time
+            </div>
+            <div className="text-5xl font-bold text-white">
+              {Math.floor(cleanupSeconds / 60)}:{(cleanupSeconds % 60).toString().padStart(2, "0")}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row gap-6">
           <ShiftCard
             shift={currentShift}
             title="Current Shift"
             isCurrent={true}
+            onAvatarUploaded={fetchDashboard}
           />
-          <ShiftCard shift={nextShift} title="Next Shift" />
+          <ShiftCard shift={nextShift} title="Next Shift" onAvatarUploaded={fetchDashboard} />
+        </div>
+
+        <div className="mt-8 bg-slate-800 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-white">Today&apos;s Goals</h2>
+            {goalsSaved && (
+              <span className="text-xs text-green-400">Saved</span>
+            )}
+          </div>
+          <textarea
+            value={goals}
+            onChange={(e) => handleGoalsChange(e.target.value)}
+            placeholder="What are we working on today?"
+            rows={4}
+            className="w-full bg-slate-700/50 text-white rounded-lg px-4 py-3 text-lg placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none"
+          />
         </div>
 
         {quote && (
