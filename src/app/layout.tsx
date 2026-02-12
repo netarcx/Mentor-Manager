@@ -42,6 +42,9 @@ export default async function RootLayout({
     <html lang="en">
       <head>
         <style dangerouslySetInnerHTML={{ __html: cssOverrides }} />
+        {branding.faviconPath && (
+          <link rel="icon" href="/api/favicon" />
+        )}
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}

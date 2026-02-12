@@ -12,6 +12,7 @@ export interface Branding {
   colorNavyDark: string;
   colorAccentBg: string;
   logoPath: string;
+  faviconPath: string;
 }
 
 const defaults: Branding = {
@@ -24,6 +25,7 @@ const defaults: Branding = {
   colorNavyDark: "#1a202c",
   colorAccentBg: "#f3e8ff",
   logoPath: "",
+  faviconPath: "",
 };
 
 const keyMap: Record<string, keyof Branding> = {
@@ -36,6 +38,7 @@ const keyMap: Record<string, keyof Branding> = {
   color_navy_dark: "colorNavyDark",
   color_accent_bg: "colorAccentBg",
   logo_path: "logoPath",
+  favicon_path: "faviconPath",
 };
 
 export function getDefaultBranding(): Branding {

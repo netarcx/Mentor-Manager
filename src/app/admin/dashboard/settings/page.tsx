@@ -12,6 +12,7 @@ interface Branding {
   colorNavyDark: string;
   colorAccentBg: string;
   logoPath: string;
+  faviconPath: string;
 }
 
 export default function SettingsPage() {
@@ -31,6 +32,7 @@ export default function SettingsPage() {
   const [colorNavyDark, setColorNavyDark] = useState("#1a202c");
   const [colorAccentBg, setColorAccentBg] = useState("#f3e8ff");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
   const soundInputRef = useRef<HTMLInputElement>(null);
   const cleanupSoundInputRef = useRef<HTMLInputElement>(null);
   const [soundPath, setSoundPath] = useState("");
@@ -279,6 +281,58 @@ export default function SettingsPage() {
       setBranding((prev) => prev ? { ...prev, logoPath: "" } : prev);
     } catch {
       showError("Failed to remove logo");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleFaviconUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading("favicon");
+
+    try {
+      const formData = new FormData();
+      formData.append("favicon", file);
+
+      const res = await fetch("/api/admin/settings/favicon", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.error || "Failed to upload favicon");
+        return;
+      }
+
+      showMessage("Favicon uploaded!");
+      const brandingRes = await fetch("/api/branding");
+      const brandingData: Branding = await brandingRes.json();
+      setBranding(brandingData);
+    } catch {
+      showError("Failed to upload favicon");
+    } finally {
+      setLoading("");
+      if (faviconInputRef.current) faviconInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemoveFavicon() {
+    setLoading("favicon");
+
+    try {
+      const res = await fetch("/api/admin/settings/favicon", {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to remove favicon");
+
+      showMessage("Favicon removed!");
+      setBranding((prev) => prev ? { ...prev, faviconPath: "" } : prev);
+    } catch {
+      showError("Failed to remove favicon");
     } finally {
       setLoading("");
     }
@@ -857,6 +911,54 @@ export default function SettingsPage() {
             />
             <p className="text-xs text-slate-500 mt-1">
               PNG, JPG, GIF, SVG, or WebP. Max 2MB.
+            </p>
+          </div>
+        </div>
+
+        {/* Favicon Upload */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold mb-4">Favicon</h2>
+
+          {branding?.faviconPath ? (
+            <div className="mb-4">
+              <div className="flex items-center gap-4">
+                <img
+                  src={`/api/favicon?t=${Date.now()}`}
+                  alt="Current favicon"
+                  className="h-8 w-8 border border-slate-200 rounded p-1"
+                />
+                <div>
+                  <p className="text-sm text-slate-600">Current favicon</p>
+                  <button
+                    onClick={handleRemoveFavicon}
+                    disabled={loading === "favicon"}
+                    className="text-red-600 hover:text-red-700 text-sm underline mt-1"
+                  >
+                    {loading === "favicon" ? "Removing..." : "Remove favicon"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500 mb-4">
+              No custom favicon uploaded. The default icon will be used.
+            </p>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Upload Favicon
+            </label>
+            <input
+              ref={faviconInputRef}
+              type="file"
+              accept="image/png,image/x-icon,image/vnd.microsoft.icon,image/svg+xml,image/webp"
+              onChange={handleFaviconUpload}
+              disabled={loading === "favicon"}
+              className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark file:cursor-pointer disabled:opacity-50"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              PNG, ICO, SVG, or WebP. Max 1MB. Square images work best (e.g. 32x32 or 64x64).
             </p>
           </div>
         </div>
