@@ -378,14 +378,22 @@ export default function DashboardPage() {
     return () => clearInterval(dashboardInterval);
   }, [fetchDashboard]);
 
-  // Fullscreen state tracking
+  // Fullscreen state tracking — hide nav bar when fullscreen
   useEffect(() => {
     function handleFullscreenChange() {
-      setIsFullscreen(!!document.fullscreenElement);
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+      const nav = document.getElementById("main-nav");
+      if (nav) nav.style.display = fs ? "none" : "";
     }
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      // Restore nav if component unmounts while fullscreen
+      const nav = document.getElementById("main-nav");
+      if (nav) nav.style.display = "";
+    };
   }, []);
 
   function handleGoalsChange(text: string) {
