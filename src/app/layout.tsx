@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { getBranding } from "@/lib/branding";
+import NavBrand from "@/components/NavBrand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -48,16 +49,7 @@ export default async function RootLayout({
         <nav className="bg-navy text-white shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <Link href="/" className="font-bold text-xl text-primary-light flex items-center gap-2">
-                {branding.logoPath && (
-                  <img
-                    src="/api/logo"
-                    alt=""
-                    className="h-8 w-auto"
-                  />
-                )}
-                {branding.appName}
-              </Link>
+              <NavBrand initialName={branding.appName} />
               <div className="flex gap-6">
                 <Link
                   href="/signup"
