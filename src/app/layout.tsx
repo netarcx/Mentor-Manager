@@ -61,25 +61,25 @@ export default async function RootLayout({
               <div className="flex gap-6">
                 <Link
                   href="/signup"
-                  className="hover:text-primary-light transition-colors"
+                  className="font-semibold hover:text-primary-light transition-colors"
                 >
                   Sign Up
                 </Link>
                 <Link
                   href="/dashboard"
-                  className="hover:text-primary-light transition-colors"
+                  className="font-semibold hover:text-primary-light transition-colors"
                 >
                   Dashboard
                 </Link>
                 <Link
                   href="/leaderboard"
-                  className="hover:text-primary-light transition-colors"
+                  className="font-semibold hover:text-primary-light transition-colors"
                 >
                   Leaderboard
                 </Link>
                 <Link
                   href="/admin"
-                  className="text-slate-400 hover:text-primary-light transition-colors text-sm"
+                  className="font-semibold hover:text-primary-light transition-colors"
                 >
                   Admin
                 </Link>

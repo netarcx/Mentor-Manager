@@ -35,5 +35,10 @@ export async function destroyAdminSession(): Promise<void> {
 
 export async function isAdminAuthenticated(): Promise<boolean> {
   const session = await getSession();
-  return session.isAdmin === true;
+  if (session.isAdmin === true) {
+    // Refresh the session TTL on each authenticated request (rolling session)
+    await session.save();
+    return true;
+  }
+  return false;
 }

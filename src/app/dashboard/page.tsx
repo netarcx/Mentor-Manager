@@ -404,8 +404,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-navy-dark text-white p-8" style={{ zoom: `${zoom}%` }}>
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-navy-dark text-white">
+      <div className="p-8 max-w-6xl mx-auto" style={{ zoom: `${zoom}%` }}>
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             {branding.logoPath && (
