@@ -312,7 +312,16 @@ export default function DashboardPage() {
         </div>
 
         {quote && (
-          <div className="mt-8 bg-slate-800/50 rounded-2xl p-6 text-center">
+          <div
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/quote?random=true");
+                const data = await res.json();
+                if (data.quote) setQuote(data.quote);
+              } catch { /* ignore */ }
+            }}
+            className="mt-8 bg-slate-800/50 rounded-2xl p-6 text-center cursor-pointer hover:bg-slate-800/70 transition-colors"
+          >
             <p className="text-xl text-slate-300 italic">
               &ldquo;{quote.text}&rdquo;
             </p>
