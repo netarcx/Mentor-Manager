@@ -89,13 +89,13 @@ const CountdownTimer = memo(function CountdownTimer({
   if (!config.enabled || !config.targetDate) return null;
 
   return (
-    <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-4 sm:p-8 mb-6 sm:mb-8 text-white shadow-lg">
-      <h2 className={`${tv ? "text-3xl" : "text-lg sm:text-2xl"} font-bold mb-4 text-center`}>{config.label}</h2>
+    <div className={`bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-4 sm:p-8 ${tv ? "mb-4 p-4" : "mb-6 sm:mb-8"} text-white shadow-lg flex-shrink-0`}>
+      <h2 className={`${tv ? "text-xl" : "text-lg sm:text-2xl"} font-bold mb-2 text-center`}>{config.label}</h2>
       <div className="grid grid-cols-4 gap-2 sm:gap-4 max-w-2xl mx-auto">
         {(["days", "hours", "minutes", "seconds"] as const).map((unit) => (
           <div key={unit} className="text-center">
-            <div className={`${tv ? "text-7xl" : "text-3xl sm:text-5xl"} font-bold mb-2`}>{timeRemaining[unit]}</div>
-            <div className={`${tv ? "text-base" : "text-xs sm:text-sm"} uppercase tracking-wider opacity-90`}>{unit}</div>
+            <div className={`${tv ? "text-5xl" : "text-3xl sm:text-5xl"} font-bold mb-1`}>{timeRemaining[unit]}</div>
+            <div className={`${tv ? "text-sm" : "text-xs sm:text-sm"} uppercase tracking-wider opacity-90`}>{unit}</div>
           </div>
         ))}
       </div>
@@ -159,11 +159,11 @@ const CleanupCountdown = memo(function CleanupCountdown({
   if (cleanupSeconds === null) return null;
 
   return (
-    <div className="bg-amber-500/20 border-2 border-amber-500 rounded-2xl p-4 sm:p-6 mb-6 text-center animate-pulse">
-      <div className={`text-amber-400 ${tv ? "text-2xl" : "text-base sm:text-lg"} font-semibold uppercase tracking-wider mb-1`}>
+    <div className={`bg-amber-500/20 border-2 border-amber-500 rounded-2xl p-4 sm:p-6 ${tv ? "mb-4" : "mb-6"} text-center animate-pulse flex-shrink-0`}>
+      <div className={`text-amber-400 ${tv ? "text-lg" : "text-base sm:text-lg"} font-semibold uppercase tracking-wider mb-1`}>
         Cleanup Time
       </div>
-      <div className={`${tv ? "text-7xl" : "text-3xl sm:text-5xl"} font-bold text-white`}>
+      <div className={`${tv ? "text-5xl" : "text-3xl sm:text-5xl"} font-bold text-white`}>
         {Math.floor(cleanupSeconds / 60)}:{(cleanupSeconds % 60).toString().padStart(2, "0")}
       </div>
     </div>
@@ -250,47 +250,47 @@ const ShiftCard = memo(function ShiftCard({
 }) {
   if (!shift) {
     return (
-      <div className={`bg-slate-800 rounded-2xl ${tv ? "p-10" : "p-5 sm:p-8"} flex-1`}>
-        <h2 className={`${tv ? "text-3xl" : "text-xl sm:text-2xl"} font-bold text-slate-400 mb-4`}>{title}</h2>
-        <p className={`text-slate-500 ${tv ? "text-2xl" : "text-lg sm:text-xl"}`}>No shift scheduled</p>
+      <div className={`bg-slate-800 rounded-2xl ${tv ? "p-6 flex flex-col" : "p-5 sm:p-8"} flex-1 min-h-0`}>
+        <h2 className={`${tv ? "text-2xl" : "text-xl sm:text-2xl"} font-bold text-slate-400 mb-4 flex-shrink-0`}>{title}</h2>
+        <p className={`text-slate-500 ${tv ? "text-xl" : "text-lg sm:text-xl"}`}>No shift scheduled</p>
       </div>
     );
   }
 
   return (
     <div
-      className={`rounded-2xl ${tv ? "p-10" : "p-5 sm:p-8"} flex-1 ${
+      className={`rounded-2xl ${tv ? "p-6 flex flex-col" : "p-5 sm:p-8"} flex-1 min-h-0 ${
         isCurrent
           ? "bg-primary-light/15 border-2 border-primary-light"
           : "bg-slate-800"
       }`}
     >
-      <div className="flex items-center justify-between mb-4">
-        <h2 className={`${tv ? "text-3xl" : "text-xl sm:text-2xl"} font-bold text-white`}>{title}</h2>
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <h2 className={`${tv ? "text-2xl" : "text-xl sm:text-2xl"} font-bold text-white`}>{title}</h2>
         {isCurrent && (
           <span className={`bg-primary-light text-primary-dark ${tv ? "text-base px-4 py-1.5" : "text-xs sm:text-sm px-2 sm:px-3 py-1"} font-bold rounded-full animate-pulse`}>
             LIVE
           </span>
         )}
       </div>
-      <div className={`${tv ? "text-4xl" : "text-xl sm:text-3xl"} font-bold text-white mb-1`}>
+      <div className={`${tv ? "text-2xl" : "text-xl sm:text-3xl"} font-bold text-white mb-1 flex-shrink-0`}>
         {formatTimeDashboard(shift.startTime)} - {formatTimeDashboard(shift.endTime)}
       </div>
-      <div className={`${tv ? "text-2xl" : "text-base sm:text-xl"} text-slate-400 mb-2`}>
+      <div className={`${tv ? "text-lg" : "text-base sm:text-xl"} text-slate-400 mb-2 flex-shrink-0`}>
         {formatDateDashboard(shift.date)}
       </div>
       {shift.label && (
-        <div className={`${tv ? "text-xl" : "text-base sm:text-lg"} text-primary-light mb-4`}>{shift.label}</div>
+        <div className={`${tv ? "text-base" : "text-base sm:text-lg"} text-primary-light mb-4 flex-shrink-0`}>{shift.label}</div>
       )}
 
-      <div className="mt-6">
-        <div className={`${tv ? "text-base" : "text-xs sm:text-sm"} text-slate-400 uppercase tracking-wider mb-3`}>
+      <div className={`mt-4 ${tv ? "flex-1 min-h-0 flex flex-col" : "mt-6"}`}>
+        <div className={`${tv ? "text-sm" : "text-xs sm:text-sm"} text-slate-400 uppercase tracking-wider mb-3 flex-shrink-0`}>
           Mentors ({shift.signups.length})
         </div>
         {shift.signups.length === 0 ? (
           <p className="text-slate-500 italic">No one signed up yet</p>
         ) : (
-          <div className={`grid gap-2 ${tv ? "grid-cols-2 gap-3" : "grid-cols-1 sm:grid-cols-2"}`}>
+          <div className={`grid gap-2 ${tv ? "grid-cols-2 gap-3 overflow-auto" : "grid-cols-1 sm:grid-cols-2"}`}>
             {shift.signups.map((signup) => (
               <div
                 key={signup.id}
@@ -424,15 +424,15 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-navy-dark text-white">
-      <div className={`${tvMode ? "p-10" : "p-4 sm:p-8"} ${tvMode ? "" : "max-w-6xl"} mx-auto`} style={{ zoom: `${zoom}%` }}>
+    <div className={`bg-navy-dark text-white ${tvMode ? "h-screen overflow-hidden" : "min-h-screen"}`}>
+      <div className={`${tvMode ? "p-6 h-full flex flex-col" : "p-4 sm:p-8 max-w-6xl"} mx-auto`} style={{ zoom: `${zoom}%` }}>
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
+        <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${tvMode ? "mb-4" : "mb-6 sm:mb-8"} flex-shrink-0`}>
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             {branding.logoPath && (
-              <img src="/api/logo" alt="" className={`${tvMode ? "h-16" : "h-8 sm:h-12"} w-auto flex-shrink-0`} />
+              <img src="/api/logo" alt="" className={`${tvMode ? "h-12" : "h-8 sm:h-12"} w-auto flex-shrink-0`} />
             )}
-            <h1 className={`${tvMode ? "text-5xl" : "text-2xl sm:text-4xl"} font-bold truncate`}>{branding.appName}</h1>
+            <h1 className={`${tvMode ? "text-3xl" : "text-2xl sm:text-4xl"} font-bold truncate`}>{branding.appName}</h1>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <div className={`${tvMode ? "text-base" : "text-xs sm:text-sm"} text-slate-500`}>
@@ -477,7 +477,7 @@ export default function DashboardPage() {
         <CleanupCountdown currentShift={currentShift} nextShift={nextShift} tv={tvMode} />
 
         {/* Shift Cards */}
-        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
+        <div className={`flex flex-col lg:flex-row gap-4 ${tvMode ? "flex-1 min-h-0" : "sm:gap-6"}`}>
           <ShiftCard
             shift={currentShift}
             title="Current Shift"
@@ -487,49 +487,91 @@ export default function DashboardPage() {
           <ShiftCard shift={nextShift} title="Next Shift" tv={tvMode} />
         </div>
 
-        {/* Goals */}
-        <div className={`mt-6 sm:mt-8 bg-slate-800 rounded-2xl ${tvMode ? "p-8" : "p-4 sm:p-6"}`}>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className={`${tvMode ? "text-2xl" : "text-base sm:text-lg"} font-semibold text-white`}>Today&apos;s Goals</h2>
-            {goalsSaved && (
-              <span className="text-xs text-green-400">Saved</span>
+        {/* Goals + Quote row */}
+        {tvMode ? (
+          <div className="flex gap-4 mt-4 flex-shrink-0">
+            <div className="flex-[2] bg-slate-800 rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-semibold text-white">Today&apos;s Goals</h2>
+                {goalsSaved && (
+                  <span className="text-xs text-green-400">Saved</span>
+                )}
+              </div>
+              <textarea
+                value={goals}
+                onChange={(e) => handleGoalsChange(e.target.value)}
+                placeholder="What are we working on today?"
+                rows={2}
+                className="w-full bg-slate-700/50 text-white rounded-lg px-4 py-2 text-base placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none"
+              />
+            </div>
+            {quote && (
+              <div
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/quote?random=true");
+                    const data = await res.json();
+                    if (data.quote) setQuote(data.quote);
+                  } catch { /* ignore */ }
+                }}
+                className="flex-1 bg-slate-800/50 rounded-2xl p-4 flex flex-col justify-center text-center cursor-pointer hover:bg-slate-800/70 transition-colors"
+              >
+                <p className="text-lg text-slate-300 italic">
+                  &ldquo;{quote.text}&rdquo;
+                </p>
+                {quote.author && (
+                  <p className="text-sm text-slate-500 mt-1">&mdash; {quote.author}</p>
+                )}
+              </div>
             )}
           </div>
-          <textarea
-            value={goals}
-            onChange={(e) => handleGoalsChange(e.target.value)}
-            placeholder="What are we working on today?"
-            rows={tvMode ? 3 : 4}
-            className={`w-full bg-slate-700/50 text-white rounded-lg px-3 sm:px-4 py-3 ${tvMode ? "text-xl" : "text-base sm:text-lg"} placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none`}
-          />
-        </div>
+        ) : (
+          <>
+            {/* Goals */}
+            <div className="mt-6 sm:mt-8 bg-slate-800 rounded-2xl p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base sm:text-lg font-semibold text-white">Today&apos;s Goals</h2>
+                {goalsSaved && (
+                  <span className="text-xs text-green-400">Saved</span>
+                )}
+              </div>
+              <textarea
+                value={goals}
+                onChange={(e) => handleGoalsChange(e.target.value)}
+                placeholder="What are we working on today?"
+                rows={4}
+                className="w-full bg-slate-700/50 text-white rounded-lg px-3 sm:px-4 py-3 text-base sm:text-lg placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none"
+              />
+            </div>
 
-        {/* Quote */}
-        {quote && (
-          <div
-            onClick={async () => {
-              try {
-                const res = await fetch("/api/quote?random=true");
-                const data = await res.json();
-                if (data.quote) setQuote(data.quote);
-              } catch { /* ignore */ }
-            }}
-            className={`mt-6 sm:mt-8 bg-slate-800/50 rounded-2xl ${tvMode ? "p-8" : "p-4 sm:p-6"} text-center cursor-pointer hover:bg-slate-800/70 transition-colors`}
-          >
-            <p className={`${tvMode ? "text-2xl" : "text-base sm:text-xl"} text-slate-300 italic`}>
-              &ldquo;{quote.text}&rdquo;
-            </p>
-            {quote.author && (
-              <p className={`${tvMode ? "text-base" : "text-xs sm:text-sm"} text-slate-500 mt-2`}>&mdash; {quote.author}</p>
+            {/* Quote */}
+            {quote && (
+              <div
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/quote?random=true");
+                    const data = await res.json();
+                    if (data.quote) setQuote(data.quote);
+                  } catch { /* ignore */ }
+                }}
+                className="mt-6 sm:mt-8 bg-slate-800/50 rounded-2xl p-4 sm:p-6 text-center cursor-pointer hover:bg-slate-800/70 transition-colors"
+              >
+                <p className="text-base sm:text-xl text-slate-300 italic">
+                  &ldquo;{quote.text}&rdquo;
+                </p>
+                {quote.author && (
+                  <p className="text-xs sm:text-sm text-slate-500 mt-2">&mdash; {quote.author}</p>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {/* Build info */}
-        {process.env.NEXT_PUBLIC_GIT_COMMIT && (
-          <div className="mt-8 text-center text-xs text-slate-600">
-            Build: {process.env.NEXT_PUBLIC_GIT_COMMIT}
-          </div>
+            {/* Build info */}
+            {process.env.NEXT_PUBLIC_GIT_COMMIT && (
+              <div className="mt-8 text-center text-xs text-slate-600">
+                Build: {process.env.NEXT_PUBLIC_GIT_COMMIT}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

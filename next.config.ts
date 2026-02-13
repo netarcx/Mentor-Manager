@@ -11,7 +11,7 @@ try {
 const nextConfig: NextConfig = {
   output: "standalone",
   env: {
-    NEXT_PUBLIC_GIT_COMMIT: gitCommit,
+    NEXT_PUBLIC_GIT_COMMIT: gitCommit || process.env.NEXT_PUBLIC_GIT_COMMIT || "",
   },
 };
 

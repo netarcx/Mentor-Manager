@@ -22,7 +22,7 @@ export default function NavBrand({ initialName }: { initialName: string }) {
       {logoPath && (
         <img src="/api/logo" alt="" className="h-8 w-auto" />
       )}
-      {appName}
+      <span className="hidden sm:inline">{appName}</span>
     </Link>
   );
 }
