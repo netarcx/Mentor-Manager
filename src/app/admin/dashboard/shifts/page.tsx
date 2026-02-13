@@ -4,6 +4,14 @@ import { useState, useEffect } from "react";
 import { isWithinDays } from "@/lib/utils";
 import { MIN_MENTOR_SIGNUPS } from "@/lib/constants";
 
+interface Signup {
+  id: number;
+  checkedInAt: string | null;
+  virtual: boolean;
+  note: string;
+  mentor: { id: number; name: string; email: string };
+}
+
 interface Shift {
   id: number;
   date: string;
@@ -13,12 +21,14 @@ interface Shift {
   cancelled: boolean;
   templateId: number | null;
   _count: { signups: number };
+  signups: Signup[];
 }
 
 export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [expandedShift, setExpandedShift] = useState<number | null>(null);
   const [form, setForm] = useState({
     date: "",
     startTime: "18:00",
@@ -65,6 +75,36 @@ export default function ShiftsPage() {
       const data = await res.json();
       alert(data.error || "Failed to delete");
     }
+    fetchShifts();
+  }
+
+  async function handleCheckIn(signupId: number) {
+    await fetch("/api/check-in", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ signupId }),
+    });
+    fetchShifts();
+  }
+
+  async function handleUndoCheckIn(signupId: number) {
+    await fetch("/api/check-in", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ signupId }),
+    });
+    fetchShifts();
+  }
+
+  async function handleCheckInAll(shift: Shift) {
+    const unchecked = shift.signups.filter((s) => !s.checkedInAt).map((s) => s.id);
+    if (unchecked.length === 0) return;
+
+    await fetch("/api/check-in", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ signupIds: unchecked }),
+    });
     fetchShifts();
   }
 
@@ -185,74 +225,167 @@ export default function ShiftsPage() {
                 </th>
               </tr>
             </thead>
-            <tbody>
               {shifts.map((s) => {
                 const needsHelp = !s.cancelled && s._count.signups < MIN_MENTOR_SIGNUPS && isWithinDays(s.date, 7);
+                const isExpanded = expandedShift === s.id;
+                const checkedIn = s.signups.filter((su) => su.checkedInAt).length;
                 return (
-                <tr
-                  key={s.id}
-                  className={`border-t border-slate-100 hover:bg-slate-50 ${
-                    s.cancelled ? "opacity-50" : needsHelp ? "bg-amber-50" : ""
-                  }`}
-                >
-                  <td className="px-4 py-3 font-medium">{s.date}</td>
-                  <td className="px-4 py-3">
-                    {s.startTime} - {s.endTime}
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">
-                    {s.label || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs px-2 py-1 rounded ${
-                        s.templateId
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {s.templateId ? "Template" : "Manual"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {needsHelp ? (
-                      <span className="bg-amber-100 text-amber-700 text-xs font-medium px-2 py-1 rounded">
-                        {s._count.signups} &#9888;
-                      </span>
-                    ) : (
-                      s._count.signups
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {s.cancelled ? (
-                      <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
-                        Cancelled
-                      </span>
-                    ) : (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                        Active
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right space-x-2">
-                    <button
-                      onClick={() => toggleCancel(s)}
-                      className="text-sm text-slate-500 hover:underline"
-                    >
-                      {s.cancelled ? "Restore" : "Cancel"}
-                    </button>
-                    {s._count.signups === 0 && (
-                      <button
-                        onClick={() => deleteShift(s.id)}
-                        className="text-sm text-red-500 hover:underline"
+                <tbody key={s.id}>
+                  <tr
+                    className={`border-t border-slate-100 hover:bg-slate-50 ${
+                      s.cancelled ? "opacity-50" : needsHelp ? "bg-amber-50" : ""
+                    } ${s._count.signups > 0 ? "cursor-pointer" : ""}`}
+                    onClick={() => {
+                      if (s._count.signups > 0) {
+                        setExpandedShift(isExpanded ? null : s.id);
+                      }
+                    }}
+                  >
+                    <td className="px-4 py-3 font-medium">
+                      {s._count.signups > 0 && (
+                        <span className="text-slate-400 mr-1">{isExpanded ? "\u25BC" : "\u25B6"}</span>
+                      )}
+                      {s.date}
+                    </td>
+                    <td className="px-4 py-3">
+                      {s.startTime} - {s.endTime}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">
+                      {s.label || "\u2014"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`text-xs px-2 py-1 rounded ${
+                          s.templateId
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
                       >
-                        Delete
+                        {s.templateId ? "Template" : "Manual"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {needsHelp ? (
+                        <span className="bg-amber-100 text-amber-700 text-xs font-medium px-2 py-1 rounded">
+                          {s._count.signups} &#9888;
+                        </span>
+                      ) : s._count.signups > 0 ? (
+                        <span>
+                          {s._count.signups}
+                          {checkedIn > 0 && (
+                            <span className="ml-1 text-xs text-green-600">
+                              ({checkedIn} checked in)
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        s._count.signups
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {s.cancelled ? (
+                        <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
+                          Cancelled
+                        </span>
+                      ) : (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => toggleCancel(s)}
+                        className="text-sm text-slate-500 hover:underline"
+                      >
+                        {s.cancelled ? "Restore" : "Cancel"}
                       </button>
-                    )}
-                  </td>
-                </tr>
+                      {s._count.signups === 0 && (
+                        <button
+                          onClick={() => deleteShift(s.id)}
+                          className="text-sm text-red-500 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={7} className="bg-slate-50 px-4 py-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-slate-600">
+                            Signups ({s.signups.length})
+                          </span>
+                          {s.signups.some((su) => !su.checkedInAt) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCheckInAll(s);
+                              }}
+                              className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors"
+                            >
+                              Check in all ({s.signups.filter((su) => !su.checkedInAt).length})
+                            </button>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          {s.signups.map((su) => (
+                            <div
+                              key={su.id}
+                              className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+                                su.checkedInAt ? "bg-green-50 border border-green-200" : "bg-white border border-slate-200"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {su.checkedInAt ? (
+                                  <span className="text-green-600 text-sm">&#10003;</span>
+                                ) : (
+                                  <span className="text-slate-300 text-sm">&#9675;</span>
+                                )}
+                                <div>
+                                  <span className="font-medium text-sm">{su.mentor.name}</span>
+                                  <span className="text-slate-400 text-xs ml-2">{su.mentor.email}</span>
+                                  {su.virtual && (
+                                    <span className="ml-2 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">Virtual</span>
+                                  )}
+                                  {su.note && (
+                                    <span className="ml-2 text-xs text-slate-400">&mdash; {su.note}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div>
+                                {su.checkedInAt ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUndoCheckIn(su.id);
+                                    }}
+                                    className="text-xs text-red-500 hover:underline"
+                                  >
+                                    Undo
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCheckIn(su.id);
+                                    }}
+                                    className="text-xs text-green-600 hover:underline font-medium"
+                                  >
+                                    Check in
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
                 );
               })}
-            </tbody>
           </table>
         </div>
       )}

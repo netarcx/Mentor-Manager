@@ -4,7 +4,27 @@ import { isAdminAuthenticated } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const { signupId } = await request.json();
+    const body = await request.json();
+
+    // Bulk check-in: { signupIds: number[] } — requires admin auth
+    if (body.signupIds && Array.isArray(body.signupIds)) {
+      if (!(await isAdminAuthenticated())) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      const result = await prisma.signup.updateMany({
+        where: {
+          id: { in: body.signupIds },
+          checkedInAt: null,
+        },
+        data: { checkedInAt: new Date() },
+      });
+
+      return NextResponse.json({ success: true, updated: result.count });
+    }
+
+    // Single check-in: { signupId: number }
+    const { signupId } = body;
 
     if (!signupId) {
       return NextResponse.json({ error: "signupId is required" }, { status: 400 });

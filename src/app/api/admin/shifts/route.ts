@@ -11,6 +11,10 @@ export async function GET() {
     include: {
       template: true,
       _count: { select: { signups: true } },
+      signups: {
+        include: { mentor: { select: { id: true, name: true, email: true } } },
+        orderBy: { signedUpAt: "asc" },
+      },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
