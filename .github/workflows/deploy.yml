@@ -38,5 +38,5 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
             docker load < /tmp/mentor-manager.tar.gz
-            cd /root/Mentor-Manager && docker compose up -d app
+            cd /root/Mentor-Manager && docker compose up -d --force-recreate app
             rm /tmp/mentor-manager.tar.gz
