@@ -4,24 +4,28 @@ import { shiftDurationHours, todayISO } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+// Tracking started on this date — exclude earlier shifts
+const ATTENDANCE_START = "2026-02-12";
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get("seasonId");
     const today = todayISO();
 
-    // Build date filter: always cap at today so future shifts don't count
-    let shiftDateFilter: { gte?: string; lte: string } = { lte: today };
-    let adjustmentDateFilter: { gte?: string; lte: string } = { lte: today };
+    // Build date filter: floor at ATTENDANCE_START, cap at today
+    let shiftDateFilter: { gte: string; lte: string } = { gte: ATTENDANCE_START, lte: today };
+    let adjustmentDateFilter: { gte: string; lte: string } = { gte: ATTENDANCE_START, lte: today };
 
     if (seasonId && seasonId !== "all") {
       const season = await prisma.season.findUnique({
         where: { id: parseInt(seasonId, 10) },
       });
       if (season) {
+        const startFloor = season.startDate > ATTENDANCE_START ? season.startDate : ATTENDANCE_START;
         const endCap = season.endDate < today ? season.endDate : today;
-        shiftDateFilter = { gte: season.startDate, lte: endCap };
-        adjustmentDateFilter = { gte: season.startDate, lte: season.endDate };
+        shiftDateFilter = { gte: startFloor, lte: endCap };
+        adjustmentDateFilter = { gte: startFloor, lte: season.endDate };
       }
     }
 
