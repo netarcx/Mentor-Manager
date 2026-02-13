@@ -13,6 +13,7 @@ interface Branding {
   colorAccentBg: string;
   logoPath: string;
   faviconPath: string;
+  appleIconPath: string;
 }
 
 export default function SettingsPage() {
@@ -33,6 +34,7 @@ export default function SettingsPage() {
   const [colorAccentBg, setColorAccentBg] = useState("#f3e8ff");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
+  const appleIconInputRef = useRef<HTMLInputElement>(null);
   const soundInputRef = useRef<HTMLInputElement>(null);
   const cleanupSoundInputRef = useRef<HTMLInputElement>(null);
   const [soundPath, setSoundPath] = useState("");
@@ -364,6 +366,58 @@ export default function SettingsPage() {
       setBranding((prev) => prev ? { ...prev, faviconPath: "" } : prev);
     } catch {
       showError("Failed to remove favicon");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleAppleIconUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading("apple-icon");
+
+    try {
+      const formData = new FormData();
+      formData.append("apple-icon", file);
+
+      const res = await fetch("/api/admin/settings/apple-icon", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.error || "Failed to upload icon");
+        return;
+      }
+
+      showMessage("Home screen icon uploaded!");
+      const brandingRes = await fetch("/api/branding");
+      const brandingData: Branding = await brandingRes.json();
+      setBranding(brandingData);
+    } catch {
+      showError("Failed to upload icon");
+    } finally {
+      setLoading("");
+      if (appleIconInputRef.current) appleIconInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemoveAppleIcon() {
+    setLoading("apple-icon");
+
+    try {
+      const res = await fetch("/api/admin/settings/apple-icon", {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to remove icon");
+
+      showMessage("Home screen icon removed!");
+      setBranding((prev) => prev ? { ...prev, appleIconPath: "" } : prev);
+    } catch {
+      showError("Failed to remove icon");
     } finally {
       setLoading("");
     }
@@ -1080,6 +1134,58 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Home Screen Icon (Apple Touch Icon) */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold mb-4">Home Screen Icon</h2>
+          <p className="text-sm text-slate-600 mb-4">
+            Shown when someone adds this site to their iPhone or iPad home screen.
+            Use a square PNG image, ideally 180x180 pixels.
+          </p>
+
+          {branding?.appleIconPath ? (
+            <div className="mb-4">
+              <div className="flex items-center gap-4">
+                <img
+                  src={`/api/apple-icon?t=${Date.now()}`}
+                  alt="Current home screen icon"
+                  className="h-14 w-14 border border-slate-200 rounded-xl"
+                />
+                <div>
+                  <p className="text-sm text-slate-600">Current icon</p>
+                  <button
+                    onClick={handleRemoveAppleIcon}
+                    disabled={loading === "apple-icon"}
+                    className="text-red-600 hover:text-red-700 text-sm underline mt-1"
+                  >
+                    {loading === "apple-icon" ? "Removing..." : "Remove icon"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500 mb-4">
+              No icon uploaded. iPhones will use a screenshot of the page instead.
+            </p>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Upload Icon
+            </label>
+            <input
+              ref={appleIconInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleAppleIconUpload}
+              disabled={loading === "apple-icon"}
+              className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark file:cursor-pointer disabled:opacity-50"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              PNG, JPG, or WebP. Max 2MB. Square 180x180px recommended.
+            </p>
+          </div>
+        </div>
+
         {/* Shift Change Sound */}
         <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
           <h2 className="text-lg font-semibold mb-4">Shift Change Sound</h2>
@@ -1127,7 +1233,7 @@ export default function SettingsPage() {
             <input
               ref={soundInputRef}
               type="file"
-              accept="audio/mpeg,audio/wav,audio/ogg,audio/webm"
+              accept="audio/*"
               onChange={handleSoundUpload}
               disabled={loading === "sound"}
               className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark file:cursor-pointer disabled:opacity-50"
@@ -1248,7 +1354,7 @@ export default function SettingsPage() {
             <input
               ref={cleanupSoundInputRef}
               type="file"
-              accept="audio/mpeg,audio/wav,audio/ogg,audio/webm"
+              accept="audio/*"
               onChange={handleCleanupSoundUpload}
               disabled={loading === "cleanup-sound"}
               className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark file:cursor-pointer disabled:opacity-50"

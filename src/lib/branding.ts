@@ -13,6 +13,7 @@ export interface Branding {
   colorAccentBg: string;
   logoPath: string;
   faviconPath: string;
+  appleIconPath: string;
 }
 
 const defaults: Branding = {
@@ -26,6 +27,7 @@ const defaults: Branding = {
   colorAccentBg: "#f3e8ff",
   logoPath: "",
   faviconPath: "",
+  appleIconPath: "",
 };
 
 const keyMap: Record<string, keyof Branding> = {
@@ -39,6 +41,7 @@ const keyMap: Record<string, keyof Branding> = {
   color_accent_bg: "colorAccentBg",
   logo_path: "logoPath",
   favicon_path: "faviconPath",
+  apple_icon_path: "appleIconPath",
 };
 
 export function getDefaultBranding(): Branding {

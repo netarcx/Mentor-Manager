@@ -7,12 +7,10 @@ import path from "path";
 export const dynamic = "force-dynamic";
 
 const MIME_TYPES: Record<string, string> = {
-  mp3: "audio/mpeg",
-  wav: "audio/wav",
-  ogg: "audio/ogg",
-  webm: "audio/webm",
-  m4a: "audio/mp4",
-  aac: "audio/aac",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
 };
 
 function getDataDir(): string {
@@ -25,7 +23,7 @@ function getDataDir(): string {
 
 export async function GET() {
   try {
-    const setting = await prisma.setting.findUnique({ where: { key: "shift_sound_path" } });
+    const setting = await prisma.setting.findUnique({ where: { key: "apple_icon_path" } });
 
     if (!setting?.value) {
       return new NextResponse(null, { status: 404 });
@@ -39,13 +37,13 @@ export async function GET() {
     }
 
     const buffer = await readFile(filePath);
-    const ext = setting.value.split(".").pop()?.toLowerCase() || "mp3";
-    const contentType = MIME_TYPES[ext] || "application/octet-stream";
+    const ext = setting.value.split(".").pop()?.toLowerCase() || "png";
+    const contentType = MIME_TYPES[ext] || "image/png";
 
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": "public, max-age=3600",
       },
     });
   } catch {

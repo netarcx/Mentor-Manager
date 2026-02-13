@@ -45,6 +45,9 @@ export default async function RootLayout({
         {branding.faviconPath && (
           <link rel="icon" href="/api/favicon" />
         )}
+        {branding.appleIconPath && (
+          <link rel="apple-touch-icon" href="/api/apple-icon" />
+        )}
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}

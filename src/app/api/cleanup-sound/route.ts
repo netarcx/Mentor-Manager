@@ -12,6 +12,7 @@ const MIME_TYPES: Record<string, string> = {
   ogg: "audio/ogg",
   webm: "audio/webm",
   m4a: "audio/mp4",
+  aac: "audio/aac",
 };
 
 function getDataDir(): string {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { writeFile, unlink } from "fs/promises";
+import { writeFile, unlink, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
@@ -13,7 +13,11 @@ function getDataDir(): string {
   return path.resolve(process.cwd(), "data");
 }
 
-const ALLOWED_TYPES = ["audio/mpeg", "audio/wav", "audio/ogg", "audio/webm", "audio/mp4", "audio/x-wav"];
+const ALLOWED_TYPES = [
+  "audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/wave",
+  "audio/ogg", "audio/webm", "audio/mp4", "audio/x-m4a", "audio/aac",
+  "audio/m4a", "audio/x-aac",
+];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(request: Request) {
@@ -53,6 +57,9 @@ export async function POST(request: Request) {
         await unlink(oldPath);
       }
     }
+
+    // Ensure data directory exists
+    await mkdir(dataDir, { recursive: true });
 
     // Save new sound
     const buffer = Buffer.from(await file.arrayBuffer());

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { writeFile, unlink } from "fs/promises";
+import { writeFile, unlink, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
@@ -54,6 +54,9 @@ export async function POST(request: Request) {
         await unlink(oldPath);
       }
     }
+
+    // Ensure data directory exists
+    await mkdir(dataDir, { recursive: true });
 
     // Save new favicon
     const buffer = Buffer.from(await file.arrayBuffer());
