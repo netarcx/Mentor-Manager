@@ -13,6 +13,8 @@ interface ShiftWithSignups {
     note: string;
     customStartTime: string | null;
     customEndTime: string | null;
+    checkedInAt: string | null;
+    virtual: boolean;
     mentor: { id: number; name: string; avatarPath: string };
   }[];
 }
@@ -246,11 +248,13 @@ const ShiftCard = memo(function ShiftCard({
   title,
   isCurrent,
   tv,
+  onCheckIn,
 }: {
   shift: ShiftWithSignups | null;
   title: string;
   isCurrent?: boolean;
   tv: boolean;
+  onCheckIn?: (signupId: number) => void;
 }) {
   if (!shift) {
     return (
@@ -298,12 +302,35 @@ const ShiftCard = memo(function ShiftCard({
             {shift.signups.map((signup) => (
               <div
                 key={signup.id}
-                className={`flex items-center gap-2 bg-slate-700/50 rounded-lg ${tv ? "px-4 py-3" : "px-2.5 py-2 sm:px-3"}`}
+                onClick={() => {
+                  if (isCurrent && onCheckIn && !signup.checkedInAt) {
+                    onCheckIn(signup.id);
+                  }
+                }}
+                className={`flex items-center gap-2 rounded-lg ${tv ? "px-4 py-3" : "px-2.5 py-2 sm:px-3"} ${
+                  signup.checkedInAt
+                    ? "bg-green-900/30 border border-green-700/50"
+                    : isCurrent && onCheckIn
+                      ? "bg-slate-700/50 cursor-pointer hover:bg-slate-600/50 transition-colors"
+                      : "bg-slate-700/50"
+                }`}
+                title={
+                  signup.checkedInAt
+                    ? `Checked in at ${new Date(signup.checkedInAt).toLocaleTimeString()}`
+                    : isCurrent && onCheckIn
+                      ? "Tap to check in"
+                      : undefined
+                }
               >
                 <MemoMentorAvatar mentor={signup.mentor} tv={tv} />
-                <div className="min-w-0">
-                  <div className={`text-white font-medium truncate ${tv ? "text-base" : "text-sm"}`}>
+                <div className="min-w-0 flex-1">
+                  <div className={`text-white font-medium truncate flex items-center gap-1.5 ${tv ? "text-base" : "text-sm"}`}>
                     {signup.mentor.name}
+                    {signup.virtual && (
+                      <span className={`flex-shrink-0 bg-blue-500/20 text-blue-300 rounded px-1 ${tv ? "text-xs" : "text-[10px]"}`}>
+                        Virtual
+                      </span>
+                    )}
                   </div>
                   {(signup.customStartTime || signup.customEndTime) && (
                     <div className={`${tv ? "text-sm" : "text-xs"} text-slate-400`}>
@@ -314,6 +341,11 @@ const ShiftCard = memo(function ShiftCard({
                     <div className={`${tv ? "text-sm" : "text-xs"} text-slate-400 truncate`}>{signup.note}</div>
                   )}
                 </div>
+                {signup.checkedInAt ? (
+                  <span className={`flex-shrink-0 text-green-400 ${tv ? "text-xl" : "text-base"}`} title="Checked in">&#10003;</span>
+                ) : isCurrent && onCheckIn ? (
+                  <span className={`flex-shrink-0 text-slate-500 ${tv ? "text-sm" : "text-xs"}`}>tap</span>
+                ) : null}
               </div>
             ))}
           </div>
@@ -434,6 +466,30 @@ export default function DashboardPage() {
       }
     }, 1000);
   }
+
+  const handleCheckIn = useCallback(async (signupId: number) => {
+    try {
+      const res = await fetch("/api/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signupId }),
+      });
+      if (res.ok) {
+        // Update local state immediately
+        setCurrentShift((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            signups: prev.signups.map((s) =>
+              s.id === signupId ? { ...s, checkedInAt: new Date().toISOString() } : s
+            ),
+          };
+        });
+      }
+    } catch {
+      // Silent fail
+    }
+  }, []);
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -588,6 +644,7 @@ export default function DashboardPage() {
               title={displayLeftTitle}
               isCurrent={!isBrowsing && !!currentShift}
               tv={tvMode}
+              onCheckIn={!isBrowsing ? handleCheckIn : undefined}
             />
             <ShiftCard shift={displayRight} title={displayRightTitle} tv={tvMode} />
           </div>

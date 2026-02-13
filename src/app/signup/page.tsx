@@ -19,6 +19,16 @@ interface Mentor {
   email: string;
 }
 
+const SPECIAL_LABELS = ["leadership meeting", "mentor meeting"];
+
+function isSpecialShift(label: string): boolean {
+  return SPECIAL_LABELS.includes(label.toLowerCase());
+}
+
+function isMentorMeeting(label: string): boolean {
+  return label.toLowerCase() === "mentor meeting";
+}
+
 export default function SignupPage() {
   const [step, setStep] = useState<"info" | "shifts" | "done">("info");
   const [name, setName] = useState("");
@@ -27,7 +37,7 @@ export default function SignupPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [today, setToday] = useState("");
   const [showPast, setShowPast] = useState(false);
-  const [selected, setSelected] = useState<Map<number, { note: string; customStartTime: string; customEndTime: string }>>(new Map());
+  const [selected, setSelected] = useState<Map<number, { note: string; customStartTime: string; customEndTime: string; virtual: boolean }>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [existingMentors, setExistingMentors] = useState<Mentor[]>([]);
@@ -84,13 +94,13 @@ export default function SignupPage() {
       if (next.has(shift.id)) {
         next.delete(shift.id);
       } else {
-        next.set(shift.id, { note: "", customStartTime: shift.startTime, customEndTime: shift.endTime });
+        next.set(shift.id, { note: "", customStartTime: shift.startTime, customEndTime: shift.endTime, virtual: false });
       }
       return next;
     });
   }
 
-  function updateSelection(shiftId: number, updates: Partial<{ note: string; customStartTime: string; customEndTime: string }>) {
+  function updateSelection(shiftId: number, updates: Partial<{ note: string; customStartTime: string; customEndTime: string; virtual: boolean }>) {
     setSelected((prev) => {
       const next = new Map(prev);
       const current = next.get(shiftId);
@@ -116,6 +126,7 @@ export default function SignupPage() {
           note: data.note,
           ...(hasCustomStart && { customStartTime: data.customStartTime }),
           ...(hasCustomEnd && { customEndTime: data.customEndTime }),
+          ...(data.virtual && { virtual: true }),
         };
       });
 
@@ -327,6 +338,7 @@ export default function SignupPage() {
                       const isDisabled = isPast || alreadySignedUp;
                       const isSelected = !isDisabled && selected.has(shift.id);
                       const needsHelp = !isDisabled && shift.signups.length < MIN_MENTOR_SIGNUPS && isWithinDays(shift.date, 7);
+                      const isSpecial = isSpecialShift(shift.label);
                       return (
                         <div
                           key={shift.id}
@@ -339,7 +351,9 @@ export default function SignupPage() {
                                   ? "border-primary bg-accent-bg cursor-pointer"
                                   : needsHelp
                                     ? "border-amber-300 bg-amber-50 hover:border-amber-400 cursor-pointer"
-                                    : "border-slate-200 hover:border-slate-300 cursor-pointer"
+                                    : isSpecial
+                                      ? "border-blue-200 bg-blue-50/50 hover:border-blue-300 cursor-pointer"
+                                      : "border-slate-200 hover:border-slate-300 cursor-pointer"
                           }`}
                           onClick={() => !isDisabled && toggleShift(shift)}
                         >
@@ -350,9 +364,15 @@ export default function SignupPage() {
                                 {formatTime(shift.endTime)}
                               </span>
                               {shift.label && (
-                                <span className="ml-2 text-sm text-slate-500">
-                                  ({shift.label})
-                                </span>
+                                isSpecial ? (
+                                  <span className="ml-2 text-xs font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                    {shift.label}
+                                  </span>
+                                ) : (
+                                  <span className="ml-2 text-sm text-slate-500">
+                                    ({shift.label})
+                                  </span>
+                                )
                               )}
                             </div>
                             <span className={`text-sm ${alreadySignedUp ? "text-green-700 font-medium" : needsHelp ? "text-amber-700 font-medium" : "text-slate-500"}`}>
@@ -402,6 +422,19 @@ export default function SignupPage() {
                                   className="border border-slate-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                                 />
                               </div>
+                              {isMentorMeeting(shift.label) && (
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={selected.get(shift.id)?.virtual || false}
+                                    onChange={(e) =>
+                                      updateSelection(shift.id, { virtual: e.target.checked })
+                                    }
+                                    className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+                                  />
+                                  <span className="text-sm text-slate-600">Joining virtually</span>
+                                </label>
+                              )}
                               <input
                                 type="text"
                                 placeholder="Add a note (optional) e.g. 'Bringing pizza'"
