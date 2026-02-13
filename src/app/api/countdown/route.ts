@@ -23,7 +23,8 @@ export async function GET() {
       targetDate: settingsMap.countdown_target_date || "",
       label: settingsMap.countdown_label || "Event",
     });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

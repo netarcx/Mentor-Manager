@@ -15,7 +15,7 @@ export async function PUT(
     const data = await request.json();
 
     const template = await prisma.shiftTemplate.update({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id, 10) },
       data: {
         ...(data.dayOfWeek !== undefined && { dayOfWeek: data.dayOfWeek }),
         ...(data.startTime && { startTime: data.startTime }),
@@ -26,7 +26,8 @@ export async function PUT(
     });
 
     return NextResponse.json(template);
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -44,9 +45,10 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    await prisma.shiftTemplate.delete({ where: { id: parseInt(id) } });
+    await prisma.shiftTemplate.delete({ where: { id: parseInt(id, 10) } });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

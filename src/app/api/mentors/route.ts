@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ mentors });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -81,7 +82,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(mentor);
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

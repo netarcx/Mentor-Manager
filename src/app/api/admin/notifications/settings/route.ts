@@ -12,7 +12,8 @@ export async function GET() {
     const settings = await getNotificationSettings();
     const appriseHealthy = await isAppriseHealthy();
     return NextResponse.json({ ...settings, appriseHealthy });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -32,11 +33,12 @@ export async function POST(request: Request) {
       broadcastUrls: String(broadcastUrls ?? ""),
       reminderDay: String(reminderDay ?? "1"),
       reminderTime: String(reminderTime ?? "09:00"),
-      lookAheadDays: Math.max(1, Math.min(30, parseInt(lookAheadDays) || 7)),
+      lookAheadDays: Math.max(1, Math.min(30, parseInt(lookAheadDays, 10) || 7)),
     });
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

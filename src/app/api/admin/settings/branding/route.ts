@@ -56,19 +56,22 @@ export async function POST(request: Request) {
       updates.push({ key: "registration_enabled", value: String(body.registrationEnabled) });
     }
 
-    for (const { key, value } of updates) {
-      await prisma.setting.upsert({
-        where: { key },
-        update: { value },
-        create: { key, value },
-      });
-    }
+    await prisma.$transaction(
+      updates.map(({ key, value }) =>
+        prisma.setting.upsert({
+          where: { key },
+          update: { value },
+          create: { key, value },
+        })
+      )
+    );
 
     // Revalidate all pages so the root layout picks up new branding
     revalidatePath("/", "layout");
 
     return NextResponse.json({ success: true, updated: updates.length });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

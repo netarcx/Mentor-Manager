@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { SHIFT_GENERATION_WEEKS } from "./constants";
+import { todayISO } from "./utils";
 
 export async function generateShiftsFromTemplates(
   weeksAhead: number = SHIFT_GENERATION_WEEKS
@@ -11,8 +12,10 @@ export async function generateShiftsFromTemplates(
   if (templates.length === 0) return 0;
 
   let created = 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Use Central Time "today" so shift generation is correct near midnight
+  const todayStr = todayISO();
+  const [ty, tm, td] = todayStr.split("-").map(Number);
+  const today = new Date(ty, tm - 1, td);
 
   const endDate = new Date(today);
   endDate.setDate(endDate.getDate() + weeksAhead * 7);

@@ -14,7 +14,8 @@ export async function POST(request: Request) {
     const generated = await generateShiftsFromTemplates(weeksAhead);
 
     return NextResponse.json({ generated });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

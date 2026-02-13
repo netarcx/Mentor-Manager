@@ -11,14 +11,20 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get("seasonId");
 
-    // Build date filter from season
-    let dateFilter: { gte?: string; lte?: string } | undefined;
+    // Attendance tracking started on this date — exclude earlier shifts
+    const ATTENDANCE_START = "2026-02-12";
+
+    // Build date filter from season, floored to attendance start date
+    let dateFilter: { gte: string; lte?: string } = { gte: ATTENDANCE_START };
     if (seasonId) {
       const season = await prisma.season.findUnique({
         where: { id: parseInt(seasonId, 10) },
       });
       if (season) {
-        dateFilter = { gte: season.startDate, lte: season.endDate };
+        dateFilter = {
+          gte: season.startDate > ATTENDANCE_START ? season.startDate : ATTENDANCE_START,
+          lte: season.endDate,
+        };
       }
     }
 
@@ -27,7 +33,7 @@ export async function GET(request: NextRequest) {
       where: {
         shift: {
           cancelled: false,
-          ...(dateFilter ? { date: dateFilter } : {}),
+          date: dateFilter,
         },
       },
       include: {
@@ -81,7 +87,8 @@ export async function GET(request: NextRequest) {
         mentorCount: mentorMap.size,
       },
     });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

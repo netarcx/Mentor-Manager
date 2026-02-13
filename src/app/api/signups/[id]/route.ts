@@ -10,7 +10,7 @@ export async function DELETE(
     const { mentorId } = await request.json();
 
     const signup = await prisma.signup.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id, 10) },
     });
 
     if (!signup) {
@@ -24,10 +24,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    await prisma.signup.delete({ where: { id: parseInt(id) } });
+    await prisma.signup.delete({ where: { id: parseInt(id, 10) } });
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

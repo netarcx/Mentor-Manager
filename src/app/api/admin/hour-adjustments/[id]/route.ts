@@ -12,9 +12,10 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    await prisma.hourAdjustment.delete({ where: { id: parseInt(id) } });
+    await prisma.hourAdjustment.delete({ where: { id: parseInt(id, 10) } });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

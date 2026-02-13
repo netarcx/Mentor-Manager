@@ -48,7 +48,8 @@ export async function GET() {
         "Cache-Control": "public, max-age=86400",
       },
     });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return new NextResponse(null, { status: 500 });
   }
 }

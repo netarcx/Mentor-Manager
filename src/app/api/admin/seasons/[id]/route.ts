@@ -15,7 +15,7 @@ export async function PUT(
     const data = await request.json();
 
     const season = await prisma.season.update({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id, 10) },
       data: {
         ...(data.name && { name: data.name }),
         ...(data.startDate && { startDate: data.startDate }),
@@ -24,7 +24,8 @@ export async function PUT(
     });
 
     return NextResponse.json(season);
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -42,9 +43,10 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    await prisma.season.delete({ where: { id: parseInt(id) } });
+    await prisma.season.delete({ where: { id: parseInt(id, 10) } });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

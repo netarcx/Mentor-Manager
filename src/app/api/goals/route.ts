@@ -9,7 +9,8 @@ export async function GET() {
     const today = todayISO();
     const goal = await prisma.dailyGoal.findUnique({ where: { date: today } });
     return NextResponse.json({ date: today, text: goal?.text || "" });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -26,7 +27,8 @@ export async function PUT(request: Request) {
     });
 
     return NextResponse.json({ date: goal.date, text: goal.text });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

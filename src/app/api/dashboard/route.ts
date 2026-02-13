@@ -182,7 +182,8 @@ export async function GET() {
       quote: quoteResult,
       goals: goal?.text || "",
     });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -207,7 +208,8 @@ async function getRandomQuote() {
       take: 1,
     });
     return quotes[0] || null;
-  } catch {
+  } catch (error) {
+    console.error(error);
     return null;
   }
 }

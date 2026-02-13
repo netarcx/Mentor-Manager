@@ -15,7 +15,7 @@ export async function PUT(
     const data = await request.json();
 
     const quote = await prisma.quote.update({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id, 10) },
       data: {
         ...(data.text !== undefined && { text: data.text }),
         ...(data.author !== undefined && { author: data.author }),
@@ -25,7 +25,8 @@ export async function PUT(
     });
 
     return NextResponse.json(quote);
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -43,9 +44,10 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    await prisma.quote.delete({ where: { id: parseInt(id) } });
+    await prisma.quote.delete({ where: { id: parseInt(id, 10) } });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

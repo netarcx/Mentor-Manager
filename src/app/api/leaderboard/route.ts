@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
     if (seasonId && seasonId !== "all") {
       const season = await prisma.season.findUnique({
-        where: { id: parseInt(seasonId) },
+        where: { id: parseInt(seasonId, 10) },
       });
       if (season) {
         const endCap = season.endDate < today ? season.endDate : today;
@@ -104,7 +104,8 @@ export async function GET(request: Request) {
     };
 
     return NextResponse.json({ mentors, stats, today });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

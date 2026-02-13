@@ -7,7 +7,8 @@ export async function GET() {
   try {
     const branding = await getBranding();
     return NextResponse.json(branding);
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

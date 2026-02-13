@@ -71,7 +71,8 @@ export async function POST(request: Request) {
 
     revalidatePath("/", "layout");
     return NextResponse.json({ success: true, appleIconPath: filename });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -99,7 +100,8 @@ export async function DELETE() {
 
     revalidatePath("/", "layout");
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

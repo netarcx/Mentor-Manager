@@ -100,7 +100,8 @@ export async function POST(request: Request) {
       mentorCount: mentors.length,
       shiftCount: validShiftIds.size,
     });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -21,7 +21,8 @@ export async function GET() {
       soundMinutes: parseInt(map.cleanup_sound_minutes || "20", 10),
       displayMinutes: parseInt(map.cleanup_display_minutes || "10", 10),
     });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

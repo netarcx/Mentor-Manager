@@ -44,6 +44,7 @@ model Shift {
   signups    Signup[]
 
   @@unique([date, startTime, endTime])
+  @@index([date])
   @@map("shifts")
 }
 

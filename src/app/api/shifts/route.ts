@@ -25,7 +25,8 @@ export async function GET(request: Request) {
     const registrationOpen = regSetting ? regSetting.value === "true" : true;
 
     return NextResponse.json({ shifts, today, registrationOpen });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

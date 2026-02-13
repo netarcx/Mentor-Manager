@@ -15,7 +15,7 @@ export async function PUT(
     const data = await request.json();
 
     const shift = await prisma.shift.update({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id, 10) },
       data: {
         ...(data.date && { date: data.date }),
         ...(data.startTime && { startTime: data.startTime }),
@@ -26,7 +26,8 @@ export async function PUT(
     });
 
     return NextResponse.json(shift);
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -45,7 +46,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     const shift = await prisma.shift.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id, 10) },
       include: { _count: { select: { signups: true } } },
     });
 
@@ -56,9 +57,10 @@ export async function DELETE(
       );
     }
 
-    await prisma.shift.delete({ where: { id: parseInt(id) } });
+    await prisma.shift.delete({ where: { id: parseInt(id, 10) } });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

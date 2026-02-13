@@ -31,7 +31,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const mentorId = parseInt(id);
+    const mentorId = parseInt(id, 10);
     if (isNaN(mentorId)) {
       return new NextResponse(null, { status: 400 });
     }
@@ -62,7 +62,8 @@ export async function GET(
         "Cache-Control": "public, max-age=3600",
       },
     });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return new NextResponse(null, { status: 500 });
   }
 }
@@ -73,7 +74,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const mentorId = parseInt(id);
+    const mentorId = parseInt(id, 10);
     if (isNaN(mentorId)) {
       return NextResponse.json({ error: "Invalid mentor ID" }, { status: 400 });
     }
@@ -123,7 +124,8 @@ export async function POST(
     });
 
     return NextResponse.json({ success: true, avatarPath: filename });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -134,7 +136,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const mentorId = parseInt(id);
+    const mentorId = parseInt(id, 10);
     if (isNaN(mentorId)) {
       return NextResponse.json({ error: "Invalid mentor ID" }, { status: 400 });
     }
@@ -158,7 +160,8 @@ export async function DELETE(
     });
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

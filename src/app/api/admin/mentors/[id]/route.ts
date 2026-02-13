@@ -12,7 +12,7 @@ export async function PUT(
 
   try {
     const { id } = await params;
-    const mentorId = parseInt(id);
+    const mentorId = parseInt(id, 10);
     if (isNaN(mentorId)) {
       return NextResponse.json({ error: "Invalid mentor ID" }, { status: 400 });
     }
@@ -29,7 +29,8 @@ export async function PUT(
     });
 
     return NextResponse.json({ mentor });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

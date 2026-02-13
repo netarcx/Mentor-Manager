@@ -14,7 +14,8 @@ export async function GET() {
     });
 
     return NextResponse.json({ adjustments });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -57,7 +58,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(adjustment, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
