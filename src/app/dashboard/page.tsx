@@ -761,7 +761,11 @@ export default function DashboardPage() {
             </button>
           </div>
           <button
-            onClick={() => setTvMode(!tvMode)}
+            onClick={() => {
+              const next = !tvMode;
+              setTvMode(next);
+              setZoom(next ? 70 : 100);
+            }}
             className={`${tvMode ? "bg-primary text-white" : "bg-slate-700 text-white"} hover:bg-slate-600 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm font-semibold`}
             title={tvMode ? "Switch to Desktop view" : "Switch to TV view"}
           >
