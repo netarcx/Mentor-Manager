@@ -433,6 +433,18 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Auto-enter TV + fullscreen mode when ?tv=1 is in the URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tv") === "1") {
+      setTvMode(true);
+      setZoom(70);
+      document.documentElement.requestFullscreen().catch(() => {});
+      // Clean up the URL
+      window.history.replaceState({}, "", "/dashboard");
+    }
+  }, []);
+
   // Fullscreen state tracking — hide nav bar when fullscreen
   useEffect(() => {
     function handleFullscreenChange() {

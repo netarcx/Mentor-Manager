@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { getBranding } from "@/lib/branding";
 import NavBrand from "@/components/NavBrand";
+import NavDashboardLink from "@/components/NavDashboardLink";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -59,12 +60,7 @@ export default async function RootLayout({
                 >
                   Sign Up
                 </Link>
-                <Link
-                  href="/dashboard"
-                  className="font-semibold hover:text-primary-light transition-colors"
-                >
-                  Dashboard
-                </Link>
+                <NavDashboardLink className="font-semibold hover:text-primary-light transition-colors" />
                 <Link
                   href="/student"
                   className="font-semibold hover:text-primary-light transition-colors"
