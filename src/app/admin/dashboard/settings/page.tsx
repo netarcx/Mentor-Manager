@@ -46,6 +46,17 @@ export default function SettingsPage() {
   // Registration state
   const [registrationOpen, setRegistrationOpen] = useState(true);
 
+  // Announcement state
+  const [announcementEnabled, setAnnouncementEnabled] = useState(false);
+  const [announcementText, setAnnouncementText] = useState("");
+
+  // Digest state
+  const [digestEnabled, setDigestEnabled] = useState(false);
+  const [digestFrequency, setDigestFrequency] = useState("weekly");
+  const [digestDay, setDigestDay] = useState("1");
+  const [digestTime, setDigestTime] = useState("09:00");
+  const [digestLastSent, setDigestLastSent] = useState("");
+
   // Countdown state
   const [countdownEnabled, setCountdownEnabled] = useState(false);
   const [countdownDate, setCountdownDate] = useState("");
@@ -164,6 +175,35 @@ export default function SettingsPage() {
       }
     }
 
+    async function fetchAnnouncement() {
+      try {
+        const res = await fetch("/api/admin/settings/announcement");
+        if (res.ok) {
+          const data = await res.json();
+          setAnnouncementEnabled(data.enabled);
+          setAnnouncementText(data.text);
+        }
+      } catch {
+        // Use defaults
+      }
+    }
+
+    async function fetchDigestSettings() {
+      try {
+        const res = await fetch("/api/admin/notifications/digest-settings");
+        if (res.ok) {
+          const data = await res.json();
+          setDigestEnabled(data.enabled);
+          setDigestFrequency(data.frequency);
+          setDigestDay(data.day);
+          setDigestTime(data.time);
+          setDigestLastSent(data.lastSent);
+        }
+      } catch {
+        // Use defaults
+      }
+    }
+
     fetchRegistration();
     fetchBranding();
     fetchCountdown();
@@ -171,6 +211,8 @@ export default function SettingsPage() {
     fetchSound();
     fetchCleanupSound();
     fetchCleanupSettings();
+    fetchAnnouncement();
+    fetchDigestSettings();
   }, []);
 
   function showMessage(msg: string) {
@@ -592,6 +634,86 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleSaveAnnouncement(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading("announcement");
+
+    try {
+      const res = await fetch("/api/admin/settings/announcement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: announcementEnabled, text: announcementText }),
+      });
+
+      if (!res.ok) {
+        showError("Failed to save announcement");
+        return;
+      }
+
+      showMessage("Announcement saved!");
+    } catch {
+      showError("Failed to save announcement");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleSaveDigest(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading("digest");
+
+    try {
+      const res = await fetch("/api/admin/notifications/digest-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: digestEnabled,
+          frequency: digestFrequency,
+          day: digestDay,
+          time: digestTime,
+        }),
+      });
+
+      if (!res.ok) {
+        showError("Failed to save digest settings");
+        return;
+      }
+
+      showMessage("Digest settings saved!");
+    } catch {
+      showError("Failed to save digest settings");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleSendDigestNow() {
+    setLoading("digest-send");
+
+    try {
+      const res = await fetch("/api/admin/notifications/send-digest", {
+        method: "POST",
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || "Failed to send digest");
+        return;
+      }
+
+      if (data.sent) {
+        showMessage("Digest sent!");
+        setDigestLastSent(new Date().toISOString());
+      } else {
+        showError(data.error || "Digest was not sent");
+      }
+    } catch {
+      showError("Failed to send digest");
+    } finally {
+      setLoading("");
+    }
+  }
+
   async function handleSaveNotifications(e: React.FormEvent) {
     e.preventDefault();
     setLoading("notifications");
@@ -793,6 +915,52 @@ export default function SettingsPage() {
               />
             </button>
           </div>
+        </div>
+
+        {/* Announcement Banner */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold mb-2">Announcement Banner</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Display a message across the top of the public dashboard.
+          </p>
+
+          <form onSubmit={handleSaveAnnouncement} className="space-y-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="announcement-enabled"
+                checked={announcementEnabled}
+                onChange={(e) => setAnnouncementEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300"
+              />
+              <label htmlFor="announcement-enabled" className="text-sm font-medium">
+                Show announcement on dashboard
+              </label>
+            </div>
+
+            {announcementEnabled && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Announcement Text
+                </label>
+                <textarea
+                  value={announcementText}
+                  onChange={(e) => setAnnouncementText(e.target.value)}
+                  rows={2}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  placeholder="e.g., Pizza night tonight! No meeting Thursday."
+                />
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading === "announcement"}
+              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm"
+            >
+              {loading === "announcement" ? "Saving..." : "Save Announcement"}
+            </button>
+          </form>
         </div>
 
         {/* App Name & Title */}
@@ -1659,6 +1827,115 @@ export default function SettingsPage() {
               )}
             </div>
           )}
+        </div>
+
+        {/* Digest Reports */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold mb-2">Digest Reports</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Send periodic attendance and team summary reports to your broadcast channels (Slack, Discord, etc.)
+          </p>
+
+          <form onSubmit={handleSaveDigest} className="space-y-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="digest-enabled"
+                checked={digestEnabled}
+                onChange={(e) => setDigestEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300"
+              />
+              <label htmlFor="digest-enabled" className="text-sm font-medium">
+                Enable digest reports
+              </label>
+            </div>
+
+            {digestEnabled && (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Frequency
+                    </label>
+                    <select
+                      value={digestFrequency}
+                      onChange={(e) => {
+                        setDigestFrequency(e.target.value);
+                        setDigestDay(e.target.value === "weekly" ? "1" : "1");
+                      }}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                    >
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      {digestFrequency === "weekly" ? "Day of Week" : "Day of Month"}
+                    </label>
+                    {digestFrequency === "weekly" ? (
+                      <select
+                        value={digestDay}
+                        onChange={(e) => setDigestDay(e.target.value)}
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                      >
+                        {DAY_NAMES.map((name, i) => (
+                          <option key={i} value={String(i)}>{name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="number"
+                        min={1}
+                        max={28}
+                        value={digestDay}
+                        onChange={(e) => setDigestDay(e.target.value)}
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Time
+                    </label>
+                    <input
+                      type="time"
+                      value={digestTime}
+                      onChange={(e) => setDigestTime(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                    />
+                  </div>
+                </div>
+
+                {digestLastSent && (
+                  <p className="text-xs text-slate-500">
+                    Last digest sent: {new Date(digestLastSent).toLocaleString()}
+                  </p>
+                )}
+              </>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                disabled={loading === "digest"}
+                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm"
+              >
+                {loading === "digest" ? "Saving..." : "Save Settings"}
+              </button>
+
+              {digestEnabled && (
+                <button
+                  type="button"
+                  onClick={handleSendDigestNow}
+                  disabled={loading === "digest-send"}
+                  className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 text-sm"
+                >
+                  {loading === "digest-send" ? "Sending..." : "Send Now"}
+                </button>
+              )}
+            </div>
+          </form>
         </div>
 
         {/* Change Password */}

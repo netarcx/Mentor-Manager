@@ -371,6 +371,7 @@ export default function DashboardPage() {
   const [tvMode, setTvMode] = useState(false);
   const [goals, setGoals] = useState("");
   const [goalsSaved, setGoalsSaved] = useState(false);
+  const [announcement, setAnnouncement] = useState<{ enabled: boolean; text: string }>({ enabled: false, text: "" });
   const prevShiftIdRef = useRef<number | null | undefined>(undefined);
   const goalsSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -410,6 +411,7 @@ export default function DashboardPage() {
       if (data.countdown) setCountdown(data.countdown);
       if (data.quote !== undefined) setQuote(data.quote);
       if (data.goals !== undefined) setGoals(data.goals);
+      if (data.announcement) setAnnouncement(data.announcement);
     } catch {
       // Silent fail on polling
     }
@@ -561,6 +563,14 @@ export default function DashboardPage() {
             {lastUpdate.toLocaleTimeString()}
           </div>
         </div>
+
+        {announcement.enabled && announcement.text && (
+          <div className={`bg-amber-500 rounded-2xl ${tvMode ? "p-4 mb-4" : "p-4 sm:p-6 mb-6 sm:mb-8"} text-center flex-shrink-0`}>
+            <p className={`text-white font-bold ${tvMode ? "text-xl" : "text-base sm:text-lg"}`}>
+              {announcement.text}
+            </p>
+          </div>
+        )}
 
         <CountdownTimer config={countdown} tv={tvMode} />
         <CleanupCountdown

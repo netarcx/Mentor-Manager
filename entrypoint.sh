@@ -29,6 +29,9 @@ if [ -n "$CRON_SECRET" ]; then
       curl -s -X POST "http://localhost:${PORT:-3000}/api/admin/notifications/send-reminders" \
         -H "Content-Type: application/json" \
         -H "x-api-key: $CRON_SECRET" || true
+      curl -s -X POST "http://localhost:${PORT:-3000}/api/admin/notifications/send-digest" \
+        -H "Content-Type: application/json" \
+        -H "x-api-key: $CRON_SECRET" || true
       sleep 3600
     done
   ) &

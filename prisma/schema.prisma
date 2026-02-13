@@ -115,3 +115,25 @@ model DailyGoal {
 
   @@map("daily_goals")
 }
+
+model Student {
+  id          Int                 @id @default(autoincrement())
+  name        String
+  createdAt   DateTime            @default(now()) @map("created_at")
+  attendances StudentAttendance[]
+
+  @@map("students")
+}
+
+model StudentAttendance {
+  id          Int      @id @default(autoincrement())
+  studentId   Int      @map("student_id")
+  date        String // ISO date "2026-02-14"
+  checkedInAt DateTime @default(now()) @map("checked_in_at")
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, date])
+  @@index([date])
+  @@index([studentId])
+  @@map("student_attendance")
+}

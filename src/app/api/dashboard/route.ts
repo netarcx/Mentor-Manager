@@ -10,7 +10,7 @@ export async function GET() {
     const now = currentTimeStr();
 
     // Run all queries in parallel
-    const [currentShifts, nextShift, futureShifts, brandingSettings, countdownSettings, cleanupSettings, quoteResult, goal] =
+    const [currentShifts, nextShift, futureShifts, brandingSettings, countdownSettings, cleanupSettings, quoteResult, goal, announcementSettings] =
       await Promise.all([
         // Current shifts
         prisma.shift.findMany({
@@ -90,6 +90,10 @@ export async function GET() {
         getRandomQuote(),
         // Today's goals
         prisma.dailyGoal.findUnique({ where: { date: today } }),
+        // Announcement settings
+        prisma.setting.findMany({
+          where: { key: { in: ["announcement_enabled", "announcement_text"] } },
+        }),
       ]);
 
     // Combine current shifts
@@ -146,6 +150,14 @@ export async function GET() {
       label: countdownMap.countdown_label || "Event",
     };
 
+    // Build announcement object
+    const announcementMap: Record<string, string> = {};
+    for (const s of announcementSettings) announcementMap[s.key] = s.value;
+    const announcement = {
+      enabled: announcementMap.announcement_enabled === "true",
+      text: announcementMap.announcement_text || "",
+    };
+
     // Determine if current shift is the last of the day
     // It's the last if no other shift on the same day starts at or after it ends
     let isLastShiftOfDay = false;
@@ -181,6 +193,7 @@ export async function GET() {
       countdown,
       quote: quoteResult,
       goals: goal?.text || "",
+      announcement,
     });
   } catch (error) {
     console.error(error);
