@@ -106,11 +106,15 @@ const CountdownTimer = memo(function CountdownTimer({
 // Isolated cleanup countdown — re-renders only itself every second
 const CleanupCountdown = memo(function CleanupCountdown({
   currentShift,
-  nextShift,
+  isLastShiftOfDay,
+  soundMinutes,
+  displayMinutes,
   tv,
 }: {
   currentShift: ShiftWithSignups | null;
-  nextShift: ShiftWithSignups | null;
+  isLastShiftOfDay: boolean;
+  soundMinutes: number;
+  displayMinutes: number;
   tv: boolean;
 }) {
   const [cleanupSeconds, setCleanupSeconds] = useState<number | null>(null);
@@ -119,7 +123,7 @@ const CleanupCountdown = memo(function CleanupCountdown({
   useEffect(() => {
     function getSecondsUntilShiftEnd(): number | null {
       if (!currentShift) return null;
-      if (nextShift && nextShift.date === currentShift.date) return null;
+      if (!isLastShiftOfDay) return null;
 
       const now = new Date();
       const [endH, endM] = currentShift.endTime.split(":").map(Number);
@@ -134,7 +138,7 @@ const CleanupCountdown = memo(function CleanupCountdown({
 
       if (
         secs !== null &&
-        secs <= 20 * 60 &&
+        secs <= soundMinutes * 60 &&
         currentShift &&
         cleanupSoundPlayedRef.current !== currentShift.id
       ) {
@@ -144,7 +148,7 @@ const CleanupCountdown = memo(function CleanupCountdown({
         audio.play().catch(() => {});
       }
 
-      if (secs !== null && secs <= 10 * 60) {
+      if (secs !== null && secs <= displayMinutes * 60) {
         setCleanupSeconds(secs);
       } else {
         setCleanupSeconds(null);
@@ -154,7 +158,7 @@ const CleanupCountdown = memo(function CleanupCountdown({
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [currentShift, nextShift]);
+  }, [currentShift, isLastShiftOfDay, soundMinutes, displayMinutes]);
 
   if (cleanupSeconds === null) return null;
 
@@ -324,6 +328,8 @@ export default function DashboardPage() {
   const [nextShift, setNextShift] = useState<ShiftWithSignups | null>(null);
   const [futureShifts, setFutureShifts] = useState<ShiftWithSignups[]>([]);
   const [browseIndex, setBrowseIndex] = useState<number | null>(null);
+  const [isLastShiftOfDay, setIsLastShiftOfDay] = useState(false);
+  const [cleanupConfig, setCleanupConfig] = useState({ soundMinutes: 20, displayMinutes: 10 });
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [branding, setBranding] = useState<Branding>({ appName: "Workshop Dashboard", logoPath: "" });
   const [countdown, setCountdown] = useState<CountdownConfig>({ enabled: false, targetDate: "", label: "" });
@@ -362,6 +368,8 @@ export default function DashboardPage() {
       setCurrentShift(data.currentShift);
       setNextShift(data.nextShift);
       if (data.futureShifts) setFutureShifts(data.futureShifts);
+      if (data.isLastShiftOfDay !== undefined) setIsLastShiftOfDay(data.isLastShiftOfDay);
+      if (data.cleanupConfig) setCleanupConfig(data.cleanupConfig);
       setLastUpdate(new Date());
 
       // Update non-shift data from the consolidated response
@@ -532,7 +540,13 @@ export default function DashboardPage() {
         </div>
 
         <CountdownTimer config={countdown} tv={tvMode} />
-        <CleanupCountdown currentShift={currentShift} nextShift={nextShift} tv={tvMode} />
+        <CleanupCountdown
+          currentShift={currentShift}
+          isLastShiftOfDay={isLastShiftOfDay}
+          soundMinutes={cleanupConfig.soundMinutes}
+          displayMinutes={cleanupConfig.displayMinutes}
+          tv={tvMode}
+        />
 
         {/* Shift Cards with Navigation */}
         <div className={`flex items-stretch gap-2 ${tvMode ? "flex-1 min-h-0" : ""}`}>

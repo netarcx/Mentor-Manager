@@ -10,7 +10,7 @@ export async function GET() {
     const now = currentTimeStr();
 
     // Run all queries in parallel
-    const [currentShifts, nextShift, futureShifts, brandingSettings, countdownSettings, quoteResult, goal] =
+    const [currentShifts, nextShift, futureShifts, brandingSettings, countdownSettings, cleanupSettings, quoteResult, goal] =
       await Promise.all([
         // Current shifts
         prisma.shift.findMany({
@@ -80,6 +80,12 @@ export async function GET() {
             key: { in: ["countdown_enabled", "countdown_target_date", "countdown_label"] },
           },
         }),
+        // Cleanup settings
+        prisma.setting.findMany({
+          where: {
+            key: { in: ["cleanup_sound_minutes", "cleanup_display_minutes"] },
+          },
+        }),
         // Quote (count + single fetch)
         getRandomQuote(),
         // Today's goals
@@ -140,6 +146,24 @@ export async function GET() {
       label: countdownMap.countdown_label || "Event",
     };
 
+    // Determine if current shift is the last of the day
+    // It's the last if no other shift on the same day starts at or after it ends
+    let isLastShiftOfDay = false;
+    if (currentShift) {
+      const laterToday = futureShifts.filter(
+        (s) => s.date === currentShift.date && s.id !== currentShift.id
+      );
+      isLastShiftOfDay = laterToday.length === 0;
+    }
+
+    // Build cleanup config
+    const cleanupMap: Record<string, string> = {};
+    for (const s of cleanupSettings) cleanupMap[s.key] = s.value;
+    const cleanupConfig = {
+      soundMinutes: parseInt(cleanupMap.cleanup_sound_minutes || "20", 10),
+      displayMinutes: parseInt(cleanupMap.cleanup_display_minutes || "10", 10),
+    };
+
     // Filter out current and next shift from the future list
     const currentId = currentShift?.id;
     const nextId = nextShift?.id;
@@ -151,6 +175,8 @@ export async function GET() {
       currentShift,
       nextShift,
       futureShifts: filteredFuture,
+      isLastShiftOfDay,
+      cleanupConfig,
       branding,
       countdown,
       quote: quoteResult,

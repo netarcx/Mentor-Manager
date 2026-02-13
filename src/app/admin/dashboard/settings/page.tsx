@@ -37,6 +37,9 @@ export default function SettingsPage() {
   const cleanupSoundInputRef = useRef<HTMLInputElement>(null);
   const [soundPath, setSoundPath] = useState("");
   const [cleanupSoundPath, setCleanupSoundPath] = useState("");
+  const [cleanupSoundMinutes, setCleanupSoundMinutes] = useState(20);
+  const [cleanupDisplayMinutes, setCleanupDisplayMinutes] = useState(10);
+  const [cleanupTestActive, setCleanupTestActive] = useState(false);
 
   // Countdown state
   const [countdownEnabled, setCountdownEnabled] = useState(false);
@@ -133,11 +136,25 @@ export default function SettingsPage() {
       }
     }
 
+    async function fetchCleanupSettings() {
+      try {
+        const res = await fetch("/api/admin/settings/cleanup");
+        if (res.ok) {
+          const data = await res.json();
+          setCleanupSoundMinutes(data.soundMinutes);
+          setCleanupDisplayMinutes(data.displayMinutes);
+        }
+      } catch {
+        // Use defaults
+      }
+    }
+
     fetchBranding();
     fetchCountdown();
     fetchNotifications();
     fetchSound();
     fetchCleanupSound();
+    fetchCleanupSettings();
   }, []);
 
   function showMessage(msg: string) {
@@ -436,6 +453,42 @@ export default function SettingsPage() {
     } finally {
       setLoading("");
     }
+  }
+
+  async function handleSaveCleanupSettings(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading("cleanup-settings");
+
+    try {
+      const res = await fetch("/api/admin/settings/cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          soundMinutes: cleanupSoundMinutes,
+          displayMinutes: cleanupDisplayMinutes,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.error || "Failed to save cleanup settings");
+        return;
+      }
+
+      showMessage("Cleanup timing saved!");
+    } catch {
+      showError("Failed to save cleanup settings");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  function handleTestCleanup() {
+    setCleanupTestActive(true);
+    const audio = new Audio("/api/cleanup-sound");
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+    setTimeout(() => setCleanupTestActive(false), 15000);
   }
 
   function handleResetColors() {
@@ -1021,13 +1074,76 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Cleanup Reminder Sound */}
+        {/* Cleanup Reminder */}
         <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
-          <h2 className="text-lg font-semibold mb-4">Cleanup Reminder Sound</h2>
+          <h2 className="text-lg font-semibold mb-4">Cleanup Reminder</h2>
           <p className="text-sm text-slate-600 mb-4">
-            Plays 20 minutes before the last shift of the day ends. A 10-minute cleanup countdown will also appear on the dashboard.
+            Plays a sound and shows a countdown on the dashboard before the last shift of the day ends.
           </p>
 
+          {/* Timing Settings */}
+          <form onSubmit={handleSaveCleanupSettings} className="mb-6">
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Sound alert (minutes before end)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={cleanupSoundMinutes}
+                  onChange={(e) => setCleanupSoundMinutes(parseInt(e.target.value) || 20)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Countdown display (minutes before end)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={cleanupDisplayMinutes}
+                  onChange={(e) => setCleanupDisplayMinutes(parseInt(e.target.value) || 10)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={loading === "cleanup-settings"}
+                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm font-semibold"
+              >
+                {loading === "cleanup-settings" ? "Saving..." : "Save Timing"}
+              </button>
+              <button
+                type="button"
+                onClick={handleTestCleanup}
+                disabled={cleanupTestActive}
+                className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 disabled:opacity-50 text-sm font-semibold"
+              >
+                {cleanupTestActive ? "Test Active (15s)..." : "Test Cleanup"}
+              </button>
+            </div>
+          </form>
+
+          {/* Test preview */}
+          {cleanupTestActive && (
+            <div className="bg-amber-500/10 border-2 border-amber-500 rounded-xl p-4 mb-6 text-center animate-pulse">
+              <div className="text-amber-600 text-sm font-semibold uppercase tracking-wider mb-1">
+                Cleanup Time (Test)
+              </div>
+              <div className="text-3xl font-bold text-amber-700">
+                0:15
+              </div>
+            </div>
+          )}
+
+          {/* Sound Upload */}
+          <h3 className="text-sm font-semibold mb-3 text-slate-700">Cleanup Sound</h3>
           {cleanupSoundPath ? (
             <div className="mb-4">
               <div className="flex items-center gap-4">
