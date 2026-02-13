@@ -41,6 +41,9 @@ export default function SettingsPage() {
   const [cleanupDisplayMinutes, setCleanupDisplayMinutes] = useState(10);
   const [cleanupTestActive, setCleanupTestActive] = useState(false);
 
+  // Registration state
+  const [registrationOpen, setRegistrationOpen] = useState(true);
+
   // Countdown state
   const [countdownEnabled, setCountdownEnabled] = useState(false);
   const [countdownDate, setCountdownDate] = useState("");
@@ -149,6 +152,17 @@ export default function SettingsPage() {
       }
     }
 
+    async function fetchRegistration() {
+      try {
+        const res = await fetch("/api/shifts");
+        const data = await res.json();
+        if (data.registrationOpen !== undefined) setRegistrationOpen(data.registrationOpen);
+      } catch {
+        // Use default
+      }
+    }
+
+    fetchRegistration();
     fetchBranding();
     fetchCountdown();
     fetchNotifications();
@@ -500,6 +514,30 @@ export default function SettingsPage() {
     setColorAccentBg("#f3e8ff");
   }
 
+  async function handleToggleRegistration() {
+    const newValue = !registrationOpen;
+    setRegistrationOpen(newValue);
+
+    try {
+      const res = await fetch("/api/admin/settings/branding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationEnabled: newValue }),
+      });
+
+      if (!res.ok) {
+        setRegistrationOpen(!newValue);
+        showError("Failed to update registration setting");
+        return;
+      }
+
+      showMessage(newValue ? "Registration opened" : "Registration closed");
+    } catch {
+      setRegistrationOpen(!newValue);
+      showError("Failed to update registration setting");
+    }
+  }
+
   async function handleSaveNotifications(e: React.FormEvent) {
     e.preventDefault();
     setLoading("notifications");
@@ -677,6 +715,32 @@ export default function SettingsPage() {
       )}
 
       <div className="space-y-8 max-w-2xl">
+        {/* Mentor Registration */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Mentor Registration</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {registrationOpen
+                  ? "New mentors can register and sign up for shifts."
+                  : "Only existing mentors can sign up. New registrations are blocked."}
+              </p>
+            </div>
+            <button
+              onClick={handleToggleRegistration}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                registrationOpen ? "bg-green-500" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  registrationOpen ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
         {/* App Name & Title */}
         <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
           <h2 className="text-lg font-semibold mb-4">App Name & Title</h2>

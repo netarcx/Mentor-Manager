@@ -21,7 +21,10 @@ export async function GET(request: Request) {
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
 
-    return NextResponse.json({ shifts, today });
+    const regSetting = await prisma.setting.findUnique({ where: { key: "registration_enabled" } });
+    const registrationOpen = regSetting ? regSetting.value === "true" : true;
+
+    return NextResponse.json({ shifts, today, registrationOpen });
   } catch {
     return NextResponse.json(
       { error: "Internal server error" },

@@ -556,42 +556,8 @@ export default function DashboardPage() {
             )}
             <h1 className={`${tvMode ? "text-3xl" : "text-2xl sm:text-4xl"} font-bold truncate`}>{branding.appName}</h1>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <div className={`${tvMode ? "text-base" : "text-xs sm:text-sm"} text-slate-500`}>
-              {lastUpdate.toLocaleTimeString()}
-            </div>
-            <div className="hidden sm:flex items-center bg-slate-700 rounded-lg">
-              <button
-                onClick={() => setZoom((z) => Math.max(50, z - 10))}
-                className="hover:bg-slate-600 text-white px-3 py-2 rounded-l-lg transition-colors text-sm font-bold"
-                title="Zoom Out"
-              >
-                &minus;
-              </button>
-              <span className="text-xs text-slate-300 px-1 min-w-[3rem] text-center">{zoom}%</span>
-              <button
-                onClick={() => setZoom((z) => Math.min(150, z + 10))}
-                className="hover:bg-slate-600 text-white px-3 py-2 rounded-r-lg transition-colors text-sm font-bold"
-                title="Zoom In"
-              >
-                +
-              </button>
-            </div>
-            <button
-              onClick={() => setTvMode(!tvMode)}
-              className={`${tvMode ? "bg-primary text-white" : "bg-slate-700 text-white"} hover:bg-slate-600 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm font-semibold`}
-              title={tvMode ? "Switch to Desktop view" : "Switch to TV view"}
-            >
-              {tvMode ? "TV" : "TV"}
-            </button>
-            <button
-              onClick={toggleFullscreen}
-              className="bg-slate-700 hover:bg-slate-600 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm"
-              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-            >
-              <span className="text-lg">&#x26F6;</span>
-              <span className="hidden sm:inline">{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
-            </button>
+          <div className={`${tvMode ? "text-base" : "text-xs sm:text-sm"} text-slate-500 flex-shrink-0`}>
+            {lastUpdate.toLocaleTimeString()}
           </div>
         </div>
 
@@ -750,6 +716,42 @@ export default function DashboardPage() {
             )}
           </>
         )}
+
+        {/* Controls */}
+        <div className={`flex items-center justify-center gap-2 sm:gap-3 ${tvMode ? "mt-4" : "mt-6 sm:mt-8"} flex-shrink-0`}>
+          <div className="hidden sm:flex items-center bg-slate-700 rounded-lg">
+            <button
+              onClick={() => setZoom((z) => Math.max(50, z - 10))}
+              className="hover:bg-slate-600 text-white px-3 py-2 rounded-l-lg transition-colors text-sm font-bold"
+              title="Zoom Out"
+            >
+              &minus;
+            </button>
+            <span className="text-xs text-slate-300 px-1 min-w-[3rem] text-center">{zoom}%</span>
+            <button
+              onClick={() => setZoom((z) => Math.min(150, z + 10))}
+              className="hover:bg-slate-600 text-white px-3 py-2 rounded-r-lg transition-colors text-sm font-bold"
+              title="Zoom In"
+            >
+              +
+            </button>
+          </div>
+          <button
+            onClick={() => setTvMode(!tvMode)}
+            className={`${tvMode ? "bg-primary text-white" : "bg-slate-700 text-white"} hover:bg-slate-600 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm font-semibold`}
+            title={tvMode ? "Switch to Desktop view" : "Switch to TV view"}
+          >
+            TV
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            className="bg-slate-700 hover:bg-slate-600 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm"
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            <span className="text-lg">&#x26F6;</span>
+            <span className="hidden sm:inline">{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

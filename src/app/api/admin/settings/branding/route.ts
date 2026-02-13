@@ -52,6 +52,10 @@ export async function POST(request: Request) {
       }
     }
 
+    if (body.registrationEnabled !== undefined) {
+      updates.push({ key: "registration_enabled", value: String(body.registrationEnabled) });
+    }
+
     for (const { key, value } of updates) {
       await prisma.setting.upsert({
         where: { key },

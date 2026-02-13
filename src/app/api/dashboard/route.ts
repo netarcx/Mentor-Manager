@@ -196,8 +196,9 @@ async function getRandomQuote() {
     if (count === 0) return null;
 
     const now = new Date();
-    const hourSeed = now.getFullYear() * 1000000 + (now.getMonth() + 1) * 10000 + now.getDate() * 100 + now.getHours();
-    const index = hourSeed % count;
+    const tenMinBlock = Math.floor(now.getMinutes() / 10);
+    const seed = now.getFullYear() * 100000000 + (now.getMonth() + 1) * 1000000 + now.getDate() * 10000 + now.getHours() * 10 + tenMinBlock;
+    const index = seed % count;
 
     const quotes = await prisma.quote.findMany({
       where: { active: true },

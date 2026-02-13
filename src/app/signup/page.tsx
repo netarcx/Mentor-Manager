@@ -41,6 +41,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [existingMentors, setExistingMentors] = useState<Mentor[]>([]);
+  const [registrationOpen, setRegistrationOpen] = useState(true);
 
   useEffect(() => {
     fetch("/api/shifts")
@@ -48,6 +49,7 @@ export default function SignupPage() {
       .then((data) => {
         setShifts(data.shifts || []);
         setToday(data.today || "");
+        if (data.registrationOpen !== undefined) setRegistrationOpen(data.registrationOpen);
       })
       .catch(() => setError("Failed to load shifts"));
 
@@ -227,6 +229,11 @@ export default function SignupPage() {
 
       {step === "info" && (
         <div>
+          {!registrationOpen && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-lg mb-6">
+              New mentor registration is currently closed. Existing mentors can still sign up for shifts.
+            </div>
+          )}
           {existingMentors.length > 0 && (
             <div className="mb-6">
               <label className="block text-sm font-medium mb-1">

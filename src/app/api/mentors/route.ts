@@ -60,10 +60,24 @@ export async function POST(request: Request) {
       );
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if registration is closed for new mentors
+    const existing = await prisma.mentor.findUnique({ where: { email: normalizedEmail } });
+    if (!existing) {
+      const regSetting = await prisma.setting.findUnique({ where: { key: "registration_enabled" } });
+      if (regSetting && regSetting.value === "false") {
+        return NextResponse.json(
+          { error: "New mentor registration is currently closed" },
+          { status: 403 }
+        );
+      }
+    }
+
     const mentor = await prisma.mentor.upsert({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: normalizedEmail },
       update: { name: name.trim() },
-      create: { name: name.trim(), email: email.toLowerCase().trim() },
+      create: { name: name.trim(), email: normalizedEmail },
     });
 
     return NextResponse.json(mentor);
