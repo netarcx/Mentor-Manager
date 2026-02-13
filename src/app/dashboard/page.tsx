@@ -201,8 +201,8 @@ function MentorAvatar({
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  const size = tv ? "w-14 h-14" : "w-10 h-10";
-  const textSize = tv ? "text-xl" : "text-lg";
+  const size = tv ? "w-10 h-10" : "w-8 h-8";
+  const textSize = tv ? "text-lg" : "text-sm";
 
   return (
     <>
@@ -290,24 +290,24 @@ const ShiftCard = memo(function ShiftCard({
         {shift.signups.length === 0 ? (
           <p className="text-slate-500 italic">No one signed up yet</p>
         ) : (
-          <div className={`${tv ? "space-y-3" : "space-y-2"}`}>
+          <div className={`grid gap-2 ${tv ? "grid-cols-2 gap-3" : "grid-cols-1 sm:grid-cols-2"}`}>
             {shift.signups.map((signup) => (
               <div
                 key={signup.id}
-                className={`flex items-center gap-2 sm:gap-3 bg-slate-700/50 rounded-lg ${tv ? "px-5 py-4" : "px-3 sm:px-4 py-2 sm:py-3"}`}
+                className={`flex items-center gap-2 bg-slate-700/50 rounded-lg ${tv ? "px-4 py-3" : "px-2.5 py-2 sm:px-3"}`}
               >
                 <MemoMentorAvatar mentor={signup.mentor} tv={tv} />
                 <div className="min-w-0">
-                  <div className={`text-white font-medium ${tv ? "text-xl" : "text-base sm:text-lg"}`}>
+                  <div className={`text-white font-medium truncate ${tv ? "text-base" : "text-sm"}`}>
                     {signup.mentor.name}
-                    {(signup.customStartTime || signup.customEndTime) && (
-                      <span className={`ml-2 ${tv ? "text-base" : "text-xs sm:text-sm"} font-normal text-slate-400`}>
-                        {formatTimeDashboard(signup.customStartTime || shift.startTime)} - {formatTimeDashboard(signup.customEndTime || shift.endTime)}
-                      </span>
-                    )}
                   </div>
+                  {(signup.customStartTime || signup.customEndTime) && (
+                    <div className={`${tv ? "text-sm" : "text-xs"} text-slate-400`}>
+                      {formatTimeDashboard(signup.customStartTime || shift.startTime)} - {formatTimeDashboard(signup.customEndTime || shift.endTime)}
+                    </div>
+                  )}
                   {signup.note && (
-                    <div className={`${tv ? "text-base" : "text-xs sm:text-sm"} text-slate-400`}>{signup.note}</div>
+                    <div className={`${tv ? "text-sm" : "text-xs"} text-slate-400 truncate`}>{signup.note}</div>
                   )}
                 </div>
               </div>
