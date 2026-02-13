@@ -19,7 +19,7 @@ jobs:
             -t mentor-manager:latest .
 
       - name: Save image as tarball
-        run: docker save mentor-manager:latest | gzip > /tmp/mentor-manager.tar.gz
+        run: docker save mentor-manager:latest | gzip > mentor-manager.tar.gz
 
       - name: Transfer image to server
         uses: appleboy/scp-action@v0.1.7
@@ -27,9 +27,8 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          source: /tmp/mentor-manager.tar.gz
+          source: mentor-manager.tar.gz
           target: /tmp
-          strip_components: 1
 
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.2.0
