@@ -10,14 +10,20 @@ interface Student {
 interface AttendanceRecord {
   studentId: number;
   checkedInAt: string;
+  checkedOutAt: string | null;
 }
+
+type AttendanceState = {
+  checkedInAt: string;
+  checkedOutAt: string | null;
+};
 
 export default function StudentAttendancePage() {
   const [students, setStudents] = useState<Student[]>([]);
-  const [checkedIn, setCheckedIn] = useState<Set<number>>(new Set());
+  const [attendance, setAttendance] = useState<Map<number, AttendanceState>>(new Map());
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(true);
-  const [checkingIn, setCheckingIn] = useState<number | null>(null);
+  const [tapping, setTapping] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -30,13 +36,15 @@ export default function StudentAttendancePage() {
 
       setStudents(studentsData.students || []);
       setDate(attendanceData.date || "");
-      setCheckedIn(
-        new Set(
-          (attendanceData.attendance || []).map(
-            (a: AttendanceRecord) => a.studentId
-          )
-        )
-      );
+
+      const map = new Map<number, AttendanceState>();
+      for (const a of (attendanceData.attendance || []) as AttendanceRecord[]) {
+        map.set(a.studentId, {
+          checkedInAt: a.checkedInAt,
+          checkedOutAt: a.checkedOutAt,
+        });
+      }
+      setAttendance(map);
     } catch {
       // Silent fail
     } finally {
@@ -50,10 +58,10 @@ export default function StudentAttendancePage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  async function handleCheckIn(studentId: number) {
-    if (checkedIn.has(studentId) || checkingIn !== null) return;
+  async function handleTap(studentId: number) {
+    if (tapping !== null) return;
 
-    setCheckingIn(studentId);
+    setTapping(studentId);
     try {
       const res = await fetch("/api/student-attendance", {
         method: "POST",
@@ -62,12 +70,28 @@ export default function StudentAttendancePage() {
       });
 
       if (res.ok) {
-        setCheckedIn((prev) => new Set([...prev, studentId]));
+        const data = await res.json();
+        const record = data.record;
+        setAttendance((prev) => {
+          const next = new Map(prev);
+          if (data.status === "checked_in") {
+            next.set(studentId, {
+              checkedInAt: record.checkedInAt,
+              checkedOutAt: null,
+            });
+          } else {
+            next.set(studentId, {
+              checkedInAt: record.checkedInAt,
+              checkedOutAt: record.checkedOutAt,
+            });
+          }
+          return next;
+        });
       }
     } catch {
       // Silent fail
     } finally {
-      setCheckingIn(null);
+      setTapping(null);
     }
   }
 
@@ -83,6 +107,25 @@ export default function StudentAttendancePage() {
     });
   }
 
+  function formatTimeShort(isoStr: string): string {
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
+
+  function formatDuration(inAt: string, outAt: string): string {
+    const ms = new Date(outAt).getTime() - new Date(inAt).getTime();
+    if (ms <= 0) return "0m";
+    const totalMin = Math.round(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h === 0) return `${m}m`;
+    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -91,7 +134,10 @@ export default function StudentAttendancePage() {
     );
   }
 
-  const checkedInCount = checkedIn.size;
+  // Count students currently in the shop (checked in, not checked out)
+  const presentCount = Array.from(attendance.values()).filter(
+    (a) => !a.checkedOutAt
+  ).length;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -103,7 +149,7 @@ export default function StudentAttendancePage() {
           </h1>
           <p className="text-lg text-slate-600">{formatDate(date)}</p>
           <p className="text-sm text-slate-500 mt-1">
-            {checkedInCount} of {students.length} checked in
+            {presentCount} of {students.length} present
           </p>
         </div>
 
@@ -119,25 +165,44 @@ export default function StudentAttendancePage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {students.map((student) => {
-              const isCheckedIn = checkedIn.has(student.id);
-              const isLoading = checkingIn === student.id;
+              const record = attendance.get(student.id);
+              const isLoading = tapping === student.id;
+              const isCheckedIn = !!record && !record.checkedOutAt;
+              const isCheckedOut = !!record && !!record.checkedOutAt;
 
               return (
                 <button
                   key={student.id}
-                  onClick={() => handleCheckIn(student.id)}
-                  disabled={isCheckedIn || isLoading}
-                  className={`p-5 rounded-xl text-lg font-semibold transition-all select-none ${
-                    isCheckedIn
-                      ? "bg-green-100 border-2 border-green-500 text-green-800"
-                      : isLoading
-                        ? "bg-slate-100 border-2 border-slate-300 text-slate-400"
-                        : "bg-white border-2 border-slate-200 text-slate-800 hover:border-primary active:scale-95"
+                  onClick={() => handleTap(student.id)}
+                  disabled={isLoading}
+                  className={`p-5 rounded-xl text-center transition-all select-none ${
+                    isCheckedOut
+                      ? "bg-blue-50 border-2 border-blue-400 text-blue-800"
+                      : isCheckedIn
+                        ? "bg-green-100 border-2 border-green-500 text-green-800"
+                        : isLoading
+                          ? "bg-slate-100 border-2 border-slate-300 text-slate-400"
+                          : "bg-white border-2 border-slate-200 text-slate-800 hover:border-primary active:scale-95"
                   }`}
                 >
-                  <span>{student.name}</span>
-                  {isCheckedIn && (
-                    <span className="ml-2 text-green-600">&#10003;</span>
+                  <div className="text-lg font-semibold">
+                    {student.name}
+                    {isCheckedIn && (
+                      <span className="ml-2 text-green-600">&#10003;</span>
+                    )}
+                    {isCheckedOut && (
+                      <span className="ml-2 text-blue-500">&#10003;</span>
+                    )}
+                  </div>
+                  {isCheckedIn && record && (
+                    <div className="text-xs mt-1 opacity-75">
+                      In: {formatTimeShort(record.checkedInAt)}
+                    </div>
+                  )}
+                  {isCheckedOut && record && (
+                    <div className="text-xs mt-1 opacity-75">
+                      {formatDuration(record.checkedInAt, record.checkedOutAt!)}
+                    </div>
                   )}
                 </button>
               );

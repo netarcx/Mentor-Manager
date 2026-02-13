@@ -722,7 +722,7 @@ export default function DashboardPage() {
             {/* Build info */}
             {process.env.NEXT_PUBLIC_GIT_COMMIT && (
               <div
-                className="mt-8 text-center text-xs text-slate-600 cursor-default select-none"
+                className="mt-8 text-right text-xs text-slate-600 cursor-default select-none"
                 onClick={() => {
                   const t = buildTapRef.current;
                   t.count++;

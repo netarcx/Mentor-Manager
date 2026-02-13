@@ -129,8 +129,9 @@ model StudentAttendance {
   id          Int      @id @default(autoincrement())
   studentId   Int      @map("student_id")
   date        String // ISO date "2026-02-14"
-  checkedInAt DateTime @default(now()) @map("checked_in_at")
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  checkedInAt  DateTime  @default(now()) @map("checked_in_at")
+  checkedOutAt DateTime? @map("checked_out_at")
+  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, date])
   @@index([date])

@@ -12,6 +12,7 @@ interface AttendanceStudent {
   id: number;
   name: string;
   totalCheckIns: number;
+  totalHours: number;
   attendanceRate: number;
 }
 
@@ -26,7 +27,7 @@ export default function StudentsPage() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedSeason, setSelectedSeason] = useState("");
   const [attendanceStudents, setAttendanceStudents] = useState<AttendanceStudent[]>([]);
-  const [stats, setStats] = useState({ totalStudents: 0, totalDays: 0, avgAttendanceRate: 0 });
+  const [stats, setStats] = useState({ totalStudents: 0, totalDays: 0, totalHours: 0, avgAttendanceRate: 0 });
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -240,7 +241,7 @@ export default function StudentsPage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="bg-slate-50 rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-slate-800">
                 {stats.totalStudents}
@@ -252,6 +253,12 @@ export default function StudentsPage() {
                 {stats.totalDays}
               </div>
               <div className="text-xs text-slate-500 mt-1">Days Tracked</div>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold text-slate-800">
+                {stats.totalHours}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">Total Hours</div>
             </div>
             <div className="bg-slate-50 rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-slate-800">
@@ -271,14 +278,20 @@ export default function StudentsPage() {
                   <tr>
                     <th className="text-left px-4 py-2 font-medium text-slate-600">Name</th>
                     <th className="text-center px-4 py-2 font-medium text-slate-600">Check-ins</th>
+                    <th className="text-center px-4 py-2 font-medium text-slate-600">Hours</th>
                     <th className="text-center px-4 py-2 font-medium text-slate-600">Attendance Rate</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {attendanceStudents.map((student) => (
+                  {attendanceStudents.map((student) => {
+                    const h = Math.floor(student.totalHours);
+                    const m = Math.round((student.totalHours - h) * 60);
+                    const hoursStr = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : (m > 0 ? `${m}m` : "0m");
+                    return (
                     <tr key={student.id} className="hover:bg-slate-50">
                       <td className="px-4 py-2 font-medium">{student.name}</td>
                       <td className="px-4 py-2 text-center">{student.totalCheckIns}</td>
+                      <td className="px-4 py-2 text-center text-slate-600">{hoursStr}</td>
                       <td className="px-4 py-2 text-center">
                         <span
                           className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
@@ -293,7 +306,8 @@ export default function StudentsPage() {
                         </span>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
