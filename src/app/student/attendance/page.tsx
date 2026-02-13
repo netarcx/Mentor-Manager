@@ -23,6 +23,7 @@ export default function StudentAttendancePage() {
   const [attendance, setAttendance] = useState<Map<number, AttendanceState>>(new Map());
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(true);
+  const [enabled, setEnabled] = useState(true);
   const [tapping, setTapping] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -33,6 +34,11 @@ export default function StudentAttendancePage() {
       ]);
       const studentsData = await studentsRes.json();
       const attendanceData = await attendanceRes.json();
+
+      if (studentsData.enabled === false || attendanceData.enabled === false) {
+        setEnabled(false);
+        return;
+      }
 
       setStudents(studentsData.students || []);
       setDate(attendanceData.date || "");
@@ -130,6 +136,17 @@ export default function StudentAttendancePage() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <p className="text-slate-500 text-lg">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!enabled) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">Check-In Not Available</h1>
+          <p className="text-slate-500">Student check-in is currently disabled.</p>
+        </div>
       </div>
     );
   }

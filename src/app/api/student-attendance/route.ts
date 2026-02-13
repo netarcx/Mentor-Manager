@@ -4,8 +4,19 @@ import { todayISO } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+async function isEnabled(): Promise<boolean> {
+  const row = await prisma.setting.findUnique({
+    where: { key: "student_attendance_enabled" },
+  });
+  return row?.value === "true";
+}
+
 export async function GET() {
   try {
+    if (!(await isEnabled())) {
+      return NextResponse.json({ enabled: false, date: "", attendance: [] });
+    }
+
     const today = todayISO();
     const attendance = await prisma.studentAttendance.findMany({
       where: { date: today },
@@ -20,6 +31,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!(await isEnabled())) {
+      return NextResponse.json({ error: "Student check-in is not available" }, { status: 403 });
+    }
+
     const { studentId } = await request.json();
     if (!studentId) {
       return NextResponse.json({ error: "studentId is required" }, { status: 400 });

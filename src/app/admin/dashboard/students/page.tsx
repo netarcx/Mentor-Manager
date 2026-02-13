@@ -28,6 +28,7 @@ export default function StudentsPage() {
   const [selectedSeason, setSelectedSeason] = useState("");
   const [attendanceStudents, setAttendanceStudents] = useState<AttendanceStudent[]>([]);
   const [stats, setStats] = useState({ totalStudents: 0, totalDays: 0, totalHours: 0, avgAttendanceRate: 0 });
+  const [attendanceEnabled, setAttendanceEnabled] = useState(false);
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -36,6 +37,7 @@ export default function StudentsPage() {
     fetchStudents();
     fetchSeasons();
     fetchAttendance();
+    fetchAttendanceEnabled();
   }, []);
 
   function showMessage(msg: string) {
@@ -143,6 +145,42 @@ export default function StudentsPage() {
     }
   }
 
+  async function fetchAttendanceEnabled() {
+    try {
+      const res = await fetch("/api/admin/students/settings");
+      if (res.ok) {
+        const data = await res.json();
+        setAttendanceEnabled(data.enabled);
+      }
+    } catch {
+      // Use default
+    }
+  }
+
+  async function handleToggleAttendance() {
+    const newValue = !attendanceEnabled;
+    setAttendanceEnabled(newValue);
+
+    try {
+      const res = await fetch("/api/admin/students/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: newValue }),
+      });
+
+      if (!res.ok) {
+        setAttendanceEnabled(!newValue);
+        showError("Failed to update setting");
+        return;
+      }
+
+      showMessage(newValue ? "Student check-in enabled" : "Student check-in disabled");
+    } catch {
+      setAttendanceEnabled(!newValue);
+      showError("Failed to update setting");
+    }
+  }
+
   function handleSeasonChange(value: string) {
     setSelectedSeason(value);
     fetchAttendance(value || undefined);
@@ -165,6 +203,32 @@ export default function StudentsPage() {
       )}
 
       <div className="space-y-8">
+        {/* Student Check-in Toggle */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Student Check-In Page</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {attendanceEnabled
+                  ? <>Active at <span className="font-mono">/student/attendance</span></>
+                  : "Students will see a \"not available\" message when disabled."}
+              </p>
+            </div>
+            <button
+              onClick={handleToggleAttendance}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                attendanceEnabled ? "bg-green-500" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  attendanceEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
         {/* Student Roster */}
         <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
           <h2 className="text-lg font-semibold mb-4">Student Roster</h2>
