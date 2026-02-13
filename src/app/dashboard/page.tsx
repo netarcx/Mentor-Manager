@@ -375,6 +375,7 @@ export default function DashboardPage() {
   const goalsSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<number | null>(null);
+  const buildTapRef = useRef({ count: 0, timer: null as ReturnType<typeof setTimeout> | null });
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -710,7 +711,20 @@ export default function DashboardPage() {
 
             {/* Build info */}
             {process.env.NEXT_PUBLIC_GIT_COMMIT && (
-              <div className="mt-8 text-center text-xs text-slate-600">
+              <div
+                className="mt-8 text-center text-xs text-slate-600 cursor-default select-none"
+                onClick={() => {
+                  const t = buildTapRef.current;
+                  t.count++;
+                  if (t.timer) clearTimeout(t.timer);
+                  if (t.count >= 8) {
+                    t.count = 0;
+                    window.open("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "_blank");
+                  } else {
+                    t.timer = setTimeout(() => { t.count = 0; }, 2000);
+                  }
+                }}
+              >
                 Build: {process.env.NEXT_PUBLIC_GIT_COMMIT}
               </div>
             )}

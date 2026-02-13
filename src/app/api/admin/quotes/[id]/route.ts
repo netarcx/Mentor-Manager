@@ -20,6 +20,7 @@ export async function PUT(
         ...(data.text !== undefined && { text: data.text }),
         ...(data.author !== undefined && { author: data.author }),
         ...(data.active !== undefined && { active: data.active }),
+        ...(data.pending !== undefined && { pending: data.pending }),
       },
     });
 

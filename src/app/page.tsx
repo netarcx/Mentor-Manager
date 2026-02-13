@@ -23,7 +23,7 @@ export default async function Home() {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Link
           href="/signup"
           className="block bg-primary hover:bg-primary-dark text-white rounded-xl p-8 text-center transition-colors shadow-lg"
@@ -54,6 +54,17 @@ export default async function Home() {
           <h2 className="text-xl font-bold mb-2">Dashboard</h2>
           <p className="text-sm opacity-90">
             See who&apos;s in the shop right now and next shift
+          </p>
+        </Link>
+
+        <Link
+          href="/student"
+          className="block bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl p-8 text-center transition-colors shadow-lg"
+        >
+          <div className="text-4xl mb-3">&#127891;</div>
+          <h2 className="text-xl font-bold mb-2">Student</h2>
+          <p className="text-sm opacity-90">
+            Submit quotes and more for the workshop dashboard
           </p>
         </Link>
 

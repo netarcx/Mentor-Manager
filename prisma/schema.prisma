@@ -101,6 +101,7 @@ model Quote {
   text      String
   author    String   @default("")
   active    Boolean  @default(true)
+  pending   Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("quotes")

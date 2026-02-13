@@ -7,6 +7,7 @@ interface Quote {
   text: string;
   author: string;
   active: boolean;
+  pending: boolean;
 }
 
 export default function QuotesPage() {
@@ -66,6 +67,23 @@ export default function QuotesPage() {
     setEditingId(quote.id);
     setShowForm(true);
   }
+
+  async function approveQuote(id: number) {
+    await fetch(`/api/admin/quotes/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: true, pending: false }),
+    });
+    fetchQuotes();
+  }
+
+  async function rejectQuote(id: number) {
+    await fetch(`/api/admin/quotes/${id}`, { method: "DELETE" });
+    fetchQuotes();
+  }
+
+  const pendingQuotes = quotes.filter((q) => q.pending);
+  const regularQuotes = quotes.filter((q) => !q.pending);
 
   return (
     <div>
@@ -135,9 +153,50 @@ export default function QuotesPage() {
         </form>
       )}
 
+      {/* Pending Submissions */}
+      {pendingQuotes.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-3">
+            Pending Submissions
+            <span className="ml-2 bg-amber-100 text-amber-700 text-xs font-medium px-2 py-0.5 rounded-full">
+              {pendingQuotes.length}
+            </span>
+          </h2>
+          <div className="space-y-2">
+            {pendingQuotes.map((q) => (
+              <div
+                key={q.id}
+                className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start justify-between gap-4"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm text-slate-800">&ldquo;{q.text}&rdquo;</p>
+                  {q.author && (
+                    <p className="text-xs text-slate-500 mt-1">&mdash; {q.author}</p>
+                  )}
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => approveQuote(q.id)}
+                    className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => rejectQuote(q.id)}
+                    className="text-xs bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-slate-500">Loading...</p>
-      ) : quotes.length === 0 ? (
+      ) : regularQuotes.length === 0 ? (
         <p className="text-slate-500 italic">
           No quotes yet. Add one to get started!
         </p>
@@ -161,7 +220,7 @@ export default function QuotesPage() {
               </tr>
             </thead>
             <tbody>
-              {quotes.map((q) => (
+              {regularQuotes.map((q) => (
                 <tr
                   key={q.id}
                   className="border-t border-slate-100 hover:bg-slate-50"
