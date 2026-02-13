@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 interface Student {
   id: number;
@@ -289,7 +290,15 @@ export default function StudentsPage() {
         {/* Attendance Stats */}
         <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Attendance Stats</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold">Attendance Stats</h2>
+              <Link
+                href="/admin/dashboard/students/report"
+                className="text-sm text-primary hover:text-primary-dark font-medium"
+              >
+                View Full Report →
+              </Link>
+            </div>
             <select
               value={selectedSeason}
               onChange={(e) => handleSeasonChange(e.target.value)}
