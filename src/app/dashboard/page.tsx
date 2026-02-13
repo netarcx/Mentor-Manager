@@ -322,6 +322,8 @@ const ShiftCard = memo(function ShiftCard({
 export default function DashboardPage() {
   const [currentShift, setCurrentShift] = useState<ShiftWithSignups | null>(null);
   const [nextShift, setNextShift] = useState<ShiftWithSignups | null>(null);
+  const [futureShifts, setFutureShifts] = useState<ShiftWithSignups[]>([]);
+  const [browseIndex, setBrowseIndex] = useState<number | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [branding, setBranding] = useState<Branding>({ appName: "Workshop Dashboard", logoPath: "" });
   const [countdown, setCountdown] = useState<CountdownConfig>({ enabled: false, targetDate: "", label: "" });
@@ -333,6 +335,8 @@ export default function DashboardPage() {
   const [goalsSaved, setGoalsSaved] = useState(false);
   const prevShiftIdRef = useRef<number | null | undefined>(undefined);
   const goalsSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartRef = useRef<number | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -357,6 +361,7 @@ export default function DashboardPage() {
 
       setCurrentShift(data.currentShift);
       setNextShift(data.nextShift);
+      if (data.futureShifts) setFutureShifts(data.futureShifts);
       setLastUpdate(new Date());
 
       // Update non-shift data from the consolidated response
@@ -377,6 +382,13 @@ export default function DashboardPage() {
     );
     return () => clearInterval(dashboardInterval);
   }, [fetchDashboard]);
+
+  // Cleanup idle timer on unmount
+  useEffect(() => {
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, []);
 
   // Fullscreen state tracking — hide nav bar when fullscreen
   useEffect(() => {
@@ -422,6 +434,52 @@ export default function DashboardPage() {
       document.exitFullscreen();
     }
   }
+
+  // Shift browsing navigation
+  function resetIdleTimer() {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => setBrowseIndex(null), 2 * 60 * 1000);
+  }
+
+  function browseForward() {
+    setBrowseIndex((prev) => {
+      if (prev === null) return 0;
+      const maxIndex = futureShifts.length - 1;
+      return prev < maxIndex ? prev + 1 : prev;
+    });
+    resetIdleTimer();
+  }
+
+  function browseBack() {
+    setBrowseIndex((prev) => {
+      if (prev === null || prev === 0) return null;
+      return prev - 1;
+    });
+    resetIdleTimer();
+  }
+
+  // Compute which shifts to display
+  const canBrowse = futureShifts.length > 0;
+  const isBrowsing = browseIndex !== null;
+  let displayLeft: ShiftWithSignups | null;
+  let displayRight: ShiftWithSignups | null;
+  let displayLeftTitle: string;
+  let displayRightTitle: string;
+
+  if (isBrowsing) {
+    displayLeft = futureShifts[browseIndex] || null;
+    displayRight = futureShifts[browseIndex + 1] || null;
+    displayLeftTitle = "Upcoming Shift";
+    displayRightTitle = "Following Shift";
+  } else {
+    displayLeft = currentShift;
+    displayRight = nextShift;
+    displayLeftTitle = "Current Shift";
+    displayRightTitle = "Next Shift";
+  }
+
+  const canGoBack = isBrowsing;
+  const canGoForward = canBrowse && (browseIndex === null || browseIndex < futureShifts.length - 1);
 
   return (
     <div className={`bg-navy-dark text-white ${tvMode ? "h-screen overflow-hidden" : "min-h-screen"}`}>
@@ -476,15 +534,63 @@ export default function DashboardPage() {
         <CountdownTimer config={countdown} tv={tvMode} />
         <CleanupCountdown currentShift={currentShift} nextShift={nextShift} tv={tvMode} />
 
-        {/* Shift Cards */}
-        <div className={`flex flex-col lg:flex-row gap-4 ${tvMode ? "flex-1 min-h-0" : "sm:gap-6"}`}>
-          <ShiftCard
-            shift={currentShift}
-            title="Current Shift"
-            isCurrent={true}
-            tv={tvMode}
-          />
-          <ShiftCard shift={nextShift} title="Next Shift" tv={tvMode} />
+        {/* Shift Cards with Navigation */}
+        <div className={`flex items-stretch gap-2 ${tvMode ? "flex-1 min-h-0" : ""}`}>
+          {/* Back arrow */}
+          <button
+            onClick={browseBack}
+            disabled={!canGoBack}
+            className={`flex-shrink-0 flex items-center px-2 sm:px-3 rounded-xl transition-colors ${
+              canGoBack
+                ? "text-white hover:bg-slate-700 cursor-pointer"
+                : "text-slate-700 cursor-default"
+            }`}
+            title="Previous shifts"
+          >
+            <span className="text-2xl sm:text-3xl">&lsaquo;</span>
+          </button>
+
+          {/* Shift cards */}
+          <div
+            className={`flex-1 flex flex-col lg:flex-row gap-4 min-w-0 ${tvMode ? "min-h-0" : "sm:gap-6"}`}
+            onTouchStart={(e) => { touchStartRef.current = e.touches[0].clientX; }}
+            onTouchEnd={(e) => {
+              if (touchStartRef.current === null) return;
+              const diff = touchStartRef.current - e.changedTouches[0].clientX;
+              touchStartRef.current = null;
+              if (Math.abs(diff) < 50) return;
+              if (diff > 0 && canGoForward) browseForward();
+              if (diff < 0 && canGoBack) browseBack();
+            }}
+          >
+            {/* Browse indicator */}
+            {isBrowsing && (
+              <div className="text-center text-xs text-slate-500 lg:hidden mb-1">
+                Viewing future shifts &middot; <button onClick={() => setBrowseIndex(null)} className="underline hover:text-slate-300">Back to now</button>
+              </div>
+            )}
+            <ShiftCard
+              shift={displayLeft}
+              title={displayLeftTitle}
+              isCurrent={!isBrowsing && !!currentShift}
+              tv={tvMode}
+            />
+            <ShiftCard shift={displayRight} title={displayRightTitle} tv={tvMode} />
+          </div>
+
+          {/* Forward arrow */}
+          <button
+            onClick={browseForward}
+            disabled={!canGoForward}
+            className={`flex-shrink-0 flex items-center px-2 sm:px-3 rounded-xl transition-colors ${
+              canGoForward
+                ? "text-white hover:bg-slate-700 cursor-pointer"
+                : "text-slate-700 cursor-default"
+            }`}
+            title="Next shifts"
+          >
+            <span className="text-2xl sm:text-3xl">&rsaquo;</span>
+          </button>
         </div>
 
         {/* Goals + Quote row */}

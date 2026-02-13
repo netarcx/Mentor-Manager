@@ -10,7 +10,7 @@ export async function GET() {
     const now = currentTimeStr();
 
     // Run all queries in parallel
-    const [currentShifts, nextShift, brandingSettings, countdownSettings, quoteResult, goal] =
+    const [currentShifts, nextShift, futureShifts, brandingSettings, countdownSettings, quoteResult, goal] =
       await Promise.all([
         // Current shifts
         prisma.shift.findMany({
@@ -30,6 +30,23 @@ export async function GET() {
         }),
         // Next shift
         prisma.shift.findFirst({
+          where: {
+            cancelled: false,
+            OR: [
+              { date: today, startTime: { gt: now } },
+              { date: { gt: today } },
+            ],
+          },
+          include: {
+            signups: {
+              include: { mentor: true },
+              orderBy: { signedUpAt: "asc" },
+            },
+          },
+          orderBy: [{ date: "asc" }, { startTime: "asc" }],
+        }),
+        // Future shifts (all upcoming, beyond current/next — filtered client-side)
+        prisma.shift.findMany({
           where: {
             cancelled: false,
             OR: [
@@ -123,9 +140,17 @@ export async function GET() {
       label: countdownMap.countdown_label || "Event",
     };
 
+    // Filter out current and next shift from the future list
+    const currentId = currentShift?.id;
+    const nextId = nextShift?.id;
+    const filteredFuture = futureShifts.filter(
+      (s) => s.id !== currentId && s.id !== nextId
+    );
+
     return NextResponse.json({
       currentShift,
       nextShift,
+      futureShifts: filteredFuture,
       branding,
       countdown,
       quote: quoteResult,
