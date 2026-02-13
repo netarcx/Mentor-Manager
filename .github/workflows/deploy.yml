@@ -1,0 +1,43 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
+            -t mentor-manager:latest .
+
+      - name: Save image as tarball
+        run: docker save mentor-manager:latest | gzip > /tmp/mentor-manager.tar.gz
+
+      - name: Transfer image to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: /tmp/mentor-manager.tar.gz
+          target: /tmp
+          strip_components: 1
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            docker load < /tmp/mentor-manager.tar.gz
+            cd /root/Mentor-Manager && docker compose up -d app
+            rm /tmp/mentor-manager.tar.gz
