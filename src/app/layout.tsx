@@ -53,7 +53,7 @@ export default async function RootLayout({
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <NavBrand initialName={branding.appName} />
-              <div className="flex gap-6">
+              <div className="flex gap-3 sm:gap-6 text-sm sm:text-base">
                 <Link
                   href="/signup"
                   className="font-semibold hover:text-primary-light transition-colors"

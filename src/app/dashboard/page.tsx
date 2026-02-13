@@ -89,13 +89,13 @@ const CountdownTimer = memo(function CountdownTimer({
   if (!config.enabled || !config.targetDate) return null;
 
   return (
-    <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white shadow-lg">
-      <h2 className={`${tv ? "text-3xl" : "text-2xl"} font-bold mb-4 text-center`}>{config.label}</h2>
-      <div className="grid grid-cols-4 gap-4 max-w-2xl mx-auto">
+    <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-4 sm:p-8 mb-6 sm:mb-8 text-white shadow-lg">
+      <h2 className={`${tv ? "text-3xl" : "text-lg sm:text-2xl"} font-bold mb-4 text-center`}>{config.label}</h2>
+      <div className="grid grid-cols-4 gap-2 sm:gap-4 max-w-2xl mx-auto">
         {(["days", "hours", "minutes", "seconds"] as const).map((unit) => (
           <div key={unit} className="text-center">
-            <div className={`${tv ? "text-7xl" : "text-5xl"} font-bold mb-2`}>{timeRemaining[unit]}</div>
-            <div className={`${tv ? "text-base" : "text-sm"} uppercase tracking-wider opacity-90`}>{unit}</div>
+            <div className={`${tv ? "text-7xl" : "text-3xl sm:text-5xl"} font-bold mb-2`}>{timeRemaining[unit]}</div>
+            <div className={`${tv ? "text-base" : "text-xs sm:text-sm"} uppercase tracking-wider opacity-90`}>{unit}</div>
           </div>
         ))}
       </div>
@@ -159,11 +159,11 @@ const CleanupCountdown = memo(function CleanupCountdown({
   if (cleanupSeconds === null) return null;
 
   return (
-    <div className="bg-amber-500/20 border-2 border-amber-500 rounded-2xl p-6 mb-6 text-center animate-pulse">
-      <div className={`text-amber-400 ${tv ? "text-2xl" : "text-lg"} font-semibold uppercase tracking-wider mb-1`}>
+    <div className="bg-amber-500/20 border-2 border-amber-500 rounded-2xl p-4 sm:p-6 mb-6 text-center animate-pulse">
+      <div className={`text-amber-400 ${tv ? "text-2xl" : "text-base sm:text-lg"} font-semibold uppercase tracking-wider mb-1`}>
         Cleanup Time
       </div>
-      <div className={`${tv ? "text-7xl" : "text-5xl"} font-bold text-white`}>
+      <div className={`${tv ? "text-7xl" : "text-3xl sm:text-5xl"} font-bold text-white`}>
         {Math.floor(cleanupSeconds / 60)}:{(cleanupSeconds % 60).toString().padStart(2, "0")}
       </div>
     </div>
@@ -250,41 +250,41 @@ const ShiftCard = memo(function ShiftCard({
 }) {
   if (!shift) {
     return (
-      <div className={`bg-slate-800 rounded-2xl ${tv ? "p-10" : "p-8"} flex-1`}>
-        <h2 className={`${tv ? "text-3xl" : "text-2xl"} font-bold text-slate-400 mb-4`}>{title}</h2>
-        <p className={`text-slate-500 ${tv ? "text-2xl" : "text-xl"}`}>No shift scheduled</p>
+      <div className={`bg-slate-800 rounded-2xl ${tv ? "p-10" : "p-5 sm:p-8"} flex-1`}>
+        <h2 className={`${tv ? "text-3xl" : "text-xl sm:text-2xl"} font-bold text-slate-400 mb-4`}>{title}</h2>
+        <p className={`text-slate-500 ${tv ? "text-2xl" : "text-lg sm:text-xl"}`}>No shift scheduled</p>
       </div>
     );
   }
 
   return (
     <div
-      className={`rounded-2xl ${tv ? "p-10" : "p-8"} flex-1 ${
+      className={`rounded-2xl ${tv ? "p-10" : "p-5 sm:p-8"} flex-1 ${
         isCurrent
           ? "bg-primary-light/15 border-2 border-primary-light"
           : "bg-slate-800"
       }`}
     >
       <div className="flex items-center justify-between mb-4">
-        <h2 className={`${tv ? "text-3xl" : "text-2xl"} font-bold text-white`}>{title}</h2>
+        <h2 className={`${tv ? "text-3xl" : "text-xl sm:text-2xl"} font-bold text-white`}>{title}</h2>
         {isCurrent && (
-          <span className={`bg-primary-light text-primary-dark ${tv ? "text-base px-4 py-1.5" : "text-sm px-3 py-1"} font-bold rounded-full animate-pulse`}>
+          <span className={`bg-primary-light text-primary-dark ${tv ? "text-base px-4 py-1.5" : "text-xs sm:text-sm px-2 sm:px-3 py-1"} font-bold rounded-full animate-pulse`}>
             LIVE
           </span>
         )}
       </div>
-      <div className={`${tv ? "text-4xl" : "text-3xl"} font-bold text-white mb-1`}>
+      <div className={`${tv ? "text-4xl" : "text-xl sm:text-3xl"} font-bold text-white mb-1`}>
         {formatTimeDashboard(shift.startTime)} - {formatTimeDashboard(shift.endTime)}
       </div>
-      <div className={`${tv ? "text-2xl" : "text-xl"} text-slate-400 mb-2`}>
+      <div className={`${tv ? "text-2xl" : "text-base sm:text-xl"} text-slate-400 mb-2`}>
         {formatDateDashboard(shift.date)}
       </div>
       {shift.label && (
-        <div className={`${tv ? "text-xl" : "text-lg"} text-primary-light mb-4`}>{shift.label}</div>
+        <div className={`${tv ? "text-xl" : "text-base sm:text-lg"} text-primary-light mb-4`}>{shift.label}</div>
       )}
 
       <div className="mt-6">
-        <div className={`${tv ? "text-base" : "text-sm"} text-slate-400 uppercase tracking-wider mb-3`}>
+        <div className={`${tv ? "text-base" : "text-xs sm:text-sm"} text-slate-400 uppercase tracking-wider mb-3`}>
           Mentors ({shift.signups.length})
         </div>
         {shift.signups.length === 0 ? (
@@ -294,20 +294,20 @@ const ShiftCard = memo(function ShiftCard({
             {shift.signups.map((signup) => (
               <div
                 key={signup.id}
-                className={`flex items-center gap-3 bg-slate-700/50 rounded-lg ${tv ? "px-5 py-4" : "px-4 py-3"}`}
+                className={`flex items-center gap-2 sm:gap-3 bg-slate-700/50 rounded-lg ${tv ? "px-5 py-4" : "px-3 sm:px-4 py-2 sm:py-3"}`}
               >
                 <MemoMentorAvatar mentor={signup.mentor} tv={tv} />
-                <div>
-                  <div className={`text-white font-medium ${tv ? "text-xl" : "text-lg"}`}>
+                <div className="min-w-0">
+                  <div className={`text-white font-medium ${tv ? "text-xl" : "text-base sm:text-lg"}`}>
                     {signup.mentor.name}
                     {(signup.customStartTime || signup.customEndTime) && (
-                      <span className={`ml-2 ${tv ? "text-base" : "text-sm"} font-normal text-slate-400`}>
+                      <span className={`ml-2 ${tv ? "text-base" : "text-xs sm:text-sm"} font-normal text-slate-400`}>
                         {formatTimeDashboard(signup.customStartTime || shift.startTime)} - {formatTimeDashboard(signup.customEndTime || shift.endTime)}
                       </span>
                     )}
                   </div>
                   {signup.note && (
-                    <div className={`${tv ? "text-base" : "text-sm"} text-slate-400`}>{signup.note}</div>
+                    <div className={`${tv ? "text-base" : "text-xs sm:text-sm"} text-slate-400`}>{signup.note}</div>
                   )}
                 </div>
               </div>
@@ -425,20 +425,20 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-navy-dark text-white">
-      <div className={`${tvMode ? "p-10" : "p-8"} ${tvMode ? "" : "max-w-6xl"} mx-auto`} style={{ zoom: `${zoom}%` }}>
+      <div className={`${tvMode ? "p-10" : "p-4 sm:p-8"} ${tvMode ? "" : "max-w-6xl"} mx-auto`} style={{ zoom: `${zoom}%` }}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             {branding.logoPath && (
-              <img src="/api/logo" alt="" className={`${tvMode ? "h-16" : "h-12"} w-auto`} />
+              <img src="/api/logo" alt="" className={`${tvMode ? "h-16" : "h-8 sm:h-12"} w-auto flex-shrink-0`} />
             )}
-            <h1 className={`${tvMode ? "text-5xl" : "text-4xl"} font-bold`}>{branding.appName}</h1>
+            <h1 className={`${tvMode ? "text-5xl" : "text-2xl sm:text-4xl"} font-bold truncate`}>{branding.appName}</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <div className={`${tvMode ? "text-base" : "text-sm"} text-slate-500`}>
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <div className={`${tvMode ? "text-base" : "text-xs sm:text-sm"} text-slate-500`}>
               {lastUpdate.toLocaleTimeString()}
             </div>
-            <div className="flex items-center bg-slate-700 rounded-lg">
+            <div className="hidden sm:flex items-center bg-slate-700 rounded-lg">
               <button
                 onClick={() => setZoom((z) => Math.max(50, z - 10))}
                 className="hover:bg-slate-600 text-white px-3 py-2 rounded-l-lg transition-colors text-sm font-bold"
@@ -457,18 +457,18 @@ export default function DashboardPage() {
             </div>
             <button
               onClick={() => setTvMode(!tvMode)}
-              className={`${tvMode ? "bg-primary text-white" : "bg-slate-700 text-white"} hover:bg-slate-600 px-4 py-2 rounded-lg transition-colors text-sm font-semibold`}
+              className={`${tvMode ? "bg-primary text-white" : "bg-slate-700 text-white"} hover:bg-slate-600 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm font-semibold`}
               title={tvMode ? "Switch to Desktop view" : "Switch to TV view"}
             >
               {tvMode ? "TV" : "TV"}
             </button>
             <button
               onClick={toggleFullscreen}
-              className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm"
+              className="bg-slate-700 hover:bg-slate-600 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm"
               title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
             >
               <span className="text-lg">&#x26F6;</span>
-              {!tvMode && (isFullscreen ? "Exit Fullscreen" : "Fullscreen")}
+              <span className="hidden sm:inline">{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
             </button>
           </div>
         </div>
@@ -477,7 +477,7 @@ export default function DashboardPage() {
         <CleanupCountdown currentShift={currentShift} nextShift={nextShift} tv={tvMode} />
 
         {/* Shift Cards */}
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           <ShiftCard
             shift={currentShift}
             title="Current Shift"
@@ -488,9 +488,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Goals */}
-        <div className={`mt-8 bg-slate-800 rounded-2xl ${tvMode ? "p-8" : "p-6"}`}>
+        <div className={`mt-6 sm:mt-8 bg-slate-800 rounded-2xl ${tvMode ? "p-8" : "p-4 sm:p-6"}`}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className={`${tvMode ? "text-2xl" : "text-lg"} font-semibold text-white`}>Today&apos;s Goals</h2>
+            <h2 className={`${tvMode ? "text-2xl" : "text-base sm:text-lg"} font-semibold text-white`}>Today&apos;s Goals</h2>
             {goalsSaved && (
               <span className="text-xs text-green-400">Saved</span>
             )}
@@ -500,7 +500,7 @@ export default function DashboardPage() {
             onChange={(e) => handleGoalsChange(e.target.value)}
             placeholder="What are we working on today?"
             rows={tvMode ? 3 : 4}
-            className={`w-full bg-slate-700/50 text-white rounded-lg px-4 py-3 ${tvMode ? "text-xl" : "text-lg"} placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none`}
+            className={`w-full bg-slate-700/50 text-white rounded-lg px-3 sm:px-4 py-3 ${tvMode ? "text-xl" : "text-base sm:text-lg"} placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none`}
           />
         </div>
 
@@ -514,13 +514,13 @@ export default function DashboardPage() {
                 if (data.quote) setQuote(data.quote);
               } catch { /* ignore */ }
             }}
-            className={`mt-8 bg-slate-800/50 rounded-2xl ${tvMode ? "p-8" : "p-6"} text-center cursor-pointer hover:bg-slate-800/70 transition-colors`}
+            className={`mt-6 sm:mt-8 bg-slate-800/50 rounded-2xl ${tvMode ? "p-8" : "p-4 sm:p-6"} text-center cursor-pointer hover:bg-slate-800/70 transition-colors`}
           >
-            <p className={`${tvMode ? "text-2xl" : "text-xl"} text-slate-300 italic`}>
+            <p className={`${tvMode ? "text-2xl" : "text-base sm:text-xl"} text-slate-300 italic`}>
               &ldquo;{quote.text}&rdquo;
             </p>
             {quote.author && (
-              <p className={`${tvMode ? "text-base" : "text-sm"} text-slate-500 mt-2`}>&mdash; {quote.author}</p>
+              <p className={`${tvMode ? "text-base" : "text-xs sm:text-sm"} text-slate-500 mt-2`}>&mdash; {quote.author}</p>
             )}
           </div>
         )}
