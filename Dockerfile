@@ -11,6 +11,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 ENV DATABASE_URL="file:/tmp/build.db"
+ARG GIT_COMMIT=""
+ENV NEXT_PUBLIC_GIT_COMMIT=$GIT_COMMIT
 RUN npm run build
 
 # Stage 3: Production
