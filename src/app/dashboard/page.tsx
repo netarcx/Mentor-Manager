@@ -298,7 +298,7 @@ const ShiftCard = memo(function ShiftCard({
         {shift.signups.length === 0 ? (
           <p className="text-slate-500 italic">No one signed up yet</p>
         ) : (
-          <div className={`grid gap-2 ${tv ? "grid-cols-2 gap-3 overflow-auto" : "grid-cols-1 sm:grid-cols-2"}`}>
+          <div className={`grid gap-2 ${tv ? "grid-cols-2 gap-3 flex-1 min-h-0 overflow-auto" : "grid-cols-1 sm:grid-cols-2"}`}>
             {shift.signups.map((signup) => (
               <div
                 key={signup.id}
