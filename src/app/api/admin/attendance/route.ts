@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
+// Attendance tracking started on this date — exclude earlier shifts
+const ATTENDANCE_START = "2026-02-12";
+
 export async function GET(request: NextRequest) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,36 +16,40 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get("seasonId");
 
-    // Attendance tracking started on this date — exclude earlier shifts
-    const ATTENDANCE_START = "2026-02-12";
+    // Build date filter floored to attendance start date
+    let dateGte = ATTENDANCE_START;
+    let dateLte: string | undefined;
 
-    // Build date filter from season, floored to attendance start date
-    let dateFilter: { gte: string; lte?: string } = { gte: ATTENDANCE_START };
     if (seasonId) {
       const season = await prisma.season.findUnique({
         where: { id: parseInt(seasonId, 10) },
       });
       if (season) {
-        dateFilter = {
-          gte: season.startDate > ATTENDANCE_START ? season.startDate : ATTENDANCE_START,
-          lte: season.endDate,
-        };
+        dateGte = season.startDate > ATTENDANCE_START ? season.startDate : ATTENDANCE_START;
+        dateLte = season.endDate;
       }
     }
 
-    // Get all signups with their shifts and mentors
-    const signups = await prisma.signup.findMany({
+    // Step 1: Get qualifying shift IDs explicitly
+    const shifts = await prisma.shift.findMany({
       where: {
-        shift: {
-          cancelled: false,
-          date: dateFilter,
-        },
+        cancelled: false,
+        date: { gte: dateGte, ...(dateLte ? { lte: dateLte } : {}) },
       },
-      include: {
-        mentor: { select: { id: true, name: true, email: true } },
-        shift: { select: { id: true, date: true, startTime: true, endTime: true, label: true } },
-      },
+      select: { id: true },
     });
+    const shiftIds = shifts.map((s) => s.id);
+
+    // Step 2: Get signups for those shifts only
+    const signups = shiftIds.length > 0
+      ? await prisma.signup.findMany({
+          where: { shiftId: { in: shiftIds } },
+          include: {
+            mentor: { select: { id: true, name: true, email: true } },
+            shift: { select: { id: true, date: true, startTime: true, endTime: true, label: true } },
+          },
+        })
+      : [];
 
     // Aggregate per mentor
     const mentorMap = new Map<number, {
@@ -86,6 +95,7 @@ export async function GET(request: NextRequest) {
         attendanceRate: totalSignups > 0 ? Math.round((totalCheckIns / totalSignups) * 100) : 0,
         mentorCount: mentorMap.size,
       },
+      dateRange: { from: dateGte, to: dateLte || null },
     });
   } catch (error) {
     console.error(error);

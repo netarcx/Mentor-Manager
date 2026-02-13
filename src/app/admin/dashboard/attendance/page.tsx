@@ -30,6 +30,7 @@ export default function AttendancePage() {
   const [selectedSeason, setSelectedSeason] = useState<string>("");
   const [mentors, setMentors] = useState<MentorAttendance[]>([]);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
+  const [dateRange, setDateRange] = useState<{ from: string; to: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function AttendancePage() {
       .then((data) => {
         setMentors(data.mentors || []);
         setStats(data.stats || null);
+        setDateRange(data.dateRange || null);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -71,6 +73,12 @@ export default function AttendancePage() {
           ))}
         </select>
       </div>
+
+      {dateRange && (
+        <p className="text-xs text-slate-400 -mt-4 mb-4">
+          Showing shifts from {dateRange.from}{dateRange.to ? ` to ${dateRange.to}` : " onward"}
+        </p>
+      )}
 
       {loading ? (
         <p className="text-slate-500">Loading...</p>
