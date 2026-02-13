@@ -180,7 +180,7 @@ export default function StudentAttendancePage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
             {students.map((student) => {
               const record = attendance.get(student.id);
               const isLoading = tapping === student.id;
@@ -192,7 +192,7 @@ export default function StudentAttendancePage() {
                   key={student.id}
                   onClick={() => handleTap(student.id)}
                   disabled={isLoading}
-                  className={`p-5 rounded-xl text-center transition-all select-none ${
+                  className={`p-3 sm:p-5 rounded-xl text-center transition-all select-none ${
                     isCheckedOut
                       ? "bg-blue-50 border-2 border-blue-400 text-blue-800"
                       : isCheckedIn
@@ -202,7 +202,7 @@ export default function StudentAttendancePage() {
                           : "bg-white border-2 border-slate-200 text-slate-800 hover:border-primary active:scale-95"
                   }`}
                 >
-                  <div className="text-lg font-semibold">
+                  <div className="text-sm sm:text-lg font-semibold truncate">
                     {student.name}
                     {isCheckedIn && (
                       <span className="ml-2 text-green-600">&#10003;</span>

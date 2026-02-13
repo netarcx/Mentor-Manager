@@ -42,21 +42,17 @@ export default async function RootLayout({
     <html lang="en">
       <head>
         <style dangerouslySetInnerHTML={{ __html: cssOverrides }} />
-        {branding.faviconPath && (
-          <link rel="icon" href="/api/favicon" />
-        )}
-        {branding.appleIconPath && (
-          <link rel="apple-touch-icon" href="/api/apple-icon" />
-        )}
+        <link rel="icon" href="/api/favicon" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/api/apple-icon" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}
       >
         <nav id="main-nav" className="bg-navy text-white shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+            <div className="flex items-center justify-between min-h-16 py-2">
               <NavBrand initialName={branding.appName} />
-              <div className="flex gap-3 sm:gap-6 text-sm sm:text-base">
+              <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 sm:gap-6 text-xs sm:text-base">
                 <Link
                   href="/signup"
                   className="font-semibold hover:text-primary-light transition-colors"

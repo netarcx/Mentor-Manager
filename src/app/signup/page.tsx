@@ -364,7 +364,7 @@ export default function SignupPage() {
                           }`}
                           onClick={() => !isDisabled && toggleShift(shift)}
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-wrap items-center justify-between gap-y-1">
                             <div>
                               <span className="font-medium">
                                 {formatTime(shift.startTime)} -{" "}
@@ -382,7 +382,7 @@ export default function SignupPage() {
                                 )
                               )}
                             </div>
-                            <span className={`text-sm ${alreadySignedUp ? "text-green-700 font-medium" : needsHelp ? "text-amber-700 font-medium" : "text-slate-500"}`}>
+                            <span className={`text-xs sm:text-sm ${alreadySignedUp ? "text-green-700 font-medium" : needsHelp ? "text-amber-700 font-medium" : "text-slate-500"}`}>
                               {shift.signups.length} signed up
                               {alreadySignedUp && (
                                 <span className="ml-2 bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">
@@ -405,8 +405,8 @@ export default function SignupPage() {
                           )}
                           {isSelected && (
                             <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center gap-2">
-                                <label className="text-xs text-slate-500 w-16">Arriving</label>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <label className="text-xs text-slate-500 w-14 sm:w-16">Arriving</label>
                                 <input
                                   type="time"
                                   value={selected.get(shift.id)?.customStartTime || shift.startTime}
@@ -415,9 +415,9 @@ export default function SignupPage() {
                                   onChange={(e) =>
                                     updateSelection(shift.id, { customStartTime: e.target.value })
                                   }
-                                  className="border border-slate-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                                  className="border border-slate-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none flex-1 min-w-[5rem]"
                                 />
-                                <label className="text-xs text-slate-500 w-16">Leaving</label>
+                                <label className="text-xs text-slate-500 w-14 sm:w-16">Leaving</label>
                                 <input
                                   type="time"
                                   value={selected.get(shift.id)?.customEndTime || shift.endTime}
@@ -426,7 +426,7 @@ export default function SignupPage() {
                                   onChange={(e) =>
                                     updateSelection(shift.id, { customEndTime: e.target.value })
                                   }
-                                  className="border border-slate-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                                  className="border border-slate-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none flex-1 min-w-[5rem]"
                                 />
                               </div>
                               {isMentorMeeting(shift.label) && (

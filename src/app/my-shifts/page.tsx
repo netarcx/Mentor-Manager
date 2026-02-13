@@ -209,8 +209,8 @@ export default function MyShiftsPage() {
                     key={signup.id}
                     className="border border-slate-200 rounded-lg p-4 hover:border-primary transition-colors"
                   >
-                    <div className="flex justify-between items-start">
-                      <div>
+                    <div className="flex justify-between items-start min-w-0">
+                      <div className="min-w-0">
                         <div className="font-semibold text-lg">
                           {formatTime(signup.shift.startTime)} -{" "}
                           {formatTime(signup.shift.endTime)}
@@ -219,12 +219,12 @@ export default function MyShiftsPage() {
                           {formatDate(signup.shift.date)}
                         </div>
                         {signup.shift.label && (
-                          <div className="text-sm text-primary mt-1">
+                          <div className="text-sm text-primary mt-1 truncate">
                             {signup.shift.label}
                           </div>
                         )}
                         {signup.note && (
-                          <div className="text-sm text-slate-500 mt-2">
+                          <div className="text-sm text-slate-500 mt-2 truncate">
                             Note: {signup.note}
                           </div>
                         )}

@@ -52,8 +52,8 @@ export default function LeaderboardPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Leaderboard</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold">Leaderboard</h1>
         <select
           value={selectedSeason}
           onChange={(e) => setSelectedSeason(e.target.value)}
@@ -70,26 +70,26 @@ export default function LeaderboardPage() {
 
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-xl p-4 shadow border border-slate-100">
-            <div className="text-2xl font-bold text-primary">
+          <div className="bg-white rounded-xl p-3 sm:p-4 shadow border border-slate-100">
+            <div className="text-xl sm:text-2xl font-bold text-primary">
               {stats.totalHours}
             </div>
             <div className="text-sm text-slate-500">Total Hours</div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow border border-slate-100">
-            <div className="text-2xl font-bold text-navy">
+          <div className="bg-white rounded-xl p-3 sm:p-4 shadow border border-slate-100">
+            <div className="text-xl sm:text-2xl font-bold text-navy">
               {stats.mentorCount}
             </div>
             <div className="text-sm text-slate-500">Mentors</div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow border border-slate-100">
-            <div className="text-2xl font-bold text-navy">
+          <div className="bg-white rounded-xl p-3 sm:p-4 shadow border border-slate-100">
+            <div className="text-xl sm:text-2xl font-bold text-navy">
               {stats.totalShifts}
             </div>
             <div className="text-sm text-slate-500">Total Shifts</div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow border border-slate-100">
-            <div className="text-2xl font-bold text-navy">
+          <div className="bg-white rounded-xl p-3 sm:p-4 shadow border border-slate-100">
+            <div className="text-xl sm:text-2xl font-bold text-navy">
               {stats.avgHoursPerMentor}
             </div>
             <div className="text-sm text-slate-500">Avg Hours/Mentor</div>
@@ -108,16 +108,16 @@ export default function LeaderboardPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-navy text-white">
-                <th className="px-6 py-3 text-left text-sm font-semibold">
+                <th className="px-3 sm:px-6 py-3 text-left text-sm font-semibold">
                   Rank
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">
+                <th className="px-3 sm:px-6 py-3 text-left text-sm font-semibold">
                   Mentor
                 </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">
+                <th className="px-3 sm:px-6 py-3 text-right text-sm font-semibold">
                   Hours
                 </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">
+                <th className="px-3 sm:px-6 py-3 text-right text-sm font-semibold">
                   Shifts
                 </th>
               </tr>
@@ -130,7 +130,7 @@ export default function LeaderboardPage() {
                     i < 3 ? "bg-accent-bg/50" : ""
                   }`}
                 >
-                  <td className="px-6 py-4">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4">
                     <span
                       className={`font-bold ${
                         i === 0
@@ -145,11 +145,11 @@ export default function LeaderboardPage() {
                       #{i + 1}
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-medium">{mentor.mentorName}</td>
-                  <td className="px-6 py-4 text-right font-semibold text-primary">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium truncate max-w-[8rem] sm:max-w-none">{mentor.mentorName}</td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-right font-semibold text-primary">
                     {mentor.totalHours}h
                   </td>
-                  <td className="px-6 py-4 text-right text-slate-500">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-right text-slate-500">
                     {mentor.shiftCount}
                   </td>
                 </tr>

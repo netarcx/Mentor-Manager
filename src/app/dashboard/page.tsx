@@ -91,12 +91,12 @@ const CountdownTimer = memo(function CountdownTimer({
   if (!config.enabled || !config.targetDate) return null;
 
   return (
-    <div className={`bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-4 sm:p-8 ${tv ? "mb-4 p-4" : "mb-6 sm:mb-8"} text-white shadow-lg flex-shrink-0`}>
+    <div className={`bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-3 sm:p-8 ${tv ? "mb-4 p-4" : "mb-6 sm:mb-8"} text-white shadow-lg flex-shrink-0`}>
       <h2 className={`${tv ? "text-xl" : "text-lg sm:text-2xl"} font-bold mb-2 text-center`}>{config.label}</h2>
-      <div className="grid grid-cols-4 gap-2 sm:gap-4 max-w-2xl mx-auto">
+      <div className="grid grid-cols-4 gap-1 sm:gap-4 max-w-2xl mx-auto">
         {(["days", "hours", "minutes", "seconds"] as const).map((unit) => (
           <div key={unit} className="text-center">
-            <div className={`${tv ? "text-5xl" : "text-3xl sm:text-5xl"} font-bold mb-1`}>{timeRemaining[unit]}</div>
+            <div className={`${tv ? "text-5xl" : "text-2xl sm:text-5xl"} font-bold mb-1`}>{timeRemaining[unit]}</div>
             <div className={`${tv ? "text-sm" : "text-xs sm:text-sm"} uppercase tracking-wider opacity-90`}>{unit}</div>
           </div>
         ))}
@@ -587,7 +587,7 @@ export default function DashboardPage() {
           <button
             onClick={browseBack}
             disabled={!canGoBack}
-            className={`flex-shrink-0 flex items-center px-2 sm:px-3 rounded-xl transition-colors ${
+            className={`flex-shrink-0 flex items-center justify-center px-3 min-w-[44px] min-h-[44px] rounded-xl transition-colors ${
               canGoBack
                 ? "text-white hover:bg-slate-700 cursor-pointer"
                 : "text-slate-700 cursor-default"
@@ -630,7 +630,7 @@ export default function DashboardPage() {
           <button
             onClick={browseForward}
             disabled={!canGoForward}
-            className={`flex-shrink-0 flex items-center px-2 sm:px-3 rounded-xl transition-colors ${
+            className={`flex-shrink-0 flex items-center justify-center px-3 min-w-[44px] min-h-[44px] rounded-xl transition-colors ${
               canGoForward
                 ? "text-white hover:bg-slate-700 cursor-pointer"
                 : "text-slate-700 cursor-default"
