@@ -44,17 +44,19 @@ export async function GET(request: Request) {
 
     const mentorMap = new Map<
       string,
-      { name: string; email: string; hours: number; shifts: number; adjustmentHours: number }
+      { id: number; name: string; email: string; hours: number; shifts: number; adjustmentHours: number; hasAvatar: boolean }
     >();
 
     for (const signup of signups) {
       const key = signup.mentor.email;
       const existing = mentorMap.get(key) || {
+        id: signup.mentor.id,
         name: signup.mentor.name,
         email: signup.mentor.email,
         hours: 0,
         shifts: 0,
         adjustmentHours: 0,
+        hasAvatar: !!signup.mentor.avatarPath,
       };
       const startTime = signup.customStartTime || signup.shift.startTime;
       const endTime = signup.customEndTime || signup.shift.endTime;
@@ -73,11 +75,13 @@ export async function GET(request: Request) {
       for (const adj of adjustments) {
         const key = adj.mentor.email;
         const existing = mentorMap.get(key) || {
+          id: adj.mentor.id,
           name: adj.mentor.name,
           email: adj.mentor.email,
           hours: 0,
           shifts: 0,
           adjustmentHours: 0,
+          hasAvatar: !!adj.mentor.avatarPath,
         };
         existing.adjustmentHours += adj.hours;
         mentorMap.set(key, existing);
@@ -88,11 +92,13 @@ export async function GET(request: Request) {
 
     const mentors = Array.from(mentorMap.values())
       .map((m) => ({
+        mentorId: m.id,
         mentorName: m.name,
         mentorEmail: m.email,
         totalHours: Math.round((m.hours + m.adjustmentHours) * 10) / 10,
         shiftCount: m.shifts,
         adjustmentHours: Math.round(m.adjustmentHours * 10) / 10,
+        hasAvatar: m.hasAvatar,
       }))
       .sort((a, b) => b.totalHours - a.totalHours);
 

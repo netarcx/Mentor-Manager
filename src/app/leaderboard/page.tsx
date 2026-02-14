@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 
 interface LeaderboardEntry {
+  mentorId: number;
   mentorName: string;
   totalHours: number;
   shiftCount: number;
+  hasAvatar: boolean;
 }
 
 interface Stats {
@@ -145,7 +147,24 @@ export default function LeaderboardPage() {
                       #{i + 1}
                     </span>
                   </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium truncate max-w-[8rem] sm:max-w-none">{mentor.mentorName}</td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      {mentor.hasAvatar ? (
+                        <img
+                          src={`/api/mentors/${mentor.mentorId}/avatar`}
+                          alt=""
+                          className="w-8 h-8 rounded-full object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
+                          <span className="text-slate-500 text-sm font-semibold">
+                            {mentor.mentorName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <span className="truncate max-w-[6rem] sm:max-w-none">{mentor.mentorName}</span>
+                    </div>
+                  </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 text-right font-semibold text-primary">
                     {mentor.totalHours}h
                   </td>
