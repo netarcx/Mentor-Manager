@@ -18,11 +18,26 @@ export async function GET() {
     }
 
     const today = todayISO();
-    const attendance = await prisma.studentAttendance.findMany({
-      where: { date: today },
-      select: { studentId: true, checkedInAt: true, checkedOutAt: true },
+    const [attendance, pinRow, subteamsRow] = await Promise.all([
+      prisma.studentAttendance.findMany({
+        where: { date: today },
+        select: { studentId: true, checkedInAt: true, checkedOutAt: true, subteam: true },
+      }),
+      prisma.setting.findUnique({ where: { key: "student_pin" } }),
+      prisma.setting.findUnique({ where: { key: "student_subteams" } }),
+    ]);
+
+    let subteams: string[] = [];
+    if (subteamsRow?.value) {
+      try { subteams = JSON.parse(subteamsRow.value); } catch { /* use default */ }
+    }
+
+    return NextResponse.json({
+      date: today,
+      attendance,
+      pinRequired: !!pinRow?.value,
+      subteams,
     });
-    return NextResponse.json({ date: today, attendance });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -35,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Student check-in is not available" }, { status: 403 });
     }
 
-    const { studentId } = await request.json();
+    const { studentId, subteam } = await request.json();
     if (!studentId) {
       return NextResponse.json({ error: "studentId is required" }, { status: 400 });
     }
@@ -51,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (!existing) {
       // No record — check in
       const record = await prisma.studentAttendance.create({
-        data: { studentId: sid, date: today },
+        data: { studentId: sid, date: today, subteam: subteam || "" },
       });
       return NextResponse.json({ success: true, status: "checked_in", record });
     }
@@ -68,7 +83,7 @@ export async function POST(request: NextRequest) {
     // Already checked out — re-check in (clear checkout, update check-in time)
     const record = await prisma.studentAttendance.update({
       where: { id: existing.id },
-      data: { checkedInAt: new Date(), checkedOutAt: null },
+      data: { checkedInAt: new Date(), checkedOutAt: null, subteam: subteam || existing.subteam },
     });
     return NextResponse.json({ success: true, status: "checked_in", record });
   } catch (error) {

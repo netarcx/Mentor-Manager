@@ -34,11 +34,24 @@ export default function StudentsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  // PIN state
+  const [pin, setPin] = useState("");
+  const [pinInput, setPinInput] = useState("");
+
+  // Subteams state
+  const [subteams, setSubteams] = useState<string[]>([]);
+  const [newSubteam, setNewSubteam] = useState("");
+
+  // Sheets sync state
+  const [syncStatus, setSyncStatus] = useState("");
+
   useEffect(() => {
     fetchStudents();
     fetchSeasons();
     fetchAttendance();
     fetchAttendanceEnabled();
+    fetchPin();
+    fetchSubteams();
   }, []);
 
   function showMessage(msg: string) {
@@ -87,6 +100,31 @@ export default function StudentsPage() {
         const data = await res.json();
         setAttendanceStudents(data.students || []);
         setStats(data.stats || { totalStudents: 0, totalDays: 0, avgAttendanceRate: 0 });
+      }
+    } catch {
+      // Silent fail
+    }
+  }
+
+  async function fetchPin() {
+    try {
+      const res = await fetch("/api/admin/students/pin");
+      if (res.ok) {
+        const data = await res.json();
+        setPin(data.pin || "");
+        setPinInput(data.pin || "");
+      }
+    } catch {
+      // Silent fail
+    }
+  }
+
+  async function fetchSubteams() {
+    try {
+      const res = await fetch("/api/admin/students/subteams");
+      if (res.ok) {
+        const data = await res.json();
+        setSubteams(data.subteams || []);
       }
     } catch {
       // Silent fail
@@ -182,6 +220,94 @@ export default function StudentsPage() {
     }
   }
 
+  async function handleSavePin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading("pin");
+    try {
+      const res = await fetch("/api/admin/students/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: pinInput }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.error || "Failed to save PIN");
+        return;
+      }
+
+      setPin(pinInput);
+      showMessage(pinInput ? "PIN saved!" : "PIN removed — kiosk is unlocked");
+    } catch {
+      showError("Failed to save PIN");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleAddSubteam(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newSubteam.trim()) return;
+    const updated = [...subteams, newSubteam.trim()];
+    setLoading("subteam");
+    try {
+      const res = await fetch("/api/admin/students/subteams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subteams: updated }),
+      });
+      if (!res.ok) {
+        showError("Failed to save subteams");
+        return;
+      }
+      setSubteams(updated);
+      setNewSubteam("");
+      showMessage("Subteam added!");
+    } catch {
+      showError("Failed to save subteams");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleRemoveSubteam(team: string) {
+    const updated = subteams.filter((s) => s !== team);
+    try {
+      const res = await fetch("/api/admin/students/subteams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subteams: updated }),
+      });
+      if (res.ok) {
+        setSubteams(updated);
+        showMessage("Subteam removed");
+      }
+    } catch {
+      showError("Failed to remove subteam");
+    }
+  }
+
+  async function handleSyncSheets() {
+    setLoading("sync");
+    setSyncStatus("");
+    try {
+      const res = await fetch("/api/admin/student-attendance/sync-sheets", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncStatus(`Synced ${data.rowsSynced} row${data.rowsSynced === 1 ? "" : "s"} to Google Sheets`);
+        showMessage("Google Sheets sync complete!");
+      } else {
+        showError(data.error || "Sync failed");
+      }
+    } catch {
+      showError("Failed to sync to Google Sheets");
+    } finally {
+      setLoading("");
+    }
+  }
+
   function handleSeasonChange(value: string) {
     setSelectedSeason(value);
     fetchAttendance(value || undefined);
@@ -228,6 +354,133 @@ export default function StudentsPage() {
               />
             </button>
           </div>
+        </div>
+
+        {/* Kiosk PIN */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold mb-2">Kiosk PIN Code</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            {pin
+              ? "A PIN is required to unlock the check-in kiosk. The kiosk auto-locks 20 minutes after the last shift ends."
+              : "No PIN set — the check-in kiosk is open to anyone with the link."}
+          </p>
+          <form onSubmit={handleSavePin} className="flex gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="4-6 digit PIN"
+              className="w-40 border border-slate-300 rounded-lg px-3 py-2 text-center font-mono text-lg tracking-widest"
+            />
+            <button
+              type="submit"
+              disabled={loading === "pin"}
+              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm font-semibold"
+            >
+              {loading === "pin" ? "Saving..." : "Save PIN"}
+            </button>
+            {pin && (
+              <button
+                type="button"
+                onClick={async () => {
+                  setLoading("pin");
+                  try {
+                    const res = await fetch("/api/admin/students/pin", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ pin: "" }),
+                    });
+                    if (res.ok) {
+                      setPin("");
+                      setPinInput("");
+                      showMessage("PIN removed — kiosk is unlocked");
+                    } else {
+                      showError("Failed to remove PIN");
+                    }
+                  } catch {
+                    showError("Failed to remove PIN");
+                  } finally {
+                    setLoading("");
+                  }
+                }}
+                disabled={loading === "pin"}
+                className="text-red-600 hover:text-red-700 text-sm"
+              >
+                Remove PIN
+              </button>
+            )}
+          </form>
+        </div>
+
+        {/* Subteams */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold mb-2">Subteams</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Students select a subteam when clocking in. This is synced to Google Sheets.
+          </p>
+
+          {subteams.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {subteams.map((team) => (
+                <span
+                  key={team}
+                  className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 px-3 py-1.5 rounded-full text-sm"
+                >
+                  {team}
+                  <button
+                    onClick={() => handleRemoveSubteam(team)}
+                    className="text-slate-400 hover:text-red-500 ml-1"
+                    title="Remove"
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={handleAddSubteam} className="flex gap-2">
+            <input
+              type="text"
+              value={newSubteam}
+              onChange={(e) => setNewSubteam(e.target.value)}
+              placeholder="e.g., Programming, Mechanical, Electrical"
+              className="flex-1 border border-slate-300 rounded-lg px-3 py-2"
+            />
+            <button
+              type="submit"
+              disabled={loading === "subteam" || !newSubteam.trim()}
+              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm font-semibold whitespace-nowrap"
+            >
+              {loading === "subteam" ? "Adding..." : "Add Subteam"}
+            </button>
+          </form>
+        </div>
+
+        {/* Google Sheets Sync */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold mb-2">Google Sheets Sync</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Sync student clock-in/out data to a Google Spreadsheet. Runs automatically every hour and can be triggered manually.
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSyncSheets}
+              disabled={loading === "sync"}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-semibold"
+            >
+              {loading === "sync" ? "Syncing..." : "Sync Now"}
+            </button>
+            {syncStatus && (
+              <span className="text-sm text-slate-600">{syncStatus}</span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mt-2">
+            Requires <span className="font-mono">GOOGLE_SERVICE_ACCOUNT_KEY</span> and <span className="font-mono">GOOGLE_SHEET_ID</span> environment variables.
+          </p>
         </div>
 
         {/* Student Roster */}

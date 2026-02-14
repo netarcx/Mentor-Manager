@@ -131,6 +131,7 @@ model StudentAttendance {
   date        String // ISO date "2026-02-14"
   checkedInAt  DateTime  @default(now()) @map("checked_in_at")
   checkedOutAt DateTime? @map("checked_out_at")
+  subteam      String    @default("")
   student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, date])
