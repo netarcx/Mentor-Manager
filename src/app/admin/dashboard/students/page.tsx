@@ -337,7 +337,7 @@ export default function StudentsPage() {
               <h2 className="text-lg font-semibold">Student Check-In Page</h2>
               <p className="text-sm text-slate-500 mt-1">
                 {attendanceEnabled
-                  ? <>Active at <span className="font-mono">/student/attendance</span></>
+                  ? <>Active at <span className="font-mono">/student</span></>
                   : "Students will see a \"not available\" message when disabled."}
               </p>
             </div>
@@ -640,7 +640,7 @@ export default function StudentsPage() {
           )}
 
           <p className="text-xs text-slate-400 mt-3">
-            Check-in page: <span className="font-mono">/student/attendance</span>
+            Check-in page: <span className="font-mono">/student</span>
           </p>
         </div>
       </div>

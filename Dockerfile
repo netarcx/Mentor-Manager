@@ -6,6 +6,7 @@ RUN npm ci
 
 # Stage 2: Build
 FROM node:22-alpine AS builder
+RUN apk add --no-cache git
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -31,8 +32,9 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 
-# Create data directory for SQLite
+# Create data directory for SQLite and fix .next cache permissions for ISR
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
+RUN chown -R nextjs:nodejs /app/.next
 RUN chmod +x /app/entrypoint.sh
 
 USER nextjs

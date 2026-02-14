@@ -1,0 +1,56 @@
+Google Sheets API Setup for Student Attendance Sync
+====================================================
+
+1. Create a Google Cloud Project
+---------------------------------
+- Go to console.cloud.google.com
+- Click the project dropdown at the top → New Project
+- Name it something like "Mentor Manager" → Create
+- Make sure it's selected as the active project
+
+2. Enable the Google Sheets API
+---------------------------------
+- Go to APIs & Services → Library (or search "Sheets API" in the top search bar)
+- Find Google Sheets API → click Enable
+
+3. Create a Service Account
+-----------------------------
+- Go to APIs & Services → Credentials
+- Click + Create Credentials → Service account
+- Name it something like "mentor-sheets-sync"
+- Skip the optional role/access steps → Done
+
+4. Generate a JSON Key
+------------------------
+- On the Credentials page, click your new service account
+- Go to the Keys tab
+- Add Key → Create new key → JSON → Create
+- A .json file will download — this contains the credentials
+
+5. Share Your Google Sheet with the Service Account
+-----------------------------------------------------
+- Open the downloaded JSON file and find the "client_email" field — it looks like:
+    mentor-sheets-sync@your-project.iam.gserviceaccount.com
+- Open your Google Sheet in the browser
+- Click Share → paste that email → give it Editor access → Send
+
+6. Get Your Sheet ID
+----------------------
+From the sheet URL:
+    https://docs.google.com/spreadsheets/d/THIS_PART_IS_THE_ID/edit
+Copy the long string between /d/ and /edit.
+
+7. Set the Environment Variables
+----------------------------------
+You need two env vars on your server. The key is the entire JSON file
+contents as a single string:
+
+    GOOGLE_SHEET_ID=1aBcDeFgHiJkLmNoPqRsTuVwXyZ...
+    GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"...","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...","client_email":"...","client_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_x509_cert_url":"..."}
+
+However you're setting env vars for your Docker deployment (GitHub secrets,
+.env file on the server, etc.), add both of those.
+
+Once those two env vars are set and the sheet is shared with the service
+account email, the hourly cron sync and the manual "Sync Now" button on
+the admin page will work.
