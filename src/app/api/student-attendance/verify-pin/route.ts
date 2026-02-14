@@ -10,14 +10,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "PIN is required" }, { status: 400 });
     }
 
-    const row = await prisma.setting.findUnique({ where: { key: "student_pin" } });
+    const [mentorRow, captainRow] = await Promise.all([
+      prisma.setting.findUnique({ where: { key: "student_pin" } }),
+      prisma.setting.findUnique({ where: { key: "student_captain_pin" } }),
+    ]);
 
-    // If no PIN is configured, always succeed
-    if (!row?.value) {
+    // If no PINs are configured, always succeed
+    if (!mentorRow?.value && !captainRow?.value) {
       return NextResponse.json({ success: true, locksAt: getFallbackLockTime() });
     }
 
-    if (pin !== row.value) {
+    // Accept either the mentor PIN or the captain PIN
+    if (pin !== mentorRow?.value && pin !== captainRow?.value) {
       return NextResponse.json({ success: false, error: "Incorrect PIN" }, { status: 401 });
     }
 

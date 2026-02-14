@@ -18,12 +18,13 @@ export async function GET() {
     }
 
     const today = todayISO();
-    const [attendance, pinRow, subteamsRow] = await Promise.all([
+    const [attendance, pinRow, captainPinRow, subteamsRow] = await Promise.all([
       prisma.studentAttendance.findMany({
         where: { date: today },
         select: { studentId: true, checkedInAt: true, checkedOutAt: true, subteam: true },
       }),
       prisma.setting.findUnique({ where: { key: "student_pin" } }),
+      prisma.setting.findUnique({ where: { key: "student_captain_pin" } }),
       prisma.setting.findUnique({ where: { key: "student_subteams" } }),
     ]);
 
@@ -35,7 +36,7 @@ export async function GET() {
     return NextResponse.json({
       date: today,
       attendance,
-      pinRequired: !!pinRow?.value,
+      pinRequired: !!pinRow?.value || !!captainPinRow?.value,
       subteams,
     });
   } catch (error) {

@@ -37,6 +37,8 @@ export default function StudentsPage() {
   // PIN state
   const [pin, setPin] = useState("");
   const [pinInput, setPinInput] = useState("");
+  const [captainPin, setCaptainPin] = useState("");
+  const [captainPinInput, setCaptainPinInput] = useState("");
 
   // Subteams state
   const [subteams, setSubteams] = useState<string[]>([]);
@@ -113,6 +115,8 @@ export default function StudentsPage() {
         const data = await res.json();
         setPin(data.pin || "");
         setPinInput(data.pin || "");
+        setCaptainPin(data.captainPin || "");
+        setCaptainPinInput(data.captainPin || "");
       }
     } catch {
       // Silent fail
@@ -237,9 +241,34 @@ export default function StudentsPage() {
       }
 
       setPin(pinInput);
-      showMessage(pinInput ? "PIN saved!" : "PIN removed — kiosk is unlocked");
+      showMessage(pinInput ? "Mentor PIN saved!" : "Mentor PIN removed");
     } catch {
       showError("Failed to save PIN");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleSaveCaptainPin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading("captain-pin");
+    try {
+      const res = await fetch("/api/admin/students/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ captainPin: captainPinInput }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.error || "Failed to save captain PIN");
+        return;
+      }
+
+      setCaptainPin(captainPinInput);
+      showMessage(captainPinInput ? "Captain PIN saved!" : "Captain PIN removed");
+    } catch {
+      showError("Failed to save captain PIN");
     } finally {
       setLoading("");
     }
@@ -356,63 +385,122 @@ export default function StudentsPage() {
           </div>
         </div>
 
-        {/* Kiosk PIN */}
+        {/* Kiosk PINs */}
         <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
-          <h2 className="text-lg font-semibold mb-2">Kiosk PIN Code</h2>
+          <h2 className="text-lg font-semibold mb-2">Kiosk PIN Codes</h2>
           <p className="text-sm text-slate-500 mb-4">
-            {pin
-              ? "A PIN is required to unlock the check-in kiosk. The kiosk auto-locks 20 minutes after the last shift ends."
-              : "No PIN set — the check-in kiosk is open to anyone with the link."}
+            {pin || captainPin
+              ? "A PIN is required to unlock the check-in kiosk. Either the mentor or team captain PIN will work. The kiosk auto-locks 20 minutes after the last shift ends."
+              : "No PINs set — the check-in kiosk is open to anyone with the link."}
           </p>
-          <form onSubmit={handleSavePin} className="flex gap-2">
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="4-6 digit PIN"
-              className="w-40 border border-slate-300 rounded-lg px-3 py-2 text-center font-mono text-lg tracking-widest"
-            />
-            <button
-              type="submit"
-              disabled={loading === "pin"}
-              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm font-semibold"
-            >
-              {loading === "pin" ? "Saving..." : "Save PIN"}
-            </button>
-            {pin && (
+
+          {/* Mentor PIN */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Mentor PIN</label>
+            <form onSubmit={handleSavePin} className="flex gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="4-6 digit PIN"
+                className="w-40 border border-slate-300 rounded-lg px-3 py-2 text-center font-mono text-lg tracking-widest"
+              />
               <button
-                type="button"
-                onClick={async () => {
-                  setLoading("pin");
-                  try {
-                    const res = await fetch("/api/admin/students/pin", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ pin: "" }),
-                    });
-                    if (res.ok) {
-                      setPin("");
-                      setPinInput("");
-                      showMessage("PIN removed — kiosk is unlocked");
-                    } else {
-                      showError("Failed to remove PIN");
-                    }
-                  } catch {
-                    showError("Failed to remove PIN");
-                  } finally {
-                    setLoading("");
-                  }
-                }}
+                type="submit"
                 disabled={loading === "pin"}
-                className="text-red-600 hover:text-red-700 text-sm"
+                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm font-semibold"
               >
-                Remove PIN
+                {loading === "pin" ? "Saving..." : "Save"}
               </button>
-            )}
-          </form>
+              {pin && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoading("pin");
+                    try {
+                      const res = await fetch("/api/admin/students/pin", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ pin: "" }),
+                      });
+                      if (res.ok) {
+                        setPin("");
+                        setPinInput("");
+                        showMessage("Mentor PIN removed");
+                      } else {
+                        showError("Failed to remove PIN");
+                      }
+                    } catch {
+                      showError("Failed to remove PIN");
+                    } finally {
+                      setLoading("");
+                    }
+                  }}
+                  disabled={loading === "pin"}
+                  className="text-red-600 hover:text-red-700 text-sm"
+                >
+                  Remove
+                </button>
+              )}
+            </form>
+          </div>
+
+          {/* Team Captain PIN */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Team Captain PIN</label>
+            <form onSubmit={handleSaveCaptainPin} className="flex gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={captainPinInput}
+                onChange={(e) => setCaptainPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="4-6 digit PIN"
+                className="w-40 border border-slate-300 rounded-lg px-3 py-2 text-center font-mono text-lg tracking-widest"
+              />
+              <button
+                type="submit"
+                disabled={loading === "captain-pin"}
+                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm font-semibold"
+              >
+                {loading === "captain-pin" ? "Saving..." : "Save"}
+              </button>
+              {captainPin && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoading("captain-pin");
+                    try {
+                      const res = await fetch("/api/admin/students/pin", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ captainPin: "" }),
+                      });
+                      if (res.ok) {
+                        setCaptainPin("");
+                        setCaptainPinInput("");
+                        showMessage("Captain PIN removed");
+                      } else {
+                        showError("Failed to remove captain PIN");
+                      }
+                    } catch {
+                      showError("Failed to remove captain PIN");
+                    } finally {
+                      setLoading("");
+                    }
+                  }}
+                  disabled={loading === "captain-pin"}
+                  className="text-red-600 hover:text-red-700 text-sm"
+                >
+                  Remove
+                </button>
+              )}
+            </form>
+          </div>
         </div>
 
         {/* Subteams */}
