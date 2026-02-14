@@ -83,16 +83,16 @@ export async function GET() {
         // Cleanup settings
         prisma.setting.findMany({
           where: {
-            key: { in: ["cleanup_sound_minutes", "cleanup_display_minutes"] },
+            key: { in: ["cleanup_sound_minutes", "cleanup_display_minutes", "sound_volume"] },
           },
         }),
         // Quote (count + single fetch)
         getRandomQuote(),
         // Today's goals
         prisma.dailyGoal.findUnique({ where: { date: today } }),
-        // Announcement settings
+        // Announcement + goals settings
         prisma.setting.findMany({
-          where: { key: { in: ["announcement_enabled", "announcement_text"] } },
+          where: { key: { in: ["announcement_enabled", "announcement_text", "goals_enabled"] } },
         }),
       ]);
 
@@ -158,6 +158,9 @@ export async function GET() {
       text: announcementMap.announcement_text || "",
     };
 
+    // Goals enabled (default true for backwards compatibility)
+    const goalsEnabled = announcementMap.goals_enabled !== "false";
+
     // Determine if current shift is the last of the day
     // It's the last if no other shift on the same day starts at or after it ends
     let isLastShiftOfDay = false;
@@ -174,6 +177,7 @@ export async function GET() {
     const cleanupConfig = {
       soundMinutes: parseInt(cleanupMap.cleanup_sound_minutes || "20", 10),
       displayMinutes: parseInt(cleanupMap.cleanup_display_minutes || "10", 10),
+      soundVolume: parseFloat(cleanupMap.sound_volume || "0.5"),
     };
 
     // Filter out current and next shift from the future list
@@ -193,6 +197,7 @@ export async function GET() {
       countdown,
       quote: quoteResult,
       goals: goal?.text || "",
+      goalsEnabled,
       announcement,
     });
   } catch (error) {

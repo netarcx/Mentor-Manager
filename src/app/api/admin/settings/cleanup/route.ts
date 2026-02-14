@@ -10,7 +10,7 @@ export async function GET() {
   try {
     const settings = await prisma.setting.findMany({
       where: {
-        key: { in: ["cleanup_sound_minutes", "cleanup_display_minutes"] },
+        key: { in: ["cleanup_sound_minutes", "cleanup_display_minutes", "sound_volume"] },
       },
     });
 
@@ -20,6 +20,7 @@ export async function GET() {
     return NextResponse.json({
       soundMinutes: parseInt(map.cleanup_sound_minutes || "20", 10),
       displayMinutes: parseInt(map.cleanup_display_minutes || "10", 10),
+      soundVolume: parseFloat(map.sound_volume || "0.5"),
     });
   } catch (error) {
     console.error(error);
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { soundMinutes, displayMinutes } = await request.json();
+    const { soundMinutes, displayMinutes, soundVolume } = await request.json();
 
     await prisma.setting.upsert({
       where: { key: "cleanup_sound_minutes" },
@@ -46,6 +47,15 @@ export async function POST(request: NextRequest) {
       update: { value: String(displayMinutes || 10) },
       create: { key: "cleanup_display_minutes", value: String(displayMinutes || 10) },
     });
+
+    if (soundVolume !== undefined) {
+      const vol = Math.max(0, Math.min(1, parseFloat(soundVolume) || 0.5));
+      await prisma.setting.upsert({
+        where: { key: "sound_volume" },
+        update: { value: String(vol) },
+        create: { key: "sound_volume", value: String(vol) },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

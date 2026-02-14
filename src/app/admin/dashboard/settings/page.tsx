@@ -42,9 +42,13 @@ export default function SettingsPage() {
   const [cleanupSoundMinutes, setCleanupSoundMinutes] = useState(20);
   const [cleanupDisplayMinutes, setCleanupDisplayMinutes] = useState(10);
   const [cleanupTestActive, setCleanupTestActive] = useState(false);
+  const [soundVolume, setSoundVolume] = useState(0.5);
 
   // Registration state
   const [registrationOpen, setRegistrationOpen] = useState(true);
+
+  // Goals state
+  const [goalsEnabled, setGoalsEnabled] = useState(true);
 
   // Announcement state
   const [announcementEnabled, setAnnouncementEnabled] = useState(false);
@@ -159,6 +163,7 @@ export default function SettingsPage() {
           const data = await res.json();
           setCleanupSoundMinutes(data.soundMinutes);
           setCleanupDisplayMinutes(data.displayMinutes);
+          if (data.soundVolume !== undefined) setSoundVolume(data.soundVolume);
         }
       } catch {
         // Use defaults
@@ -172,6 +177,18 @@ export default function SettingsPage() {
         if (data.registrationOpen !== undefined) setRegistrationOpen(data.registrationOpen);
       } catch {
         // Use default
+      }
+    }
+
+    async function fetchGoals() {
+      try {
+        const res = await fetch("/api/admin/settings/goals");
+        if (res.ok) {
+          const data = await res.json();
+          setGoalsEnabled(data.enabled);
+        }
+      } catch {
+        // Use defaults
       }
     }
 
@@ -211,6 +228,7 @@ export default function SettingsPage() {
     fetchSound();
     fetchCleanupSound();
     fetchCleanupSettings();
+    fetchGoals();
     fetchAnnouncement();
     fetchDigestSettings();
   }, []);
@@ -596,7 +614,7 @@ export default function SettingsPage() {
   function handleTestCleanup() {
     setCleanupTestActive(true);
     const audio = new Audio("/api/cleanup-sound");
-    audio.volume = 0.3;
+    audio.volume = soundVolume;
     audio.play().catch(() => {});
     setTimeout(() => setCleanupTestActive(false), 15000);
   }
@@ -631,6 +649,29 @@ export default function SettingsPage() {
     } catch {
       setRegistrationOpen(!newValue);
       showError("Failed to update registration setting");
+    }
+  }
+
+  async function handleToggleGoals() {
+    const newValue = !goalsEnabled;
+    setGoalsEnabled(newValue);
+    try {
+      const res = await fetch("/api/admin/settings/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: newValue }),
+      });
+
+      if (!res.ok) {
+        setGoalsEnabled(!newValue);
+        showError("Failed to update goals setting");
+        return;
+      }
+
+      showMessage(newValue ? "Goals section enabled" : "Goals section disabled");
+    } catch {
+      setGoalsEnabled(!newValue);
+      showError("Failed to update goals setting");
     }
   }
 
@@ -911,6 +952,32 @@ export default function SettingsPage() {
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                   registrationOpen ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Daily Goals */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Daily Goals</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {goalsEnabled
+                  ? "The goals section is visible on the dashboard."
+                  : "The goals section is hidden from the dashboard."}
+              </p>
+            </div>
+            <button
+              onClick={handleToggleGoals}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                goalsEnabled ? "bg-green-500" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  goalsEnabled ? "translate-x-6" : "translate-x-1"
                 }`}
               />
             </button>
@@ -1358,8 +1425,54 @@ export default function SettingsPage() {
         <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
           <h2 className="text-lg font-semibold mb-4">Shift Change Sound</h2>
           <p className="text-sm text-slate-600 mb-4">
-            Upload a sound that plays on the dashboard when a shift change occurs. Plays at low volume.
+            Upload a sound that plays on the dashboard when a shift change occurs.
           </p>
+
+          {/* Volume Control */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-2">
+              Sound Volume: {Math.round(soundVolume * 100)}%
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={soundVolume}
+              onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
+              className="w-full accent-primary"
+            />
+            <div className="flex justify-between text-xs text-slate-400 mt-1">
+              <span>Quiet</span>
+              <span>Loud</span>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                setLoading("volume");
+                try {
+                  const res = await fetch("/api/admin/settings/cleanup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ soundMinutes: cleanupSoundMinutes, displayMinutes: cleanupDisplayMinutes, soundVolume }),
+                  });
+                  if (res.ok) showMessage("Volume saved!");
+                  else showError("Failed to save volume");
+                } catch {
+                  showError("Failed to save volume");
+                } finally {
+                  setLoading("");
+                }
+              }}
+              disabled={loading === "volume"}
+              className="mt-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm font-semibold"
+            >
+              {loading === "volume" ? "Saving..." : "Save Volume"}
+            </button>
+            <p className="text-xs text-slate-500 mt-1">
+              Applies to both shift change and cleanup reminder sounds.
+            </p>
+          </div>
 
           {soundPath ? (
             <div className="mb-4">
@@ -1371,7 +1484,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => {
                       const audio = new Audio("/api/sound");
-                      audio.volume = 0.3;
+                      audio.volume = soundVolume;
                       audio.play().catch(() => {});
                     }}
                     className="text-primary hover:text-primary-dark text-sm underline"
@@ -1492,7 +1605,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => {
                       const audio = new Audio("/api/cleanup-sound");
-                      audio.volume = 0.3;
+                      audio.volume = soundVolume;
                       audio.play().catch(() => {});
                     }}
                     className="text-primary hover:text-primary-dark text-sm underline"

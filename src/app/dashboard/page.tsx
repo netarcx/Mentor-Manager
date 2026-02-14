@@ -111,12 +111,14 @@ const CleanupCountdown = memo(function CleanupCountdown({
   isLastShiftOfDay,
   soundMinutes,
   displayMinutes,
+  soundVolume,
   tv,
 }: {
   currentShift: ShiftWithSignups | null;
   isLastShiftOfDay: boolean;
   soundMinutes: number;
   displayMinutes: number;
+  soundVolume: number;
   tv: boolean;
 }) {
   const [cleanupSeconds, setCleanupSeconds] = useState<number | null>(null);
@@ -146,7 +148,7 @@ const CleanupCountdown = memo(function CleanupCountdown({
       ) {
         cleanupSoundPlayedRef.current = currentShift.id;
         const audio = new Audio("/api/cleanup-sound");
-        audio.volume = 0.3;
+        audio.volume = soundVolume;
         audio.play().catch(() => {});
       }
 
@@ -160,7 +162,7 @@ const CleanupCountdown = memo(function CleanupCountdown({
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [currentShift, isLastShiftOfDay, soundMinutes, displayMinutes]);
+  }, [currentShift, isLastShiftOfDay, soundMinutes, displayMinutes, soundVolume]);
 
   if (cleanupSeconds === null) return null;
 
@@ -361,7 +363,7 @@ export default function DashboardPage() {
   const [futureShifts, setFutureShifts] = useState<ShiftWithSignups[]>([]);
   const [browseIndex, setBrowseIndex] = useState<number | null>(null);
   const [isLastShiftOfDay, setIsLastShiftOfDay] = useState(false);
-  const [cleanupConfig, setCleanupConfig] = useState({ soundMinutes: 20, displayMinutes: 10 });
+  const [cleanupConfig, setCleanupConfig] = useState({ soundMinutes: 20, displayMinutes: 10, soundVolume: 0.5 });
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [branding, setBranding] = useState<Branding>({ appName: "Workshop Dashboard", logoPath: "" });
   const [countdown, setCountdown] = useState<CountdownConfig>({ enabled: false, targetDate: "", label: "" });
@@ -371,6 +373,7 @@ export default function DashboardPage() {
   const [tvMode, setTvMode] = useState(false);
   const [goals, setGoals] = useState("");
   const [goalsSaved, setGoalsSaved] = useState(false);
+  const [goalsEnabled, setGoalsEnabled] = useState(true);
   const [announcement, setAnnouncement] = useState<{ enabled: boolean; text: string }>({ enabled: false, text: "" });
   const prevShiftIdRef = useRef<number | null | undefined>(undefined);
   const goalsSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -391,7 +394,7 @@ export default function DashboardPage() {
       ) {
         try {
           const audio = new Audio("/api/sound");
-          audio.volume = 0.3;
+          audio.volume = data.cleanupConfig?.soundVolume ?? 0.5;
           await audio.play();
         } catch {
           // No sound configured or autoplay blocked
@@ -411,6 +414,7 @@ export default function DashboardPage() {
       if (data.countdown) setCountdown(data.countdown);
       if (data.quote !== undefined) setQuote(data.quote);
       if (data.goals !== undefined) setGoals(data.goals);
+      if (data.goalsEnabled !== undefined) setGoalsEnabled(data.goalsEnabled);
       if (data.announcement) setAnnouncement(data.announcement);
     } catch {
       // Silent fail on polling
@@ -490,16 +494,17 @@ export default function DashboardPage() {
         body: JSON.stringify({ signupId }),
       });
       if (res.ok) {
-        // Update local state immediately
-        setCurrentShift((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            signups: prev.signups.map((s) =>
-              s.id === signupId ? { ...s, checkedInAt: new Date().toISOString() } : s
-            ),
-          };
-        });
+        const data = await res.json();
+        const checkedInAt = data.checkedInAt || new Date().toISOString();
+        const allIds = new Set<number>([signupId, ...(data.alsoCheckedIn || [])]);
+
+        // Update local state immediately for all auto-checked-in signups
+        const markCheckedIn = (signups: ShiftWithSignups["signups"]) =>
+          signups.map((s) => allIds.has(s.id) ? { ...s, checkedInAt } : s);
+
+        setCurrentShift((prev) => prev ? { ...prev, signups: markCheckedIn(prev.signups) } : prev);
+        setNextShift((prev) => prev ? { ...prev, signups: markCheckedIn(prev.signups) } : prev);
+        setFutureShifts((prev) => prev.map((shift) => ({ ...shift, signups: markCheckedIn(shift.signups) })));
       }
     } catch {
       // Silent fail
@@ -590,6 +595,7 @@ export default function DashboardPage() {
           isLastShiftOfDay={isLastShiftOfDay}
           soundMinutes={cleanupConfig.soundMinutes}
           displayMinutes={cleanupConfig.displayMinutes}
+          soundVolume={cleanupConfig.soundVolume}
           tv={tvMode}
         />
 
@@ -656,21 +662,23 @@ export default function DashboardPage() {
         {/* Goals + Quote row */}
         {tvMode ? (
           <div className="flex gap-4 mt-4 flex-shrink-0">
-            <div className="flex-[2] bg-slate-800 rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-semibold text-white">Today&apos;s Goals</h2>
-                {goalsSaved && (
-                  <span className="text-xs text-green-400">Saved</span>
-                )}
+            {goalsEnabled && (
+              <div className="flex-[2] bg-slate-800 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-lg font-semibold text-white">Today&apos;s Goals</h2>
+                  {goalsSaved && (
+                    <span className="text-xs text-green-400">Saved</span>
+                  )}
+                </div>
+                <textarea
+                  value={goals}
+                  onChange={(e) => handleGoalsChange(e.target.value)}
+                  placeholder="What are we working on today?"
+                  rows={2}
+                  className="w-full bg-slate-700/50 text-white rounded-lg px-4 py-2 text-base placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none"
+                />
               </div>
-              <textarea
-                value={goals}
-                onChange={(e) => handleGoalsChange(e.target.value)}
-                placeholder="What are we working on today?"
-                rows={2}
-                className="w-full bg-slate-700/50 text-white rounded-lg px-4 py-2 text-base placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none"
-              />
-            </div>
+            )}
             {quote && (
               <div
                 onClick={async () => {
@@ -694,21 +702,23 @@ export default function DashboardPage() {
         ) : (
           <>
             {/* Goals */}
-            <div className="mt-6 sm:mt-8 bg-slate-800 rounded-2xl p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base sm:text-lg font-semibold text-white">Today&apos;s Goals</h2>
-                {goalsSaved && (
-                  <span className="text-xs text-green-400">Saved</span>
-                )}
+            {goalsEnabled && (
+              <div className="mt-6 sm:mt-8 bg-slate-800 rounded-2xl p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base sm:text-lg font-semibold text-white">Today&apos;s Goals</h2>
+                  {goalsSaved && (
+                    <span className="text-xs text-green-400">Saved</span>
+                  )}
+                </div>
+                <textarea
+                  value={goals}
+                  onChange={(e) => handleGoalsChange(e.target.value)}
+                  placeholder="What are we working on today?"
+                  rows={4}
+                  className="w-full bg-slate-700/50 text-white rounded-lg px-3 sm:px-4 py-3 text-base sm:text-lg placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none"
+                />
               </div>
-              <textarea
-                value={goals}
-                onChange={(e) => handleGoalsChange(e.target.value)}
-                placeholder="What are we working on today?"
-                rows={4}
-                className="w-full bg-slate-700/50 text-white rounded-lg px-3 sm:px-4 py-3 text-base sm:text-lg placeholder-slate-500 border border-slate-600 focus:border-primary-light focus:ring-1 focus:ring-primary-light outline-none resize-none"
-              />
-            </div>
+            )}
 
             {/* Quote */}
             {quote && (
