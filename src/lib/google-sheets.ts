@@ -1,12 +1,12 @@
 import { sheets_v4, auth } from "@googleapis/sheets";
+import { readFileSync } from "fs";
 
 function getSheetsClient(): sheets_v4.Sheets {
-  const key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-  const apiKey = process.env.GOOGLE_API_KEY;
+  let key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
 
-  // API key auth (simple key string like "AIzaSy...")
-  if (apiKey || (key && !key.trimStart().startsWith("{"))) {
-    return new sheets_v4.Sheets({ auth: apiKey || key });
+  // If the value is a file path, read the file
+  if (key && (key.startsWith("/") || key.startsWith(".")) && !key.startsWith("{")) {
+    key = readFileSync(key, "utf-8");
   }
 
   // Service account auth (JSON credentials)
@@ -19,7 +19,7 @@ function getSheetsClient(): sheets_v4.Sheets {
     return new sheets_v4.Sheets({ auth: authClient });
   }
 
-  throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY or GOOGLE_API_KEY must be set");
+  throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY must be set (JSON string or path to JSON file)");
 }
 
 export async function appendRows(rows: string[][]) {
