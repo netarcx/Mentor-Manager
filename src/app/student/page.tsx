@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface Student {
   id: number;
@@ -30,11 +30,20 @@ export default function StudentPage() {
 
   // PIN gate state
   const [pinRequired, setPinRequired] = useState(false);
-  const [pinVerified, setPinVerified] = useState(false);
+  const [pinVerified, setPinVerified] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const stored = localStorage.getItem("student-pin-unlocked");
+      if (!stored) return false;
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      return stored === today;
+    } catch {
+      return false;
+    }
+  });
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
-  const [locksAt, setLocksAt] = useState<Date | null>(null);
-  const lockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Subteam picker / checkout confirm state
   const [subteams, setSubteams] = useState<string[]>([]);
@@ -82,25 +91,6 @@ export default function StudentPage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // Auto-lock timer
-  useEffect(() => {
-    if (!locksAt) return;
-
-    function checkLock() {
-      if (locksAt && new Date() > locksAt) {
-        setPinVerified(false);
-        setPinInput("");
-        setLocksAt(null);
-      }
-    }
-
-    checkLock();
-    lockTimerRef.current = setInterval(checkLock, 30000);
-    return () => {
-      if (lockTimerRef.current) clearInterval(lockTimerRef.current);
-    };
-  }, [locksAt]);
-
   async function handlePinSubmit() {
     setPinError("");
     try {
@@ -114,7 +104,11 @@ export default function StudentPage() {
       if (data.success) {
         setPinVerified(true);
         setPinInput("");
-        if (data.locksAt) setLocksAt(new Date(data.locksAt));
+        try {
+          const now = new Date();
+          const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+          localStorage.setItem("student-pin-unlocked", today);
+        } catch { /* localStorage unavailable */ }
       } else {
         setPinError("Incorrect PIN");
         setPinInput("");
