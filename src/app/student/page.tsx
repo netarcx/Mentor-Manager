@@ -36,9 +36,10 @@ export default function StudentPage() {
   const [locksAt, setLocksAt] = useState<Date | null>(null);
   const lockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Subteam picker state
+  // Subteam picker / checkout confirm state
   const [subteams, setSubteams] = useState<string[]>([]);
-  const [subteamPicker, setSubteamPicker] = useState<number | null>(null); // studentId awaiting subteam selection
+  const [subteamPicker, setSubteamPicker] = useState<number | null>(null);
+  const [confirmCheckout, setConfirmCheckout] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -146,13 +147,17 @@ export default function StudentPage() {
     const record = attendance.get(studentId);
     const isCheckedIn = !!record && !record.checkedOutAt;
 
-    // If checking out and subteams exist, show picker
-    if (isCheckedIn && subteams.length > 0) {
-      setSubteamPicker(studentId);
+    if (isCheckedIn) {
+      // Show subteam picker or confirmation before clocking out
+      if (subteams.length > 0) {
+        setSubteamPicker(studentId);
+      } else {
+        setConfirmCheckout(studentId);
+      }
       return;
     }
 
-    // Otherwise check in/out directly
+    // Check in directly
     doCheckInOut(studentId, "");
   }
 
@@ -376,7 +381,7 @@ export default function StudentPage() {
         )}
       </div>
 
-      {/* Subteam picker modal */}
+      {/* Subteam picker modal (clock-out with subteams) */}
       {subteamPicker !== null && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
@@ -387,7 +392,7 @@ export default function StudentPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-bold text-slate-800 mb-1">
-              {students.find((s) => s.id === subteamPicker)?.name}
+              Clock out {students.find((s) => s.id === subteamPicker)?.name}?
             </h2>
             <p className="text-sm text-slate-500 mb-4">Which subteam did you work with today?</p>
             <div className="grid grid-cols-2 gap-2">
@@ -407,6 +412,41 @@ export default function StudentPage() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm clock-out modal (no subteams) */}
+      {confirmCheckout !== null && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setConfirmCheckout(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-slate-800 mb-2">
+              Clock out {students.find((s) => s.id === confirmCheckout)?.name}?
+            </h2>
+            <p className="text-sm text-slate-500 mb-6">Are you sure you want to clock out?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmCheckout(null)}
+                className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  doCheckInOut(confirmCheckout, "");
+                  setConfirmCheckout(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark active:scale-95 transition-all"
+              >
+                Clock Out
+              </button>
+            </div>
           </div>
         </div>
       )}
