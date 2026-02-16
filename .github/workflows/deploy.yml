@@ -34,6 +34,7 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
+          no-cache: true
           build-args: GIT_COMMIT=${{ github.sha }}
           tags: |
             ghcr.io/${{ env.IMAGE_NAME }}:latest
