@@ -50,11 +50,16 @@ export default function ShiftsPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    await fetch("/api/admin/shifts", {
+    const res = await fetch("/api/admin/shifts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Failed to create shift");
+      return;
+    }
     setShowForm(false);
     setForm({ date: "", startTime: "18:00", endTime: "21:00", label: "" });
     fetchShifts();
