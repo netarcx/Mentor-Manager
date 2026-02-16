@@ -63,6 +63,8 @@ export default function SignupPage() {
     const mentor = existingMentors.find((m) => m.id === Number(mentorIdStr));
     if (mentor) {
       setName(mentor.name);
+      setMentorId(mentor.id);
+      setStep("shifts");
     }
   }
 
@@ -159,7 +161,7 @@ export default function SignupPage() {
   }, {});
 
   if (step === "done") {
-    const calendarUrl = `/api/calendar?email=${encodeURIComponent(email)}`;
+    const calendarUrl = `/api/calendar?mentorId=${mentorId}`;
     const fullCalendarUrl = typeof window !== "undefined"
       ? `${window.location.origin}${calendarUrl}`
       : calendarUrl;
@@ -255,7 +257,7 @@ export default function SignupPage() {
                 </div>
                 <div className="relative flex justify-center text-sm">
                   <span className="bg-background px-2 text-slate-500">
-                    or enter your info below
+                    or register as a new mentor
                   </span>
                 </div>
               </div>

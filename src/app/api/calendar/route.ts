@@ -25,18 +25,18 @@ function escapeICalText(text: string): string {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const email = searchParams.get("email");
+  const mentorIdParam = searchParams.get("mentorId");
 
-  if (!email) {
+  if (!email && !mentorIdParam) {
     return NextResponse.json(
-      { error: "Email parameter is required" },
+      { error: "email or mentorId parameter is required" },
       { status: 400 }
     );
   }
 
   try {
-    // Find mentor by email
     const mentor = await prisma.mentor.findUnique({
-      where: { email },
+      where: email ? { email } : { id: Number(mentorIdParam) },
       include: {
         signups: {
           include: {
