@@ -9,7 +9,7 @@ interface Signup {
   checkedInAt: string | null;
   virtual: boolean;
   note: string;
-  mentor: { id: number; name: string; email: string };
+  mentor: { id: number; name: string };
 }
 
 interface Shift {
@@ -192,7 +192,7 @@ export default function ShiftsPage() {
 
       {loading ? (
         <p className="text-slate-500">Loading...</p>
-      ) : shifts.length === 0 ? (
+      ) : shifts.filter((s) => !s.cancelled).length === 0 ? (
         <p className="text-slate-500 italic">
           No shifts yet. Create templates and generate shifts, or add one-off
           shifts.
@@ -202,9 +202,6 @@ export default function ShiftsPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-4 py-3 text-left text-sm font-semibold">
-                  Date
-                </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold">
                   Time
                 </th>
@@ -217,23 +214,29 @@ export default function ShiftsPage() {
                 <th className="px-4 py-3 text-left text-sm font-semibold">
                   Signups
                 </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">
-                  Status
-                </th>
                 <th className="px-4 py-3 text-right text-sm font-semibold">
                   Actions
                 </th>
               </tr>
             </thead>
-              {shifts.map((s) => {
-                const needsHelp = !s.cancelled && s._count.signups < MIN_MENTOR_SIGNUPS && isWithinDays(s.date, 7);
+              {shifts.filter((s) => !s.cancelled).map((s, i, arr) => {
+                const needsHelp = s._count.signups < MIN_MENTOR_SIGNUPS && isWithinDays(s.date, 7);
                 const isExpanded = expandedShift === s.id;
                 const checkedIn = s.signups.filter((su) => su.checkedInAt).length;
+                const prevDate = i > 0 ? arr[i - 1].date : null;
+                const isNewDay = s.date !== prevDate;
                 return (
                 <tbody key={s.id}>
+                  {isNewDay && (
+                    <tr>
+                      <td colSpan={5} className={`px-4 py-2 bg-slate-100 font-semibold text-sm text-slate-700 ${i > 0 ? "border-t-2 border-slate-300" : ""}`}>
+                        {new Date(s.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                      </td>
+                    </tr>
+                  )}
                   <tr
                     className={`border-t border-slate-100 hover:bg-slate-50 ${
-                      s.cancelled ? "opacity-50" : needsHelp ? "bg-amber-50" : ""
+                      needsHelp ? "bg-amber-50" : ""
                     } ${s._count.signups > 0 ? "cursor-pointer" : ""}`}
                     onClick={() => {
                       if (s._count.signups > 0) {
@@ -245,9 +248,6 @@ export default function ShiftsPage() {
                       {s._count.signups > 0 && (
                         <span className="text-slate-400 mr-1">{isExpanded ? "\u25BC" : "\u25B6"}</span>
                       )}
-                      {s.date}
-                    </td>
-                    <td className="px-4 py-3">
                       {s.startTime} - {s.endTime}
                     </td>
                     <td className="px-4 py-3 text-slate-500">
@@ -282,23 +282,12 @@ export default function ShiftsPage() {
                         s._count.signups
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      {s.cancelled ? (
-                        <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
-                          Cancelled
-                        </span>
-                      ) : (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                          Active
-                        </span>
-                      )}
-                    </td>
                     <td className="px-4 py-3 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => toggleCancel(s)}
                         className="text-sm text-slate-500 hover:underline"
                       >
-                        {s.cancelled ? "Restore" : "Cancel"}
+                        Cancel
                       </button>
                       {s._count.signups === 0 && (
                         <button
@@ -312,7 +301,7 @@ export default function ShiftsPage() {
                   </tr>
                   {isExpanded && (
                     <tr>
-                      <td colSpan={7} className="bg-slate-50 px-4 py-3">
+                      <td colSpan={5} className="bg-slate-50 px-4 py-3">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium text-slate-600">
                             Signups ({s.signups.length})
@@ -345,7 +334,6 @@ export default function ShiftsPage() {
                                 )}
                                 <div>
                                   <span className="font-medium text-sm">{su.mentor.name}</span>
-                                  <span className="text-slate-400 text-xs ml-2">{su.mentor.email}</span>
                                   {su.virtual && (
                                     <span className="ml-2 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">Virtual</span>
                                   )}
