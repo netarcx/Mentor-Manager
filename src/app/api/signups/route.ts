@@ -67,7 +67,7 @@ async function handleSingleSignup(body: {
     },
     include: {
       shift: true,
-      mentor: true,
+      mentor: { select: { id: true, name: true } },
     },
   });
 

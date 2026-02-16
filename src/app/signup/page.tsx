@@ -16,7 +16,6 @@ interface Shift {
 interface Mentor {
   id: number;
   name: string;
-  email: string;
 }
 
 const SPECIAL_LABELS = ["leadership meeting", "mentor meeting"];
@@ -64,7 +63,6 @@ export default function SignupPage() {
     const mentor = existingMentors.find((m) => m.id === Number(mentorIdStr));
     if (mentor) {
       setName(mentor.name);
-      setEmail(mentor.email);
     }
   }
 
@@ -247,7 +245,7 @@ export default function SignupPage() {
                 <option value="">Select your name...</option>
                 {existingMentors.map((mentor) => (
                   <option key={mentor.id} value={mentor.id}>
-                    {mentor.name} ({mentor.email})
+                    {mentor.name}
                   </option>
                 ))}
               </select>

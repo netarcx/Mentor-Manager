@@ -94,7 +94,6 @@ export async function GET(request: Request) {
       .map((m) => ({
         mentorId: m.id,
         mentorName: m.name,
-        mentorEmail: m.email,
         totalHours: Math.round((m.hours + m.adjustmentHours) * 10) / 10,
         shiftCount: m.shifts,
         adjustmentHours: Math.round(m.adjustmentHours * 10) / 10,

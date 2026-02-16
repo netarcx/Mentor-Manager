@@ -22,7 +22,7 @@ export async function GET() {
           },
           include: {
             signups: {
-              include: { mentor: { select: { id: true, name: true, email: true, avatarPath: true } } },
+              include: { mentor: { select: { id: true, name: true, avatarPath: true } } },
               orderBy: { signedUpAt: "asc" },
             },
           },
@@ -39,7 +39,7 @@ export async function GET() {
           },
           include: {
             signups: {
-              include: { mentor: { select: { id: true, name: true, email: true, avatarPath: true } } },
+              include: { mentor: { select: { id: true, name: true, avatarPath: true } } },
               orderBy: { signedUpAt: "asc" },
             },
           },
@@ -56,7 +56,7 @@ export async function GET() {
           },
           include: {
             signups: {
-              include: { mentor: { select: { id: true, name: true, email: true, avatarPath: true } } },
+              include: { mentor: { select: { id: true, name: true, avatarPath: true } } },
               orderBy: { signedUpAt: "asc" },
             },
           },
@@ -107,7 +107,7 @@ export async function GET() {
             new Map(
               currentShifts
                 .flatMap(shift => shift.signups)
-                .map(signup => [signup.mentor.email || signup.mentor.id, signup])
+                .map(signup => [signup.mentor.id, signup])
             ).values()
           ),
         }

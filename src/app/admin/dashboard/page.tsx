@@ -8,7 +8,7 @@ interface SignupRow {
   customStartTime: string | null;
   customEndTime: string | null;
   signedUpAt: string;
-  mentor: { name: string; email: string };
+  mentor: { name: string };
   shift: { date: string; startTime: string; endTime: string; label: string };
 }
 
@@ -57,7 +57,7 @@ export default function AdminOverview() {
         </div>
         <div className="bg-white rounded-xl p-4 shadow border border-slate-100">
           <div className="text-2xl font-bold text-navy">
-            {new Set(allSignups.map((s) => s.mentor.email)).size}
+            {new Set(allSignups.map((s) => s.mentor.name)).size}
           </div>
           <div className="text-sm text-slate-500">Unique Mentors</div>
         </div>
@@ -98,9 +98,6 @@ export default function AdminOverview() {
                 >
                   <td className="px-4 py-3">
                     <div className="font-medium">{signup.mentor.name}</div>
-                    <div className="text-sm text-slate-400">
-                      {signup.mentor.email}
-                    </div>
                   </td>
                   <td className="px-4 py-3">{signup.shift.date}</td>
                   <td className="px-4 py-3">

@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     // Otherwise, return all mentors (list view)
     const mentors = await prisma.mentor.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true },
     });
 
     return NextResponse.json({ mentors });
