@@ -336,9 +336,12 @@ export default function StudentsPage() {
         const parts = [];
         if (data.exported > 0) parts.push(`${data.exported} exported`);
         if (data.imported > 0) parts.push(`${data.imported} imported`);
+        if (data.studentsCreated > 0) parts.push(`${data.studentsCreated} new students`);
         setSyncStatus(parts.length > 0 ? parts.join(", ") : "Already in sync");
         showMessage("Google Sheets sync complete!");
-        fetchSettings(); // Refresh last synced timestamps
+        fetchSettings();
+        fetchStudents();
+        fetchAttendance(selectedSeason || undefined);
       } else {
         showError(data.error || "Sync failed");
       }
@@ -559,7 +562,7 @@ export default function StudentsPage() {
         <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
           <h2 className="text-lg font-semibold mb-2">Subteams</h2>
           <p className="text-sm text-slate-500 mb-4">
-            Students select a subteam when clocking in. This is synced to Google Sheets.
+            Students select a subteam when clocking out. This is synced to Google Sheets.
           </p>
 
           {subteams.length > 0 && (
