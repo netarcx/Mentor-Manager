@@ -40,6 +40,37 @@ if [ -n "$CRON_SECRET" ]; then
   ) &
 fi
 
+# Compact database and clean up orphaned files
+echo "Running cleanup..."
+node -e "
+const { PrismaClient } = require('@prisma/client');
+const fs = require('fs');
+const path = require('path');
+(async () => {
+  const prisma = new PrismaClient();
+  try {
+    // Vacuum SQLite to reclaim space
+    await prisma.\$executeRawUnsafe('VACUUM');
+    console.log('Database vacuumed');
+
+    // Remove orphaned avatar files
+    const mentors = await prisma.mentor.findMany({ select: { avatarPath: true } });
+    const validFiles = new Set(mentors.map(m => m.avatarPath).filter(Boolean));
+    const dataDir = '/app/data';
+    const files = fs.readdirSync(dataDir);
+    let cleaned = 0;
+    for (const file of files) {
+      if (file.startsWith('avatar-') && !validFiles.has(file)) {
+        fs.unlinkSync(path.join(dataDir, file));
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) console.log('Removed ' + cleaned + ' orphaned avatar(s)');
+  } catch(e) { console.log('Cleanup note:', e.message); }
+  await prisma.\$disconnect();
+})();
+" || true
+
 # Start the application
 echo "Starting application..."
 exec node server.js

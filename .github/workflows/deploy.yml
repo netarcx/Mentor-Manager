@@ -55,3 +55,4 @@ jobs:
               sleep 10
             done
             cd /root/Mentor-Manager && docker compose up -d --force-recreate app
+            docker image prune -af --filter "until=24h"
