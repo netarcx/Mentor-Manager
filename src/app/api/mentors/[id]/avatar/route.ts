@@ -3,19 +3,13 @@ import { prisma } from "@/lib/db";
 import { writeFile, readFile, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
+import sharp from "sharp";
 
 export const dynamic = "force-dynamic";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-
-const MIME_TYPES: Record<string, string> = {
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  gif: "image/gif",
-  webp: "image/webp",
-};
+const AVATAR_SIZE = 256;
 
 function getDataDir(): string {
   const dbUrl = process.env.DATABASE_URL || "";
@@ -52,14 +46,28 @@ export async function GET(
       return new NextResponse(null, { status: 404 });
     }
 
-    const buffer = await readFile(filePath);
-    const ext = mentor.avatarPath.split(".").pop()?.toLowerCase() || "png";
-    const contentType = MIME_TYPES[ext] || "application/octet-stream";
+    const raw = await readFile(filePath);
+    const metadata = await sharp(raw).metadata();
+    let buffer: Buffer;
+    let contentType: string;
 
-    return new NextResponse(buffer, {
+    if ((metadata.width && metadata.width > AVATAR_SIZE) || (metadata.height && metadata.height > AVATAR_SIZE) || metadata.format !== "webp") {
+      buffer = await sharp(raw)
+        .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: "cover" })
+        .webp({ quality: 80 })
+        .toBuffer();
+      contentType = "image/webp";
+      // Re-save the optimized version so next request is fast
+      await writeFile(filePath, buffer).catch(() => {});
+    } else {
+      buffer = raw;
+      contentType = "image/webp";
+    }
+
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": "public, max-age=86400",
       },
     });
   } catch (error) {
@@ -102,8 +110,7 @@ export async function POST(
       return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
     }
 
-    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-    const filename = `avatar-${mentorId}.${ext}`;
+    const filename = `avatar-${mentorId}.webp`;
     const dataDir = getDataDir();
     const filePath = path.join(dataDir, filename);
 
@@ -115,7 +122,11 @@ export async function POST(
       }
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const rawBuffer = Buffer.from(await file.arrayBuffer());
+    const buffer = await sharp(rawBuffer)
+      .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: "cover" })
+      .webp({ quality: 80 })
+      .toBuffer();
     await writeFile(filePath, buffer);
 
     await prisma.mentor.update({
