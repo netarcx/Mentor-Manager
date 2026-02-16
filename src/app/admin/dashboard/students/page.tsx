@@ -46,12 +46,16 @@ export default function StudentsPage() {
 
   // Sheets sync state
   const [syncStatus, setSyncStatus] = useState("");
+  const [sheetsAutoSync, setSheetsAutoSync] = useState(true);
+  const [sheetsSyncInterval, setSheetsSyncInterval] = useState(60);
+  const [sheetsLastSynced, setSheetsLastSynced] = useState<string | null>(null);
+  const [sheetsLastImported, setSheetsLastImported] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStudents();
     fetchSeasons();
     fetchAttendance();
-    fetchAttendanceEnabled();
+    fetchSettings();
     fetchPin();
     fetchSubteams();
   }, []);
@@ -188,15 +192,19 @@ export default function StudentsPage() {
     }
   }
 
-  async function fetchAttendanceEnabled() {
+  async function fetchSettings() {
     try {
       const res = await fetch("/api/admin/students/settings");
       if (res.ok) {
         const data = await res.json();
         setAttendanceEnabled(data.enabled);
+        setSheetsAutoSync(data.sheetsAutoSync);
+        setSheetsSyncInterval(data.sheetsSyncInterval);
+        setSheetsLastSynced(data.sheetsLastSynced);
+        setSheetsLastImported(data.sheetsLastImported);
       }
     } catch {
-      // Use default
+      // Use defaults
     }
   }
 
@@ -325,8 +333,12 @@ export default function StudentsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setSyncStatus(`Synced ${data.rowsSynced} row${data.rowsSynced === 1 ? "" : "s"} to Google Sheets`);
+        const parts = [];
+        if (data.exported > 0) parts.push(`${data.exported} exported`);
+        if (data.imported > 0) parts.push(`${data.imported} imported`);
+        setSyncStatus(parts.length > 0 ? parts.join(", ") : "Already in sync");
         showMessage("Google Sheets sync complete!");
+        fetchSettings(); // Refresh last synced timestamps
       } else {
         showError(data.error || "Sync failed");
       }
@@ -334,6 +346,46 @@ export default function StudentsPage() {
       showError("Failed to sync to Google Sheets");
     } finally {
       setLoading("");
+    }
+  }
+
+  async function handleToggleAutoSync() {
+    const newValue = !sheetsAutoSync;
+    setSheetsAutoSync(newValue);
+    try {
+      const res = await fetch("/api/admin/students/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheetsAutoSync: newValue }),
+      });
+      if (!res.ok) {
+        setSheetsAutoSync(!newValue);
+        showError("Failed to update auto-sync setting");
+        return;
+      }
+      showMessage(newValue ? "Auto-sync enabled" : "Auto-sync disabled");
+    } catch {
+      setSheetsAutoSync(!newValue);
+      showError("Failed to update auto-sync setting");
+    }
+  }
+
+  async function handleSyncIntervalChange(value: string) {
+    const interval = parseInt(value, 10);
+    setSheetsSyncInterval(interval);
+    try {
+      const res = await fetch("/api/admin/students/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheetsSyncInterval: interval }),
+      });
+      if (!res.ok) {
+        showError("Failed to update sync interval");
+        return;
+      }
+      showMessage(`Sync interval set to ${value} minutes`);
+    } catch {
+      showError("Failed to update sync interval");
     }
   }
 
@@ -552,9 +604,47 @@ export default function StudentsPage() {
         <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
           <h2 className="text-lg font-semibold mb-2">Google Sheets Sync</h2>
           <p className="text-sm text-slate-500 mb-4">
-            Sync student clock-in/out data to a Google Spreadsheet. Runs automatically every hour and can be triggered manually.
+            Two-way sync: exports check-in/out events to Google Sheets and imports new entries from the sheet.
           </p>
-          <div className="flex items-center gap-3">
+
+          {/* Auto-sync toggle + interval */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleToggleAutoSync}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  sheetsAutoSync ? "bg-green-500" : "bg-slate-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    sheetsAutoSync ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+              <span className="text-sm text-slate-700">Auto-sync</span>
+            </div>
+
+            {sheetsAutoSync && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-slate-600">every</label>
+                <select
+                  value={String(sheetsSyncInterval)}
+                  onChange={(e) => handleSyncIntervalChange(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-2 py-1 text-sm"
+                >
+                  <option value="5">5 min</option>
+                  <option value="15">15 min</option>
+                  <option value="30">30 min</option>
+                  <option value="60">1 hour</option>
+                  <option value="360">6 hours</option>
+                  <option value="1440">24 hours</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 mb-3">
             <button
               onClick={handleSyncSheets}
               disabled={loading === "sync"}
@@ -566,7 +656,20 @@ export default function StudentsPage() {
               <span className="text-sm text-slate-600">{syncStatus}</span>
             )}
           </div>
-          <p className="text-xs text-slate-400 mt-2">
+
+          {/* Last sync info */}
+          {(sheetsLastSynced || sheetsLastImported) && (
+            <div className="text-xs text-slate-400 space-y-0.5 mb-2">
+              {sheetsLastSynced && (
+                <p>Last exported: {new Date(sheetsLastSynced).toLocaleString()}</p>
+              )}
+              {sheetsLastImported && (
+                <p>Last imported: {new Date(sheetsLastImported).toLocaleString()}</p>
+              )}
+            </div>
+          )}
+
+          <p className="text-xs text-slate-400">
             Requires <span className="font-mono">GOOGLE_SERVICE_ACCOUNT_KEY</span> and <span className="font-mono">GOOGLE_SHEET_ID</span> environment variables.
           </p>
         </div>

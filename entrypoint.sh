@@ -35,7 +35,7 @@ if [ -n "$CRON_SECRET" ]; then
       curl -s -X POST "http://localhost:${PORT:-3000}/api/admin/student-attendance/sync-sheets" \
         -H "Content-Type: application/json" \
         -H "x-api-key: $CRON_SECRET" || true
-      sleep 3600
+      sleep 300
     done
   ) &
 fi
