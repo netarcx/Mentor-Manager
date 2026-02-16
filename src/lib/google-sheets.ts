@@ -31,7 +31,7 @@ export async function appendRows(rows: string[][]) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
-    range: "Sheet1!A:D",
+    range: `${process.env.GOOGLE_SHEET_TAB || "Sheet1"}!A:D`,
     valueInputOption: "USER_ENTERED",
     requestBody: {
       values: rows,
@@ -47,7 +47,7 @@ export async function readAllRows(): Promise<string[][]> {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: "Sheet1!A:D",
+    range: `${process.env.GOOGLE_SHEET_TAB || "Sheet1"}!A:D`,
   });
 
   return (res.data.values as string[][] | undefined) || [];
