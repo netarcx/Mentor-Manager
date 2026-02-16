@@ -146,8 +146,8 @@ export default function StudentPage() {
     const record = attendance.get(studentId);
     const isCheckedIn = !!record && !record.checkedOutAt;
 
-    // If not checked in and subteams exist, show picker
-    if (!isCheckedIn && subteams.length > 0) {
+    // If checking out and subteams exist, show picker
+    if (isCheckedIn && subteams.length > 0) {
       setSubteamPicker(studentId);
       return;
     }
@@ -389,7 +389,7 @@ export default function StudentPage() {
             <h2 className="text-lg font-bold text-slate-800 mb-1">
               {students.find((s) => s.id === subteamPicker)?.name}
             </h2>
-            <p className="text-sm text-slate-500 mb-4">Which subteam are you working with today?</p>
+            <p className="text-sm text-slate-500 mb-4">Which subteam did you work with today?</p>
             <div className="grid grid-cols-2 gap-2">
               {subteams.map((team) => (
                 <button
