@@ -15,7 +15,7 @@ export async function GET(request: Request) {
       },
       include: {
         signups: {
-          include: { mentor: true },
+          include: { mentor: { select: { id: true, name: true } } },
         },
       },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],

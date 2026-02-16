@@ -62,41 +62,36 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create all signup combinations, skipping duplicates
-    let created = 0;
-    let skipped = 0;
+    // Check which signups already exist
+    const existingSignups = await prisma.signup.findMany({
+      where: {
+        mentorId: { in: mentors.map((m) => m.id) },
+        shiftId: { in: [...validShiftIds] },
+      },
+      select: { mentorId: true, shiftId: true },
+    });
+    const existingSet = new Set(
+      existingSignups.map((s) => `${s.mentorId}-${s.shiftId}`)
+    );
 
-    for (const mentor of mentors) {
-      for (const shiftId of validShiftIds) {
-        try {
-          await prisma.signup.create({
-            data: {
-              mentorId: mentor.id,
-              shiftId,
-              note: "",
-            },
-          });
-          created++;
-        } catch (error: unknown) {
-          // Skip duplicate signups (unique constraint violation)
-          if (
-            error &&
-            typeof error === "object" &&
-            "code" in error &&
-            error.code === "P2002"
-          ) {
-            skipped++;
-          } else {
-            throw error;
-          }
-        }
-      }
+    // Build list of new signups only
+    const newSignups = mentors.flatMap((mentor) =>
+      [...validShiftIds]
+        .filter((shiftId) => !existingSet.has(`${mentor.id}-${shiftId}`))
+        .map((shiftId) => ({ mentorId: mentor.id, shiftId, note: "" }))
+    );
+
+    // Create all new signups in a single transaction
+    if (newSignups.length > 0) {
+      await prisma.$transaction(
+        newSignups.map((data) => prisma.signup.create({ data }))
+      );
     }
 
     return NextResponse.json({
       success: true,
-      created,
-      skipped,
+      created: newSignups.length,
+      skipped: existingSignups.length,
       mentorCount: mentors.length,
       shiftCount: validShiftIds.size,
     });

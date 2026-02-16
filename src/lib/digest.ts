@@ -123,8 +123,8 @@ export async function buildDigest(): Promise<string> {
       },
     },
     include: {
-      mentor: true,
-      shift: true,
+      mentor: { select: { name: true, email: true } },
+      shift: { select: { id: true, startTime: true, endTime: true } },
     },
   });
 
@@ -166,7 +166,7 @@ export async function buildDigest(): Promise<string> {
   // Include hour adjustments
   try {
     const adjustments = await prisma.hourAdjustment.findMany({
-      include: { mentor: true },
+      include: { mentor: { select: { name: true, email: true } } },
       where: { date: { gte: periodStart, lte: periodEnd } },
     });
     for (const adj of adjustments) {
@@ -212,7 +212,7 @@ export async function buildDigest(): Promise<string> {
       date: { gte: today, lte: futureEnd },
       cancelled: false,
     },
-    include: { signups: true },
+    include: { _count: { select: { signups: true } } },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
 
@@ -230,7 +230,7 @@ export async function buildDigest(): Promise<string> {
         startTime: s.startTime,
         endTime: s.endTime,
         label: s.label,
-        count: s.signups.length,
+        count: s._count.signups,
       });
       grouped.set(s.date, arr);
     }

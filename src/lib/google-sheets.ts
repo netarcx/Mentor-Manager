@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+import { sheets_v4, auth } from "@googleapis/sheets";
 
 function getAuthClient() {
   const key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -6,7 +6,7 @@ function getAuthClient() {
 
   const credentials = JSON.parse(key);
 
-  return new google.auth.GoogleAuth({
+  return new auth.GoogleAuth({
     credentials,
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
@@ -17,8 +17,8 @@ export async function appendRows(rows: string[][]) {
   if (!sheetId) throw new Error("GOOGLE_SHEET_ID is not set");
   if (rows.length === 0) return;
 
-  const auth = getAuthClient();
-  const sheets = google.sheets({ version: "v4", auth });
+  const authClient = getAuthClient();
+  const sheets = new sheets_v4.Sheets({ auth: authClient });
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,

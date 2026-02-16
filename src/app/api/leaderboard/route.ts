@@ -31,8 +31,8 @@ export async function GET(request: Request) {
 
     const signups = await prisma.signup.findMany({
       include: {
-        mentor: true,
-        shift: true,
+        mentor: { select: { id: true, name: true, email: true, avatarPath: true } },
+        shift: { select: { startTime: true, endTime: true } },
       },
       where: {
         shift: {
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
     // Add manual hour adjustments (gracefully skip if table doesn't exist yet)
     try {
       const adjustments = await prisma.hourAdjustment.findMany({
-        include: { mentor: true },
+        include: { mentor: { select: { id: true, name: true, email: true, avatarPath: true } } },
         where: { date: adjustmentDateFilter },
       });
 

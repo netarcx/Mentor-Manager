@@ -66,13 +66,15 @@ export async function saveNotificationSettings(
     { key: SETTINGS_KEYS.lookAheadDays, value: String(settings.lookAheadDays) },
   ];
 
-  for (const { key, value } of pairs) {
-    await prisma.setting.upsert({
-      where: { key },
-      update: { value },
-      create: { key, value },
-    });
-  }
+  await prisma.$transaction(
+    pairs.map(({ key, value }) =>
+      prisma.setting.upsert({
+        where: { key },
+        update: { value },
+        create: { key, value },
+      })
+    )
+  );
 }
 
 // --- Preview & Send ---
@@ -109,7 +111,7 @@ export async function previewReminders(): Promise<ReminderPreview> {
       date: { gte: today, lte: endISO },
       cancelled: false,
     },
-    include: { signups: true },
+    include: { _count: { select: { signups: true } } },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
 
@@ -132,6 +134,7 @@ export async function previewReminders(): Promise<ReminderPreview> {
     where: {
       email: { not: { contains: "@placeholder.local" } },
     },
+    select: { id: true, name: true, email: true },
   });
 
   const mentorsToNotify = allMentors
@@ -146,7 +149,7 @@ export async function previewReminders(): Promise<ReminderPreview> {
       startTime: s.startTime,
       endTime: s.endTime,
       label: s.label,
-      signupCount: s.signups.length,
+      signupCount: s._count.signups,
     })),
     lookAheadDays: settings.lookAheadDays,
   };

@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.github
+.claude
+data
+backups
+*.tar.gz
+*.md

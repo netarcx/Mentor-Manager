@@ -5,30 +5,39 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  IMAGE_NAME: netarcx/mentor-manager
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: |
-          docker build \
-            --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
-            -t mentor-manager:latest .
-
-      - name: Save image as tarball
-        run: docker save mentor-manager:latest | gzip > mentor-manager.tar.gz
-
-      - name: Transfer image to server
-        uses: appleboy/scp-action@v0.1.7
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_KEY }}
-          source: mentor-manager.tar.gz
-          target: /tmp
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          build-args: GIT_COMMIT=${{ github.sha }}
+          tags: |
+            ghcr.io/${{ env.IMAGE_NAME }}:latest
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.2.0
@@ -36,7 +45,11 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
+          command_timeout: 20m
           script: |
-            docker load < /tmp/mentor-manager.tar.gz
+            for i in 1 2 3 4 5; do
+              docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest && break
+              echo "Pull attempt $i failed, retrying in 10s..."
+              sleep 10
+            done
             cd /root/Mentor-Manager && docker compose up -d --force-recreate app
-            rm /tmp/mentor-manager.tar.gz

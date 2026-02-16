@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
         include: {
           signups: {
             include: {
-              shift: true,
+              shift: { select: { id: true, date: true, startTime: true, endTime: true, label: true, cancelled: true } },
             },
             orderBy: {
               shift: {

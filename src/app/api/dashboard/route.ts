@@ -22,7 +22,7 @@ export async function GET() {
           },
           include: {
             signups: {
-              include: { mentor: true },
+              include: { mentor: { select: { id: true, name: true, email: true, avatarPath: true } } },
               orderBy: { signedUpAt: "asc" },
             },
           },
@@ -39,7 +39,7 @@ export async function GET() {
           },
           include: {
             signups: {
-              include: { mentor: true },
+              include: { mentor: { select: { id: true, name: true, email: true, avatarPath: true } } },
               orderBy: { signedUpAt: "asc" },
             },
           },
@@ -56,7 +56,7 @@ export async function GET() {
           },
           include: {
             signups: {
-              include: { mentor: true },
+              include: { mentor: { select: { id: true, name: true, email: true, avatarPath: true } } },
               orderBy: { signedUpAt: "asc" },
             },
           },
