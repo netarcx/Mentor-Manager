@@ -40,6 +40,7 @@ jobs:
             ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Deploy on server
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
