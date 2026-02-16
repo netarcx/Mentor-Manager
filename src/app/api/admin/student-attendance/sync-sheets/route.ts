@@ -97,28 +97,21 @@ export async function POST(request: Request) {
     }
 
     // --- Phase 2: Import from sheet into local DB ---
-    const lastImportRow = await prisma.setting.findUnique({
-      where: { key: "sheets_last_imported_at" },
-    });
-    const lastImport = lastImportRow?.value ? new Date(lastImportRow.value) : new Date(0);
-
     const sheetRows = await readAllRows();
 
-    // Parse sheet rows into typed events
+    // Parse ALL sheet rows into typed events (dedup handles duplicates)
     const sheetEvents: { timestamp: Date; type: string; name: string; subteam: string }[] = [];
     for (const row of sheetRows) {
       if (!row[0] || !row[1] || !row[2]) continue;
       const timestamp = new Date(row[0]);
       if (isNaN(timestamp.getTime())) continue;
-      // Only process rows newer than last import
-      if (timestamp <= lastImport) continue;
 
-      const type = row[1].trim();
-      if (type !== "Clock in" && type !== "Clock out") continue;
+      const type = row[1].trim().toLowerCase();
+      if (type !== "clock in" && type !== "clock out") continue;
 
       sheetEvents.push({
         timestamp,
-        type,
+        type: type === "clock in" ? "Clock in" : "Clock out",
         name: row[2].trim(),
         subteam: (row[3] || "").trim(),
       });
