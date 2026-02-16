@@ -664,10 +664,10 @@ export default function StudentsPage() {
           {(sheetsLastSynced || sheetsLastImported) && (
             <div className="text-xs text-slate-400 space-y-0.5 mb-2">
               {sheetsLastSynced && (
-                <p>Last exported: {new Date(sheetsLastSynced).toLocaleString()}</p>
+                <p>Last exported: {new Date(sheetsLastSynced).toLocaleString("en-US", { timeZone: "America/Chicago", hour12: true })}</p>
               )}
               {sheetsLastImported && (
-                <p>Last imported: {new Date(sheetsLastImported).toLocaleString()}</p>
+                <p>Last imported: {new Date(sheetsLastImported).toLocaleString("en-US", { timeZone: "America/Chicago", hour12: true })}</p>
               )}
             </div>
           )}

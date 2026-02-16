@@ -86,6 +86,7 @@ export default function StudentAttendanceReportPage() {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
+      timeZone: "America/Chicago",
     });
   }
 
