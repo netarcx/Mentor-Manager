@@ -131,6 +131,19 @@ export async function POST(request: Request) {
       studentByName.set(s.name.toLowerCase(), s.id);
     }
 
+    // Auto-create students from ALL sheet rows (not just new events)
+    let studentsCreated = 0;
+    for (const row of sheetRows) {
+      const name = (row[2] || "").trim();
+      if (!name) continue;
+      const nameLower = name.toLowerCase();
+      if (!studentByName.has(nameLower)) {
+        const created = await prisma.student.create({ data: { name } });
+        studentByName.set(nameLower, created.id);
+        studentsCreated++;
+      }
+    }
+
     // Load existing attendance for deduplication
     // Get all unique dates from the sheet events we're about to process
     const eventDates = new Set(sheetEvents.map((e) => toDateISO(e.timestamp)));
@@ -219,6 +232,7 @@ export async function POST(request: Request) {
       success: true,
       exported: exportRows.length,
       imported,
+      studentsCreated,
     });
   } catch (error) {
     console.error("Google Sheets sync error:", error);
