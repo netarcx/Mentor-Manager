@@ -28,6 +28,7 @@ export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showPast, setShowPast] = useState(false);
   const [expandedShift, setExpandedShift] = useState<number | null>(null);
   const [form, setForm] = useState({
     date: "",
@@ -107,6 +108,11 @@ export default function ShiftsPage() {
     });
     fetchShifts();
   }
+
+  const today = new Date().toISOString().split("T")[0];
+  const activeShifts = shifts.filter((s) => !s.cancelled);
+  const pastCount = activeShifts.filter((s) => s.date < today).length;
+  const visibleShifts = showPast ? activeShifts : activeShifts.filter((s) => s.date >= today);
 
   return (
     <div>
@@ -192,12 +198,21 @@ export default function ShiftsPage() {
 
       {loading ? (
         <p className="text-slate-500">Loading...</p>
-      ) : shifts.filter((s) => !s.cancelled).length === 0 ? (
+      ) : activeShifts.length === 0 ? (
         <p className="text-slate-500 italic">
           No shifts yet. Create templates and generate shifts, or add one-off
           shifts.
         </p>
       ) : (
+        <>
+        {pastCount > 0 && (
+          <button
+            onClick={() => setShowPast(!showPast)}
+            className="mb-4 text-sm text-slate-500 hover:text-slate-700 hover:underline"
+          >
+            {showPast ? "Hide past shifts" : `Show ${pastCount} past shift${pastCount !== 1 ? "s" : ""}`}
+          </button>
+        )}
         <div className="bg-white rounded-xl shadow border border-slate-100 overflow-hidden">
           <table className="w-full">
             <thead>
@@ -219,7 +234,7 @@ export default function ShiftsPage() {
                 </th>
               </tr>
             </thead>
-              {shifts.filter((s) => !s.cancelled).map((s, i, arr) => {
+              {visibleShifts.map((s, i, arr) => {
                 const needsHelp = s._count.signups < MIN_MENTOR_SIGNUPS && isWithinDays(s.date, 7);
                 const isExpanded = expandedShift === s.id;
                 const checkedIn = s.signups.filter((su) => su.checkedInAt).length;
@@ -376,6 +391,7 @@ export default function ShiftsPage() {
               })}
           </table>
         </div>
+        </>
       )}
     </div>
   );
