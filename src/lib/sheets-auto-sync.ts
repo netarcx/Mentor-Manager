@@ -23,12 +23,12 @@ export async function maybeImportFromSheets(): Promise<{
     return null;
   }
 
-  // Check DB settings: is auto-sync enabled? Has the interval elapsed?
+  // Check DB settings: is read from sheets enabled? Has the interval elapsed?
   const settings = await prisma.setting.findMany({
     where: {
       key: {
         in: [
-          "sheets_auto_sync_enabled",
+          "sheets_read_enabled",
           "sheets_sync_interval",
           "sheets_last_imported_at",
         ],
@@ -37,7 +37,7 @@ export async function maybeImportFromSheets(): Promise<{
   });
   const map = new Map(settings.map((s) => [s.key, s.value]));
 
-  if (map.get("sheets_auto_sync_enabled") === "false") {
+  if (map.get("sheets_read_enabled") === "false") {
     lastSyncTime = now; // Don't re-check settings until next interval
     return null;
   }

@@ -46,7 +46,8 @@ export default function StudentsPage() {
 
   // Sheets sync state
   const [syncStatus, setSyncStatus] = useState("");
-  const [sheetsAutoSync, setSheetsAutoSync] = useState(true);
+  const [sheetsReadEnabled, setSheetsReadEnabled] = useState(true);
+  const [sheetsWriteEnabled, setSheetsWriteEnabled] = useState(true);
   const [sheetsSyncInterval, setSheetsSyncInterval] = useState(60);
   const [sheetsLastSynced, setSheetsLastSynced] = useState<string | null>(null);
   const [sheetsLastImported, setSheetsLastImported] = useState<string | null>(null);
@@ -198,7 +199,8 @@ export default function StudentsPage() {
       if (res.ok) {
         const data = await res.json();
         setAttendanceEnabled(data.enabled);
-        setSheetsAutoSync(data.sheetsAutoSync);
+        setSheetsReadEnabled(data.sheetsReadEnabled);
+        setSheetsWriteEnabled(data.sheetsWriteEnabled);
         setSheetsSyncInterval(data.sheetsSyncInterval);
         setSheetsLastSynced(data.sheetsLastSynced);
         setSheetsLastImported(data.sheetsLastImported);
@@ -352,24 +354,45 @@ export default function StudentsPage() {
     }
   }
 
-  async function handleToggleAutoSync() {
-    const newValue = !sheetsAutoSync;
-    setSheetsAutoSync(newValue);
+  async function handleToggleReadEnabled() {
+    const newValue = !sheetsReadEnabled;
+    setSheetsReadEnabled(newValue);
     try {
       const res = await fetch("/api/admin/students/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheetsAutoSync: newValue }),
+        body: JSON.stringify({ sheetsReadEnabled: newValue }),
       });
       if (!res.ok) {
-        setSheetsAutoSync(!newValue);
-        showError("Failed to update auto-sync setting");
+        setSheetsReadEnabled(!newValue);
+        showError("Failed to update setting");
         return;
       }
-      showMessage(newValue ? "Auto-sync enabled" : "Auto-sync disabled");
+      showMessage(newValue ? "Read from Sheets enabled" : "Read from Sheets disabled");
     } catch {
-      setSheetsAutoSync(!newValue);
-      showError("Failed to update auto-sync setting");
+      setSheetsReadEnabled(!newValue);
+      showError("Failed to update setting");
+    }
+  }
+
+  async function handleToggleWriteEnabled() {
+    const newValue = !sheetsWriteEnabled;
+    setSheetsWriteEnabled(newValue);
+    try {
+      const res = await fetch("/api/admin/students/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheetsWriteEnabled: newValue }),
+      });
+      if (!res.ok) {
+        setSheetsWriteEnabled(!newValue);
+        showError("Failed to update setting");
+        return;
+      }
+      showMessage(newValue ? "Write to Sheets enabled" : "Write to Sheets disabled");
+    } catch {
+      setSheetsWriteEnabled(!newValue);
+      showError("Failed to update setting");
     }
   }
 
@@ -610,27 +633,45 @@ export default function StudentsPage() {
             Two-way sync: exports check-in/out events to Google Sheets and imports new entries from the sheet.
           </p>
 
-          {/* Auto-sync toggle + interval */}
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleToggleAutoSync}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  sheetsAutoSync ? "bg-green-500" : "bg-slate-300"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    sheetsAutoSync ? "translate-x-6" : "translate-x-1"
+          {/* Read/Write toggles + interval */}
+          <div className="space-y-3 mb-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleToggleReadEnabled}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    sheetsReadEnabled ? "bg-green-500" : "bg-slate-300"
                   }`}
-                />
-              </button>
-              <span className="text-sm text-slate-700">Auto-sync</span>
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      sheetsReadEnabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+                <span className="text-sm text-slate-700">Read from Sheets</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleToggleWriteEnabled}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    sheetsWriteEnabled ? "bg-green-500" : "bg-slate-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      sheetsWriteEnabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+                <span className="text-sm text-slate-700">Write to Sheets</span>
+              </div>
             </div>
 
-            {sheetsAutoSync && (
+            {(sheetsReadEnabled || sheetsWriteEnabled) && (
               <div className="flex items-center gap-2">
-                <label className="text-sm text-slate-600">every</label>
+                <label className="text-sm text-slate-600">Auto-sync every</label>
                 <select
                   value={String(sheetsSyncInterval)}
                   onChange={(e) => handleSyncIntervalChange(e.target.value)}

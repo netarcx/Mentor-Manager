@@ -13,7 +13,8 @@ export async function GET() {
         key: {
           in: [
             "student_attendance_enabled",
-            "sheets_auto_sync_enabled",
+            "sheets_read_enabled",
+            "sheets_write_enabled",
             "sheets_sync_interval",
             "sheets_last_synced_at",
             "sheets_last_imported_at",
@@ -25,7 +26,8 @@ export async function GET() {
 
     return NextResponse.json({
       enabled: map.get("student_attendance_enabled") === "true",
-      sheetsAutoSync: map.get("sheets_auto_sync_enabled") !== "false", // default true
+      sheetsReadEnabled: map.get("sheets_read_enabled") !== "false", // default true
+      sheetsWriteEnabled: map.get("sheets_write_enabled") !== "false", // default true
       sheetsSyncInterval: parseInt(map.get("sheets_sync_interval") || "60", 10),
       sheetsLastSynced: map.get("sheets_last_synced_at") || null,
       sheetsLastImported: map.get("sheets_last_imported_at") || null,
@@ -49,8 +51,11 @@ export async function POST(request: NextRequest) {
     if ("enabled" in body) {
       upserts.push({ key: "student_attendance_enabled", value: body.enabled ? "true" : "false" });
     }
-    if ("sheetsAutoSync" in body) {
-      upserts.push({ key: "sheets_auto_sync_enabled", value: body.sheetsAutoSync ? "true" : "false" });
+    if ("sheetsReadEnabled" in body) {
+      upserts.push({ key: "sheets_read_enabled", value: body.sheetsReadEnabled ? "true" : "false" });
+    }
+    if ("sheetsWriteEnabled" in body) {
+      upserts.push({ key: "sheets_write_enabled", value: body.sheetsWriteEnabled ? "true" : "false" });
     }
     if ("sheetsSyncInterval" in body) {
       const interval = Math.max(5, Math.min(1440, parseInt(body.sheetsSyncInterval, 10) || 60));
