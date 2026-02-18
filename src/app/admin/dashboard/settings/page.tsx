@@ -37,12 +37,18 @@ export default function SettingsPage() {
   const appleIconInputRef = useRef<HTMLInputElement>(null);
   const soundInputRef = useRef<HTMLInputElement>(null);
   const cleanupSoundInputRef = useRef<HTMLInputElement>(null);
+  const slideshowInputRef = useRef<HTMLInputElement>(null);
   const [soundPath, setSoundPath] = useState("");
   const [cleanupSoundPath, setCleanupSoundPath] = useState("");
   const [cleanupSoundMinutes, setCleanupSoundMinutes] = useState(20);
   const [cleanupDisplayMinutes, setCleanupDisplayMinutes] = useState(10);
   const [cleanupTestActive, setCleanupTestActive] = useState(false);
   const [soundVolume, setSoundVolume] = useState(0.5);
+
+  // Slideshow state
+  const [slideshowImages, setSlideshowImages] = useState<{ id: number; filename: string; sortOrder: number }[]>([]);
+  const [slideshowInterval, setSlideshowInterval] = useState(8);
+  const [slideshowEnabled, setSlideshowEnabled] = useState(true);
 
   // Registration state
   const [registrationOpen, setRegistrationOpen] = useState(true);
@@ -221,6 +227,29 @@ export default function SettingsPage() {
       }
     }
 
+    async function fetchSlideshow() {
+      try {
+        const res = await fetch("/api/admin/slideshow");
+        if (res.ok) {
+          const data = await res.json();
+          setSlideshowImages(data.images || []);
+        }
+      } catch { /* use defaults */ }
+    }
+
+    async function fetchSlideshowSettings() {
+      try {
+        const res = await fetch("/api/admin/settings/slideshow");
+        if (res.ok) {
+          const data = await res.json();
+          setSlideshowInterval(data.interval);
+          setSlideshowEnabled(data.enabled);
+        }
+      } catch { /* use defaults */ }
+    }
+
+    fetchSlideshow();
+    fetchSlideshowSettings();
     fetchRegistration();
     fetchBranding();
     fetchCountdown();
@@ -617,6 +646,78 @@ export default function SettingsPage() {
     audio.volume = soundVolume;
     audio.play().catch(() => {});
     setTimeout(() => setCleanupTestActive(false), 15000);
+  }
+
+  async function handleSlideshowUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading("slideshow-upload");
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/admin/slideshow", { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.error || "Failed to upload image");
+        return;
+      }
+      showMessage("Image uploaded!");
+      const listRes = await fetch("/api/admin/slideshow");
+      if (listRes.ok) setSlideshowImages((await listRes.json()).images);
+    } catch {
+      showError("Failed to upload image");
+    } finally {
+      setLoading("");
+      if (slideshowInputRef.current) slideshowInputRef.current.value = "";
+    }
+  }
+
+  async function handleSlideshowDelete(imageId: number) {
+    setLoading(`slideshow-delete-${imageId}`);
+    try {
+      const res = await fetch(`/api/admin/slideshow/${imageId}`, { method: "DELETE" });
+      if (!res.ok) { showError("Failed to delete image"); return; }
+      setSlideshowImages((prev) => prev.filter((img) => img.id !== imageId));
+      showMessage("Image deleted!");
+    } catch {
+      showError("Failed to delete image");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleSlideshowMove(imageId: number, direction: "up" | "down") {
+    const index = slideshowImages.findIndex((img) => img.id === imageId);
+    if (index === -1) return;
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= slideshowImages.length) return;
+
+    const reordered = [...slideshowImages];
+    [reordered[index], reordered[newIndex]] = [reordered[newIndex], reordered[index]];
+    setSlideshowImages(reordered);
+
+    await fetch("/api/admin/slideshow/reorder", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedIds: reordered.map((img) => img.id) }),
+    });
+  }
+
+  async function handleSaveSlideshowSettings() {
+    setLoading("slideshow-settings");
+    try {
+      const res = await fetch("/api/admin/settings/slideshow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interval: slideshowInterval, enabled: slideshowEnabled }),
+      });
+      if (!res.ok) { showError("Failed to save slideshow settings"); return; }
+      showMessage("Slideshow settings saved!");
+    } catch {
+      showError("Failed to save slideshow settings");
+    } finally {
+      setLoading("");
+    }
   }
 
   function handleResetColors() {
@@ -1028,6 +1129,119 @@ export default function SettingsPage() {
               {loading === "announcement" ? "Saving..." : "Save Announcement"}
             </button>
           </form>
+        </div>
+
+        {/* Dashboard Slideshow */}
+        <div className="bg-white rounded-xl shadow border border-slate-100 p-6">
+          <h2 className="text-lg font-semibold mb-2">Dashboard Slideshow</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Show a slideshow of images on the dashboard when no shift is active.
+          </p>
+
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium">Enable slideshow</span>
+            <button
+              onClick={async () => {
+                const newEnabled = !slideshowEnabled;
+                setSlideshowEnabled(newEnabled);
+                try {
+                  await fetch("/api/admin/settings/slideshow", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ interval: slideshowInterval, enabled: newEnabled }),
+                  });
+                  showMessage(newEnabled ? "Slideshow enabled" : "Slideshow disabled");
+                } catch {
+                  setSlideshowEnabled(!newEnabled);
+                  showError("Failed to update slideshow");
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                slideshowEnabled ? "bg-green-500" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  slideshowEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-1">Cycle interval (seconds)</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={slideshowInterval}
+                onChange={(e) => setSlideshowInterval(parseInt(e.target.value) || 8)}
+                className="w-24 border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleSaveSlideshowSettings}
+                disabled={loading === "slideshow-settings"}
+                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-50 text-sm"
+              >
+                {loading === "slideshow-settings" ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold mb-3">Images ({slideshowImages.length})</h3>
+            {slideshowImages.length > 0 ? (
+              <div className="space-y-2 mb-4">
+                {slideshowImages.map((img, index) => (
+                  <div key={img.id} className="flex items-center gap-3 bg-slate-50 rounded-lg p-2">
+                    <img
+                      src={`/api/slideshow/${img.id}`}
+                      alt=""
+                      className="h-16 w-24 object-cover rounded border border-slate-200"
+                    />
+                    <span className="text-sm text-slate-600 flex-1">#{index + 1}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleSlideshowMove(img.id, "up")}
+                        disabled={index === 0}
+                        className="text-slate-400 hover:text-slate-600 disabled:opacity-30 px-1"
+                      >
+                        &uarr;
+                      </button>
+                      <button
+                        onClick={() => handleSlideshowMove(img.id, "down")}
+                        disabled={index === slideshowImages.length - 1}
+                        className="text-slate-400 hover:text-slate-600 disabled:opacity-30 px-1"
+                      >
+                        &darr;
+                      </button>
+                      <button
+                        onClick={() => handleSlideshowDelete(img.id)}
+                        disabled={loading === `slideshow-delete-${img.id}`}
+                        className="text-red-500 hover:text-red-700 text-sm ml-2"
+                      >
+                        {loading === `slideshow-delete-${img.id}` ? "..." : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 mb-4">No slideshow images uploaded.</p>
+            )}
+
+            <input
+              ref={slideshowInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              onChange={handleSlideshowUpload}
+              disabled={loading === "slideshow-upload"}
+              className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-dark file:cursor-pointer disabled:opacity-50"
+            />
+            <p className="text-xs text-slate-500 mt-1">PNG, JPEG, GIF, or WebP. Max 5MB per image.</p>
+          </div>
         </div>
 
         {/* App Name & Title */}

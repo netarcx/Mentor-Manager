@@ -35,6 +35,12 @@ interface QuoteData {
   author: string;
 }
 
+interface SlideshowData {
+  images: number[];
+  interval: number;
+  enabled: boolean;
+}
+
 function formatTimeDashboard(time: string): string {
   const [h, m] = time.split(":").map(Number);
   const ampm = h >= 12 ? "PM" : "AM";
@@ -245,6 +251,66 @@ function MentorAvatar({
 
 const MemoMentorAvatar = memo(MentorAvatar);
 
+const Slideshow = memo(function Slideshow({
+  slideshow,
+  tv,
+}: {
+  slideshow: SlideshowData;
+  tv: boolean;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  useEffect(() => {
+    if (slideshow.images.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % slideshow.images.length);
+        setIsTransitioning(false);
+      }, 500);
+    }, slideshow.interval * 1000);
+
+    return () => clearInterval(timer);
+  }, [slideshow.images.length, slideshow.interval]);
+
+  // Preload next image
+  useEffect(() => {
+    if (slideshow.images.length <= 1) return;
+    const nextIndex = (currentIndex + 1) % slideshow.images.length;
+    const img = new Image();
+    img.src = `/api/slideshow/${slideshow.images[nextIndex]}`;
+  }, [currentIndex, slideshow.images]);
+
+  if (slideshow.images.length === 0) return null;
+
+  return (
+    <div className={`relative rounded-2xl overflow-hidden ${tv ? "flex-1 min-h-0" : "aspect-video max-h-[60vh]"} w-full bg-slate-800 flex items-center justify-center`}>
+      <img
+        key={slideshow.images[currentIndex]}
+        src={`/api/slideshow/${slideshow.images[currentIndex]}`}
+        alt=""
+        className={`w-full h-full object-contain transition-opacity duration-500 ${
+          isTransitioning ? "opacity-0" : "opacity-100"
+        }`}
+      />
+      {slideshow.images.length > 1 && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {slideshow.images.map((_, i) => (
+            <div
+              key={i}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                i === currentIndex ? "bg-white" : "bg-white/40"
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
 const ShiftCard = memo(function ShiftCard({
   shift,
   title,
@@ -375,6 +441,7 @@ export default function DashboardPage() {
   const [goalsSaved, setGoalsSaved] = useState(false);
   const [goalsEnabled, setGoalsEnabled] = useState(true);
   const [announcement, setAnnouncement] = useState<{ enabled: boolean; text: string }>({ enabled: false, text: "" });
+  const [slideshow, setSlideshow] = useState<SlideshowData>({ images: [], interval: 8, enabled: true });
   const prevShiftIdRef = useRef<number | null | undefined>(undefined);
   const goalsSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -417,6 +484,7 @@ export default function DashboardPage() {
       if (data.goals !== undefined) setGoals(data.goals);
       if (data.goalsEnabled !== undefined) setGoalsEnabled(data.goalsEnabled);
       if (data.announcement) setAnnouncement(data.announcement);
+      if (data.slideshow) setSlideshow(data.slideshow);
     } catch {
       // Silent fail on polling
     }
@@ -647,65 +715,69 @@ export default function DashboardPage() {
           tv={tvMode}
         />
 
-        {/* Shift Cards with Navigation */}
-        <div className={`flex items-stretch gap-2 ${tvMode ? "flex-1 min-h-0" : ""}`}>
-          {/* Back arrow */}
-          <button
-            onClick={browseBack}
-            disabled={!canGoBack}
-            className={`flex-shrink-0 flex items-center justify-center px-3 min-w-[44px] min-h-[44px] rounded-xl transition-colors ${
-              canGoBack
-                ? "text-white hover:bg-slate-700 cursor-pointer"
-                : "text-slate-700 cursor-default"
-            }`}
-            title="Previous shifts"
-          >
-            <span className="text-2xl sm:text-3xl">&lsaquo;</span>
-          </button>
+        {/* Shift Cards or Slideshow */}
+        {!currentShift && !isBrowsing && slideshow.enabled && slideshow.images.length > 0 ? (
+          <Slideshow slideshow={slideshow} tv={tvMode} />
+        ) : (
+          <div className={`flex items-stretch gap-2 ${tvMode ? "flex-1 min-h-0" : ""}`}>
+            {/* Back arrow */}
+            <button
+              onClick={browseBack}
+              disabled={!canGoBack}
+              className={`flex-shrink-0 flex items-center justify-center px-3 min-w-[44px] min-h-[44px] rounded-xl transition-colors ${
+                canGoBack
+                  ? "text-white hover:bg-slate-700 cursor-pointer"
+                  : "text-slate-700 cursor-default"
+              }`}
+              title="Previous shifts"
+            >
+              <span className="text-2xl sm:text-3xl">&lsaquo;</span>
+            </button>
 
-          {/* Shift cards */}
-          <div
-            className={`flex-1 flex flex-col lg:flex-row gap-4 min-w-0 ${tvMode ? "min-h-0" : "sm:gap-6"}`}
-            onTouchStart={(e) => { touchStartRef.current = e.touches[0].clientX; }}
-            onTouchEnd={(e) => {
-              if (touchStartRef.current === null) return;
-              const diff = touchStartRef.current - e.changedTouches[0].clientX;
-              touchStartRef.current = null;
-              if (Math.abs(diff) < 50) return;
-              if (diff > 0 && canGoForward) browseForward();
-              if (diff < 0 && canGoBack) browseBack();
-            }}
-          >
-            {/* Browse indicator */}
-            {isBrowsing && (
-              <div className="text-center text-xs text-slate-500 lg:hidden mb-1">
-                Viewing future shifts &middot; <button onClick={() => setBrowseIndex(null)} className="underline hover:text-slate-300">Back to now</button>
-              </div>
-            )}
-            <ShiftCard
-              shift={displayLeft}
-              title={displayLeftTitle}
-              isCurrent={!isBrowsing && !!currentShift}
-              tv={tvMode}
-              onCheckIn={!isBrowsing ? handleCheckIn : undefined}
-            />
-            <ShiftCard shift={displayRight} title={displayRightTitle} tv={tvMode} />
+            {/* Shift cards */}
+            <div
+              className={`flex-1 flex flex-col lg:flex-row gap-4 min-w-0 ${tvMode ? "min-h-0" : "sm:gap-6"}`}
+              onTouchStart={(e) => { touchStartRef.current = e.touches[0].clientX; }}
+              onTouchEnd={(e) => {
+                if (touchStartRef.current === null) return;
+                const diff = touchStartRef.current - e.changedTouches[0].clientX;
+                touchStartRef.current = null;
+                if (Math.abs(diff) < 50) return;
+                if (diff > 0 && canGoForward) browseForward();
+                if (diff < 0 && canGoBack) browseBack();
+              }}
+            >
+              {/* Browse indicator */}
+              {isBrowsing && (
+                <div className="text-center text-xs text-slate-500 lg:hidden mb-1">
+                  Viewing future shifts &middot; <button onClick={() => setBrowseIndex(null)} className="underline hover:text-slate-300">Back to now</button>
+                </div>
+              )}
+              <ShiftCard
+                shift={displayLeft}
+                title={displayLeftTitle}
+                isCurrent={!isBrowsing && !!currentShift}
+                tv={tvMode}
+                onCheckIn={!isBrowsing ? handleCheckIn : undefined}
+              />
+              <ShiftCard shift={displayRight} title={displayRightTitle} tv={tvMode} />
+            </div>
+
+            {/* Forward arrow */}
+            <button
+              onClick={browseForward}
+              disabled={!canGoForward}
+              className={`flex-shrink-0 flex items-center justify-center px-3 min-w-[44px] min-h-[44px] rounded-xl transition-colors ${
+                canGoForward
+                  ? "text-white hover:bg-slate-700 cursor-pointer"
+                  : "text-slate-700 cursor-default"
+              }`}
+              title="Next shifts"
+            >
+              <span className="text-2xl sm:text-3xl">&rsaquo;</span>
+            </button>
           </div>
-
-          {/* Forward arrow */}
-          <button
-            onClick={browseForward}
-            disabled={!canGoForward}
-            className={`flex-shrink-0 flex items-center justify-center px-3 min-w-[44px] min-h-[44px] rounded-xl transition-colors ${
-              canGoForward
-                ? "text-white hover:bg-slate-700 cursor-pointer"
-                : "text-slate-700 cursor-default"
-            }`}
-            title="Next shifts"
-          >
-            <span className="text-2xl sm:text-3xl">&rsaquo;</span>
-          </button>
-        </div>
+        )}
 
         {/* Goals + Quote row */}
         {tvMode ? (

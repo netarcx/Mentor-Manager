@@ -10,7 +10,7 @@ export async function GET() {
     const now = currentTimeStr();
 
     // Run all queries in parallel
-    const [currentShifts, nextShift, futureShifts, brandingSettings, countdownSettings, cleanupSettings, quoteResult, goal, announcementSettings] =
+    const [currentShifts, nextShift, futureShifts, brandingSettings, countdownSettings, cleanupSettings, quoteResult, goal, announcementSettings, slideshowImages, slideshowSettings] =
       await Promise.all([
         // Current shifts
         prisma.shift.findMany({
@@ -93,6 +93,15 @@ export async function GET() {
         // Announcement + goals settings
         prisma.setting.findMany({
           where: { key: { in: ["announcement_enabled", "announcement_text", "goals_enabled"] } },
+        }),
+        // Slideshow images
+        prisma.slideshowImage.findMany({
+          orderBy: { sortOrder: "asc" },
+          select: { id: true },
+        }),
+        // Slideshow settings
+        prisma.setting.findMany({
+          where: { key: { in: ["slideshow_interval", "slideshow_enabled"] } },
         }),
       ]);
 
@@ -180,6 +189,15 @@ export async function GET() {
       soundVolume: parseFloat(cleanupMap.sound_volume || "0.5"),
     };
 
+    // Build slideshow object
+    const slideshowMap: Record<string, string> = {};
+    for (const s of slideshowSettings) slideshowMap[s.key] = s.value;
+    const slideshow = {
+      images: slideshowImages.map((img) => img.id),
+      interval: parseInt(slideshowMap.slideshow_interval || "8", 10),
+      enabled: slideshowMap.slideshow_enabled !== "false",
+    };
+
     // Filter out current and next shift from the future list
     const currentId = currentShift?.id;
     const nextId = nextShift?.id;
@@ -199,6 +217,7 @@ export async function GET() {
       goals: goal?.text || "",
       goalsEnabled,
       announcement,
+      slideshow,
     });
   } catch (error) {
     console.error(error);
