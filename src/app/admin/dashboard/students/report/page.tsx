@@ -35,6 +35,14 @@ interface Stats {
   totalHours: number;
 }
 
+interface Note {
+  id: number;
+  content: string;
+  author: string;
+  createdAt: string;
+  student?: { name: string };
+}
+
 export default function StudentAttendanceReportPage() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [students, setStudents] = useState<StudentOption[]>([]);
@@ -43,6 +51,53 @@ export default function StudentAttendanceReportPage() {
   const [days, setDays] = useState<DayGroup[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notesMap, setNotesMap] = useState<Map<string, Note[]>>(new Map());
+  const [newNoteMap, setNewNoteMap] = useState<Map<string, string>>(new Map());
+
+  async function fetchNotesForDate(date: string) {
+    try {
+      const params = new URLSearchParams({ date });
+      if (selectedStudent) params.set("studentId", selectedStudent);
+      const res = await fetch(`/api/admin/student-notes?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotesMap((prev) => new Map(prev).set(date, data.notes || []));
+      }
+    } catch {
+      // silent
+    }
+  }
+
+  async function handleAddNote(date: string, studentId?: number) {
+    const text = newNoteMap.get(date) || "";
+    if (!text.trim()) return;
+    // If filtering by student, use that student; otherwise need a studentId
+    const sid = studentId || (selectedStudent ? parseInt(selectedStudent, 10) : null);
+    if (!sid) return;
+    try {
+      const res = await fetch("/api/admin/student-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: sid, date, content: text }),
+      });
+      if (res.ok) {
+        setNewNoteMap((prev) => { const m = new Map(prev); m.delete(date); return m; });
+        fetchNotesForDate(date);
+      }
+    } catch {
+      // silent
+    }
+  }
+
+  async function handleDeleteNote(noteId: number, date: string) {
+    if (!confirm("Delete this note?")) return;
+    try {
+      const res = await fetch(`/api/admin/student-notes/${noteId}`, { method: "DELETE" });
+      if (res.ok) fetchNotesForDate(date);
+    } catch {
+      // silent
+    }
+  }
 
   useEffect(() => {
     fetch("/api/admin/seasons")
@@ -65,6 +120,10 @@ export default function StudentAttendanceReportPage() {
         setDays(data.days || []);
         setStats(data.stats || null);
         if (data.students) setStudents(data.students);
+        // Fetch notes for each day
+        for (const day of data.days || []) {
+          fetchNotesForDate(day.date);
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -233,6 +292,71 @@ export default function StudentAttendanceReportPage() {
                       ))}
                     </tbody>
                   </table>
+
+                  {/* Notes Section */}
+                  {(() => {
+                    const dayNotes = notesMap.get(day.date) || [];
+                    const noteText = newNoteMap.get(day.date) || "";
+                    return (
+                      <div className="border-t border-amber-200 bg-amber-50/50 px-4 py-3">
+                        <div className="text-xs font-semibold text-amber-700 mb-2">Notes</div>
+                        {dayNotes.length > 0 && (
+                          <div className="space-y-1.5 mb-3">
+                            {dayNotes.map((note) => (
+                              <div key={note.id} className="flex items-start justify-between gap-2 text-sm bg-white rounded-lg px-3 py-2 border border-amber-200">
+                                <div>
+                                  <span className="text-slate-700">{note.content}</span>
+                                  <span className="text-xs text-slate-400 ml-2">
+                                    — {note.author}
+                                    {note.student?.name && <>, re: {note.student.name}</>}
+                                    ,{" "}
+                                    {new Date(note.createdAt).toLocaleTimeString("en-US", {
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                      hour12: true,
+                                      timeZone: "America/Chicago",
+                                    })}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => handleDeleteNote(note.id, day.date)}
+                                  className="text-xs text-red-400 hover:text-red-600 shrink-0"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {selectedStudent && (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={noteText}
+                              onChange={(e) =>
+                                setNewNoteMap((prev) => new Map(prev).set(day.date, e.target.value))
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && noteText.trim()) handleAddNote(day.date);
+                              }}
+                              placeholder="Add a note for this student..."
+                              className="flex-1 border border-amber-300 rounded-lg px-3 py-1.5 text-sm bg-white"
+                            />
+                            <button
+                              onClick={() => handleAddNote(day.date)}
+                              disabled={!noteText.trim()}
+                              className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 disabled:opacity-50 font-medium"
+                            >
+                              Add Note
+                            </button>
+                          </div>
+                        )}
+                        {!selectedStudent && (
+                          <p className="text-xs text-slate-400 italic">Select a student to add notes.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

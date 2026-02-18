@@ -22,6 +22,7 @@ const navGroups = [
       { href: "/admin/dashboard/mentors", label: "Mentors" },
       { href: "/admin/dashboard/students", label: "Students" },
       { href: "/admin/dashboard/attendance", label: "Attendance" },
+      { href: "/admin/dashboard/analytics", label: "Analytics" },
     ],
   },
   {

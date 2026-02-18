@@ -15,6 +15,13 @@ interface AttendanceRecord {
   subteam: string;
 }
 
+interface Note {
+  id: number;
+  content: string;
+  author: string;
+  createdAt: string;
+}
+
 export default function CaptainPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Map<number, AttendanceRecord>>(new Map());
@@ -48,6 +55,11 @@ export default function CaptainPage() {
   const [editIn, setEditIn] = useState("");
   const [editOut, setEditOut] = useState("");
   const [editSubteam, setEditSubteam] = useState("");
+
+  // Notes state
+  const [notesOpenFor, setNotesOpenFor] = useState<number | null>(null);
+  const [notesMap, setNotesMap] = useState<Map<number, Note[]>>(new Map());
+  const [newNoteText, setNewNoteText] = useState("");
 
   const fetchData = useCallback(async () => {
     if (!captainPin) return;
@@ -170,6 +182,48 @@ export default function CaptainPage() {
       });
     }
     setEditingId(null);
+  }
+
+  async function fetchNotes(studentId: number) {
+    try {
+      const res = await fetch(`/api/captain/notes?studentId=${studentId}&date=${date}`, {
+        headers: { "x-captain-pin": captainPin },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotesMap((prev) => new Map(prev).set(studentId, data.notes || []));
+      }
+    } catch {
+      // silent
+    }
+  }
+
+  function toggleNotes(studentId: number) {
+    if (notesOpenFor === studentId) {
+      setNotesOpenFor(null);
+      setNewNoteText("");
+    } else {
+      setNotesOpenFor(studentId);
+      setNewNoteText("");
+      fetchNotes(studentId);
+    }
+  }
+
+  async function handleAddNote(studentId: number) {
+    if (!newNoteText.trim()) return;
+    try {
+      const res = await fetch("/api/captain/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-captain-pin": captainPin },
+        body: JSON.stringify({ studentId, date, content: newNoteText }),
+      });
+      if (res.ok) {
+        setNewNoteText("");
+        fetchNotes(studentId);
+      }
+    } catch {
+      // silent
+    }
   }
 
   function isoToTimeInput(isoStr: string): string {
@@ -362,6 +416,18 @@ export default function CaptainPage() {
                           Edit
                         </button>
                       )}
+                      {!isEditing && (
+                        <button
+                          onClick={() => toggleNotes(student.id)}
+                          className={`text-xs underline ${
+                            notesOpenFor === student.id
+                              ? "text-amber-600 hover:text-amber-800"
+                              : "text-slate-500 hover:text-slate-700"
+                          }`}
+                        >
+                          Notes
+                        </button>
+                      )}
                       {record && !isEditing && (
                         <button
                           onClick={() => {
@@ -428,6 +494,51 @@ export default function CaptainPage() {
                           className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5"
                         >
                           Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {notesOpenFor === student.id && (
+                    <div className="mt-3 pt-3 border-t border-amber-200 bg-amber-50/50 -mx-4 -mb-4 px-4 pb-4 rounded-b-xl">
+                      <div className="text-xs font-semibold text-amber-700 mb-2">Notes for today</div>
+                      {(notesMap.get(student.id) || []).length > 0 ? (
+                        <div className="space-y-1.5 mb-3">
+                          {(notesMap.get(student.id) || []).map((note) => (
+                            <div key={note.id} className="text-sm text-slate-700 bg-white rounded-lg px-3 py-2 border border-amber-200">
+                              <span>{note.content}</span>
+                              <span className="text-xs text-slate-400 ml-2">
+                                — {note.author},{" "}
+                                {new Date(note.createdAt).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                  timeZone: "America/Chicago",
+                                })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400 mb-3 italic">No notes yet for today.</p>
+                      )}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newNoteText}
+                          onChange={(e) => setNewNoteText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && newNoteText.trim()) handleAddNote(student.id);
+                          }}
+                          placeholder="Add a note..."
+                          className="flex-1 border border-amber-300 rounded-lg px-3 py-1.5 text-sm bg-white"
+                        />
+                        <button
+                          onClick={() => handleAddNote(student.id)}
+                          disabled={!newNoteText.trim()}
+                          className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 disabled:opacity-50 font-medium"
+                        >
+                          Add
                         </button>
                       </div>
                     </div>

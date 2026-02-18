@@ -24,9 +24,10 @@ model ShiftTemplate {
   dayOfWeek Int     @map("day_of_week") // 0=Sunday, 6=Saturday
   startTime String  @map("start_time") // "18:00"
   endTime   String  @map("end_time") // "21:00"
-  label     String  @default("")
-  active    Boolean @default(true)
-  shifts    Shift[]
+  label      String  @default("")
+  active     Boolean @default(true)
+  maxSignups Int?    @map("max_signups")
+  shifts     Shift[]
 
   @@map("shift_templates")
 }
@@ -38,6 +39,7 @@ model Shift {
   endTime    String         @map("end_time")
   label      String         @default("")
   cancelled  Boolean        @default(false)
+  maxSignups Int?           @map("max_signups")
   templateId Int?           @map("template_id")
   template   ShiftTemplate? @relation(fields: [templateId], references: [id])
   createdAt  DateTime       @default(now()) @map("created_at")
@@ -121,6 +123,7 @@ model Student {
   name        String
   createdAt   DateTime            @default(now()) @map("created_at")
   attendances StudentAttendance[]
+  notes       StudentNote[]
 
   @@map("students")
 }
@@ -138,4 +141,18 @@ model StudentAttendance {
   @@index([date])
   @@index([studentId])
   @@map("student_attendance")
+}
+
+model StudentNote {
+  id        Int      @id @default(autoincrement())
+  studentId Int      @map("student_id")
+  date      String // ISO date "2026-02-14"
+  content   String
+  author    String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([date])
+  @@map("student_notes")
 }
