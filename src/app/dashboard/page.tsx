@@ -380,6 +380,7 @@ export default function DashboardPage() {
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<number | null>(null);
   const buildTapRef = useRef({ count: 0, timer: null as ReturnType<typeof setTimeout> | null });
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -466,6 +467,53 @@ export default function DashboardPage() {
       if (nav) nav.style.display = "";
     };
   }, []);
+
+  // Wake lock — keep screen awake while today has remaining shifts
+  useEffect(() => {
+    if (!("wakeLock" in navigator)) return;
+
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const hasShiftsToday = !!currentShift || (!!nextShift && nextShift.date === todayStr);
+
+    async function requestWakeLock() {
+      if (wakeLockRef.current) return;
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
+        wakeLockRef.current.addEventListener("release", () => {
+          wakeLockRef.current = null;
+        });
+      } catch {
+        // Permission denied or not supported
+      }
+    }
+
+    function releaseWakeLock() {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    }
+
+    // Re-acquire wake lock when tab becomes visible again
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible" && hasShiftsToday) {
+        requestWakeLock();
+      }
+    }
+
+    if (hasShiftsToday) {
+      requestWakeLock();
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    } else {
+      releaseWakeLock();
+    }
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [currentShift, nextShift]);
 
   function handleGoalsChange(text: string) {
     setGoals(text);
