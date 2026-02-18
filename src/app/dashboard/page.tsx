@@ -538,13 +538,43 @@ export default function DashboardPage() {
 
   // Wake lock — keep screen awake while today has remaining shifts
   useEffect(() => {
-    if (!("wakeLock" in navigator)) return;
-
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     const hasShiftsToday = !!currentShift || (!!nextShift && nextShift.date === todayStr);
 
+    const hasWakeLockAPI = "wakeLock" in navigator;
+
+    // --- Video-based fallback for browsers without Wake Lock API (Android WebView, older Samsung Internet) ---
+    let fallbackVideo: HTMLVideoElement | null = null;
+
+    function startVideoFallback() {
+      if (fallbackVideo) return;
+      fallbackVideo = document.createElement("video");
+      fallbackVideo.setAttribute("playsinline", "");
+      fallbackVideo.setAttribute("muted", "");
+      fallbackVideo.muted = true;
+      fallbackVideo.loop = true;
+      Object.assign(fallbackVideo.style, {
+        position: "fixed", top: "0", left: "0",
+        width: "1px", height: "1px", opacity: "0.01",
+        pointerEvents: "none", zIndex: "-1",
+      });
+      // Tiny silent webm video (prevents screen sleep on Android without Wake Lock API)
+      fallbackVideo.src = "data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAHTEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHGTbuMU6uEElTDZ1OsijZTq4QG";
+      document.body.appendChild(fallbackVideo);
+      fallbackVideo.play().catch(() => {});
+    }
+
+    function stopVideoFallback() {
+      if (!fallbackVideo) return;
+      fallbackVideo.pause();
+      fallbackVideo.remove();
+      fallbackVideo = null;
+    }
+
+    // --- Wake Lock API path ---
     async function requestWakeLock() {
+      if (!hasWakeLockAPI) return;
       if (wakeLockRef.current) return;
       try {
         wakeLockRef.current = await navigator.wakeLock.request("screen");
@@ -552,7 +582,8 @@ export default function DashboardPage() {
           wakeLockRef.current = null;
         });
       } catch {
-        // Permission denied or not supported
+        // Permission denied or not supported — use video fallback
+        if (!fallbackVideo) startVideoFallback();
       }
     }
 
@@ -561,24 +592,44 @@ export default function DashboardPage() {
         wakeLockRef.current.release();
         wakeLockRef.current = null;
       }
+      stopVideoFallback();
     }
 
-    // Re-acquire wake lock when tab becomes visible again
-    function handleVisibilityChange() {
-      if (document.visibilityState === "visible" && hasShiftsToday) {
+    // Re-acquire when tab becomes visible or regains focus (focus is more
+    // reliable on Android when returning from screen-off)
+    function handleReacquire() {
+      if (document.visibilityState !== "hidden" && hasShiftsToday) {
         requestWakeLock();
+        if (!hasWakeLockAPI && fallbackVideo) {
+          fallbackVideo.play().catch(() => {});
+        }
       }
     }
 
+    let recheckInterval: ReturnType<typeof setInterval> | null = null;
+
     if (hasShiftsToday) {
-      requestWakeLock();
-      document.addEventListener("visibilitychange", handleVisibilityChange);
+      if (hasWakeLockAPI) {
+        requestWakeLock();
+      } else {
+        startVideoFallback();
+      }
+      document.addEventListener("visibilitychange", handleReacquire);
+      window.addEventListener("focus", handleReacquire);
+      // Periodic safety net: Android can silently release the lock
+      recheckInterval = setInterval(() => {
+        if (!wakeLockRef.current && hasWakeLockAPI && document.visibilityState === "visible") {
+          requestWakeLock();
+        }
+      }, 30_000);
     } else {
       releaseWakeLock();
     }
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleReacquire);
+      window.removeEventListener("focus", handleReacquire);
+      if (recheckInterval) clearInterval(recheckInterval);
       releaseWakeLock();
     };
   }, [currentShift, nextShift]);
