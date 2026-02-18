@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { shiftDurationHours } from "@/lib/utils";
+import { shiftDurationHours, todayISO } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -15,16 +15,17 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const seasonId = searchParams.get("seasonId");
   const daysParam = searchParams.get("days");
+  const today = todayISO();
 
-  // Determine date range
+  // Determine date range — capped at today (no future data)
   let startDate = ATTENDANCE_START;
-  let endDate = "9999-12-31";
+  let endDate = today;
 
   if (seasonId) {
     const season = await prisma.season.findUnique({ where: { id: parseInt(seasonId, 10) } });
     if (season) {
       startDate = season.startDate;
-      endDate = season.endDate;
+      endDate = season.endDate < today ? season.endDate : today;
     }
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { todayISO } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +16,11 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const seasonId = searchParams.get("seasonId");
+    const today = todayISO();
 
-    // Build date filter floored to attendance start date
+    // Build date filter floored to attendance start date, capped at today
     let dateGte = ATTENDANCE_START;
-    let dateLte: string | undefined;
+    let dateLte = today;
 
     if (seasonId) {
       const season = await prisma.season.findUnique({
@@ -26,15 +28,15 @@ export async function GET(request: NextRequest) {
       });
       if (season) {
         dateGte = season.startDate > ATTENDANCE_START ? season.startDate : ATTENDANCE_START;
-        dateLte = season.endDate;
+        dateLte = season.endDate < today ? season.endDate : today;
       }
     }
 
-    // Step 1: Get qualifying shift IDs explicitly
+    // Step 1: Get qualifying shift IDs (past/present only, no future)
     const shifts = await prisma.shift.findMany({
       where: {
         cancelled: false,
-        date: { gte: dateGte, ...(dateLte ? { lte: dateLte } : {}) },
+        date: { gte: dateGte, lte: dateLte },
       },
       select: { id: true },
     });
