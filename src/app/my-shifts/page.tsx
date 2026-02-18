@@ -29,6 +29,7 @@ export default function MyShiftsPage() {
   const [mentor, setMentor] = useState<Mentor | null>(null);
   const [signups, setSignups] = useState<Signup[]>([]);
   const [loading, setLoading] = useState(false);
+  const [cancelling, setCancelling] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [existingMentors, setExistingMentors] = useState<Mentor[]>([]);
 
@@ -89,6 +90,31 @@ export default function MyShiftsPage() {
     e.preventDefault();
     if (!email) return;
     await loadShifts(email);
+  }
+
+  async function handleCancel(signupId: number, shiftLabel: string) {
+    if (!mentor) return;
+    const label = shiftLabel || "this shift";
+    if (!confirm(`Cancel your signup for ${label}? This cannot be undone.`)) return;
+
+    setCancelling(signupId);
+    try {
+      const res = await fetch(`/api/signups/${signupId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mentorId: mentor.id }),
+      });
+      if (res.ok) {
+        setSignups((prev) => prev.filter((s) => s.id !== signupId));
+      } else {
+        const data = await res.json();
+        setError(data.error || "Failed to cancel signup");
+      }
+    } catch {
+      setError("Failed to cancel signup");
+    } finally {
+      setCancelling(null);
+    }
   }
 
   const calendarUrl = mentor ? `/api/calendar?email=${encodeURIComponent(mentor.email)}` : "";
@@ -229,6 +255,13 @@ export default function MyShiftsPage() {
                           </div>
                         )}
                       </div>
+                      <button
+                        onClick={() => handleCancel(signup.id, signup.shift.label)}
+                        disabled={cancelling === signup.id}
+                        className="text-sm text-red-500 hover:text-red-700 font-medium shrink-0 ml-4 disabled:opacity-50"
+                      >
+                        {cancelling === signup.id ? "Cancelling..." : "Cancel"}
+                      </button>
                     </div>
                   </div>
                 ))}
