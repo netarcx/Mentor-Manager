@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { todayISO } from "@/lib/utils";
+import { maybeImportFromSheets } from "@/lib/sheets-auto-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Auto-import from Google Sheets if interval has elapsed
+    try {
+      await maybeImportFromSheets();
+    } catch {
+      // Never break the captain page due to sheets errors
+    }
+
     const today = todayISO();
 
     const [students, attendance, subteamsRow] = await Promise.all([
