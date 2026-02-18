@@ -25,7 +25,6 @@ interface Mentor {
 }
 
 export default function MyShiftsPage() {
-  const [email, setEmail] = useState("");
   const [mentor, setMentor] = useState<Mentor | null>(null);
   const [signups, setSignups] = useState<Signup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,7 +41,6 @@ export default function MyShiftsPage() {
 
   function handleSelectMentor(mentorIdStr: string) {
     if (!mentorIdStr) {
-      setEmail("");
       setMentor(null);
       setSignups([]);
       return;
@@ -51,17 +49,16 @@ export default function MyShiftsPage() {
       (m) => m.id === Number(mentorIdStr)
     );
     if (selectedMentor) {
-      setEmail(selectedMentor.email);
-      loadShifts(selectedMentor.email);
+      loadShifts(selectedMentor);
     }
   }
 
-  async function loadShifts(mentorEmail: string) {
+  async function loadShifts(selectedMentor: Mentor) {
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch(`/api/mentors?email=${encodeURIComponent(mentorEmail)}`);
+      const res = await fetch(`/api/mentors?email=${encodeURIComponent(selectedMentor.email)}`);
       if (!res.ok) {
         throw new Error("Mentor not found");
       }
@@ -84,12 +81,6 @@ export default function MyShiftsPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email) return;
-    await loadShifts(email);
   }
 
   async function handleCancel(signupId: number, shiftLabel: string) {
@@ -117,7 +108,7 @@ export default function MyShiftsPage() {
     }
   }
 
-  const calendarUrl = mentor ? `/api/calendar?email=${encodeURIComponent(mentor.email)}` : "";
+  const calendarUrl = mentor ? `/api/calendar?mentorId=${mentor.id}` : "";
   const googleCalendarUrl = mentor
     ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(
         typeof window !== "undefined" ? window.location.origin + calendarUrl : ""
@@ -135,58 +126,22 @@ export default function MyShiftsPage() {
       )}
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        {existingMentors.length > 0 && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">
-              Select your name
-            </label>
-            <select
-              onChange={(e) => handleSelectMentor(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              defaultValue=""
-            >
-              <option value="">Select your name...</option>
-              {existingMentors.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({m.email})
-                </option>
-              ))}
-            </select>
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-2 text-slate-500">
-                  or enter your email
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Your Email Address
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              placeholder="john@example.com"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
-          >
-            {loading ? "Loading..." : "View My Shifts"}
-          </button>
-        </form>
+        <label className="block text-sm font-medium mb-2">
+          Select your name
+        </label>
+        <select
+          onChange={(e) => handleSelectMentor(e.target.value)}
+          disabled={loading}
+          className="w-full border border-slate-300 rounded-lg px-4 py-2 bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          defaultValue=""
+        >
+          <option value="">Select your name...</option>
+          {existingMentors.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {mentor && (
