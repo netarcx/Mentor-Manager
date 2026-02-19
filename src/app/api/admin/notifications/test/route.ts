@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { getNotificationSettings, getAllBroadcastUrls } from "@/lib/notifications";
-import { sendNotification } from "@/lib/apprise";
+import { getNotificationSettings, getAllBroadcastUrls, getSmtpBaseUrl } from "@/lib/notifications";
+import { sendNotification, buildMailtoUrl } from "@/lib/apprise";
 
 export async function POST() {
   if (!(await isAdminAuthenticated())) {
@@ -13,8 +13,10 @@ export async function POST() {
 
     const urls: string[] = getAllBroadcastUrls(settings);
 
-    if (settings.smtpUrl) {
-      urls.push(settings.smtpUrl);
+    const smtpBase = getSmtpBaseUrl(settings);
+    if (smtpBase && settings.emailAddress) {
+      // Send test email to the sender's own address
+      urls.push(buildMailtoUrl(smtpBase, settings.emailAddress));
     }
 
     if (urls.length === 0) {

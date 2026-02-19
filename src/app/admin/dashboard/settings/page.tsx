@@ -74,7 +74,13 @@ export default function SettingsPage() {
 
   // Notification state
   const [notifEnabled, setNotifEnabled] = useState(false);
-  const [notifSmtpUrl, setNotifSmtpUrl] = useState("");
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [emailAddress, setEmailAddress] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailSmtpHost, setEmailSmtpHost] = useState("smtp.gmail.com");
+  const [emailSmtpPort, setEmailSmtpPort] = useState("587");
+  const [emailTestStatus, setEmailTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [emailTestError, setEmailTestError] = useState("");
   const [notifBroadcastUrls, setNotifBroadcastUrls] = useState("");
   const [notifReminderDay, setNotifReminderDay] = useState("1");
   const [notifReminderTime, setNotifReminderTime] = useState("09:00");
@@ -86,8 +92,6 @@ export default function SettingsPage() {
     upcomingShifts: { id: number; date: string; startTime: string; endTime: string; label: string; signupCount: number }[];
     lookAheadDays: number;
   } | null>(null);
-  const [testEmail, setTestEmail] = useState("");
-  const [showTestEmail, setShowTestEmail] = useState(false);
   const [broadcastTestResults, setBroadcastTestResults] = useState<
     { url: string; ok: boolean; error?: string }[] | null
   >(null);
@@ -138,7 +142,11 @@ export default function SettingsPage() {
         if (res.ok) {
           const data = await res.json();
           setNotifEnabled(data.enabled);
-          setNotifSmtpUrl(data.smtpUrl);
+          setEmailEnabled(data.emailEnabled);
+          setEmailAddress(data.emailAddress);
+          setEmailPassword(data.emailPassword);
+          setEmailSmtpHost(data.emailSmtpHost || "smtp.gmail.com");
+          setEmailSmtpPort(data.emailSmtpPort || "587");
           setNotifBroadcastUrls(data.broadcastUrls);
           setSlackEnabled(data.slackEnabled);
           setSlackWebhook(data.slackWebhook);
@@ -875,7 +883,11 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           enabled: notifEnabled,
-          smtpUrl: notifSmtpUrl,
+          emailEnabled,
+          emailAddress,
+          emailPassword,
+          emailSmtpHost,
+          emailSmtpPort,
           broadcastUrls: notifBroadcastUrls,
           slackEnabled,
           slackWebhook,
@@ -943,6 +955,35 @@ export default function SettingsPage() {
       showError("Failed to test broadcast URLs");
     } finally {
       setLoading("");
+    }
+  }
+
+  async function handleTestEmailConnection() {
+    if (!emailAddress || !emailPassword) {
+      showError("Enter your email address and app password first");
+      return;
+    }
+
+    setEmailTestStatus("testing");
+    setEmailTestError("");
+
+    try {
+      const res = await fetch("/api/admin/notifications/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailAddress, type: "reminder" }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setEmailTestStatus("error");
+        setEmailTestError(data.error || "Test failed");
+      } else {
+        setEmailTestStatus("success");
+      }
+    } catch {
+      setEmailTestStatus("error");
+      setEmailTestError("Failed to reach server");
     }
   }
 
@@ -1018,8 +1059,8 @@ export default function SettingsPage() {
   }
 
   async function handleSendTestEmail(type: "reminder" | "digest" = "reminder") {
-    if (!testEmail || !testEmail.includes("@")) {
-      showError("Please enter a valid email address");
+    if (!emailAddress || !emailAddress.includes("@")) {
+      showError("Enter your email address first");
       return;
     }
 
@@ -1029,7 +1070,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/admin/notifications/test-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: testEmail, type }),
+        body: JSON.stringify({ email: emailAddress, type }),
       });
       const data = await res.json();
 
@@ -1039,7 +1080,7 @@ export default function SettingsPage() {
       }
 
       const label = type === "digest" ? "digest" : "reminder";
-      showMessage(`Test ${label} sent to ${testEmail}!`);
+      showMessage(`Test ${label} sent to ${emailAddress}!`);
     } catch {
       showError("Failed to send test email");
     } finally {
@@ -2013,20 +2054,144 @@ export default function SettingsPage() {
 
             {notifEnabled && (
               <>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    SMTP URL
-                  </label>
-                  <input
-                    type="password"
-                    value={notifSmtpUrl}
-                    onChange={(e) => setNotifSmtpUrl(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 font-mono text-sm"
-                    placeholder="mailto://user:pass@smtp.gmail.com"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Apprise mailto URL for sending individual mentor emails. Leave blank to skip email notifications.
-                  </p>
+                {/* Email Integration */}
+                <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                        <path d="M22 7l-10 7L2 7"/>
+                      </svg>
+                      <span className="text-sm font-medium">Email (SMTP)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="email-enabled"
+                        checked={emailEnabled}
+                        onChange={(e) => setEmailEnabled(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300"
+                      />
+                      <label htmlFor="email-enabled" className="text-sm text-slate-600">
+                        Enabled
+                      </label>
+                    </div>
+                  </div>
+
+                  {emailEnabled && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Email Address
+                        </label>
+                        <input
+                          type="email"
+                          value={emailAddress}
+                          onChange={(e) => {
+                            setEmailAddress(e.target.value);
+                            setEmailTestStatus("idle");
+                          }}
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                          placeholder="you@yourdomain.com"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          The email address used to send notifications (also used as the SMTP username).
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          App Password
+                        </label>
+                        <input
+                          type="password"
+                          value={emailPassword}
+                          onChange={(e) => {
+                            setEmailPassword(e.target.value);
+                            setEmailTestStatus("idle");
+                          }}
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 font-mono text-sm"
+                          placeholder="xxxx xxxx xxxx xxxx"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          For Gmail / Google Workspace, generate one at{" "}
+                          <a
+                            href="https://myaccount.google.com/apppasswords"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            myaccount.google.com/apppasswords
+                          </a>.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            SMTP Host
+                          </label>
+                          <input
+                            type="text"
+                            value={emailSmtpHost}
+                            onChange={(e) => setEmailSmtpHost(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                            placeholder="smtp.gmail.com"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            SMTP Port
+                          </label>
+                          <input
+                            type="text"
+                            value={emailSmtpPort}
+                            onChange={(e) => setEmailSmtpPort(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                            placeholder="587"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleTestEmailConnection}
+                          disabled={emailTestStatus === "testing" || !emailAddress || !emailPassword}
+                          className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-xs"
+                        >
+                          {emailTestStatus === "testing" ? "Testing..." : "Test Connection"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSendTestEmail("reminder")}
+                          disabled={loading === "notif-test-email" || !emailAddress || !emailPassword}
+                          className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-xs"
+                        >
+                          Send Reminder
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSendTestEmail("digest")}
+                          disabled={loading === "notif-test-email" || !emailAddress || !emailPassword}
+                          className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-xs"
+                        >
+                          Send Digest
+                        </button>
+                      </div>
+
+                      {emailTestStatus === "success" && (
+                        <p className="text-xs text-green-600">
+                          Sent! Check your inbox at {emailAddress}.
+                        </p>
+                      )}
+                      {emailTestStatus === "error" && (
+                        <p className="text-xs text-red-600">
+                          {emailTestError}
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {/* Slack Integration */}
@@ -2218,13 +2383,6 @@ export default function SettingsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowTestEmail(!showTestEmail)}
-                    className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors text-sm"
-                  >
-                    Send Test to Me
-                  </button>
-                  <button
-                    type="button"
                     onClick={handlePreviewReminders}
                     disabled={loading === "notif-preview"}
                     className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-sm"
@@ -2242,42 +2400,6 @@ export default function SettingsPage() {
                 </>
               )}
             </div>
-
-            {showTestEmail && notifEnabled && (
-              <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <label className="block text-sm font-medium mb-1">
-                  Send a test email to:
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={testEmail}
-                    onChange={(e) => setTestEmail(e.target.value)}
-                    placeholder="your-email@example.com"
-                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleSendTestEmail("reminder")}
-                    disabled={loading === "notif-test-email"}
-                    className="bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm whitespace-nowrap"
-                  >
-                    {loading === "notif-test-email" ? "Sending..." : "Send Reminder"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSendTestEmail("digest")}
-                    disabled={loading === "notif-test-email"}
-                    className="bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm whitespace-nowrap"
-                  >
-                    Send Digest
-                  </button>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Sends a test email to just this address (not to mentors).
-                </p>
-              </div>
-            )}
 
             {broadcastTestResults && (
               <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">

@@ -46,13 +46,14 @@ export async function isAppriseHealthy(): Promise<boolean> {
 
 /**
  * Build a mailto:// Apprise URL for a specific recipient.
- * smtpBaseUrl is the Apprise SMTP URL without the recipient, e.g.:
- *   mailto://user:pass@smtp.gmail.com
- * This function appends the recipient as the target email.
+ * Handles both path-based and query-param-based SMTP base URLs.
  */
 export function buildMailtoUrl(smtpBaseUrl: string, recipientEmail: string): string {
-  // Strip trailing slash
   const base = smtpBaseUrl.replace(/\/+$/, "");
-  // Apprise mailto format: mailto://user:pass@smtp.example.com/recipient@example.com
-  return `${base}/${encodeURIComponent(recipientEmail)}`;
+  // If the base URL uses query params (?user=...&pass=...), append recipient as &to=
+  if (base.includes("?")) {
+    return `${base}&to=${recipientEmail}`;
+  }
+  // Otherwise use path-based format: mailto://user:pass@host/recipient@example.com
+  return `${base}/${recipientEmail}`;
 }

@@ -8,7 +8,11 @@ import { MIN_MENTOR_SIGNUPS } from "@/lib/constants";
 
 const SETTINGS_KEYS = {
   enabled: "notifications_enabled",
-  smtpUrl: "notifications_smtp_url",
+  emailEnabled: "notifications_email_enabled",
+  emailAddress: "notifications_email_address",
+  emailPassword: "notifications_email_password",
+  emailSmtpHost: "notifications_email_smtp_host",
+  emailSmtpPort: "notifications_email_smtp_port",
   broadcastUrls: "notifications_broadcast_urls",
   slackEnabled: "notifications_slack_enabled",
   slackWebhook: "notifications_slack_webhook",
@@ -20,7 +24,11 @@ const SETTINGS_KEYS = {
 
 export interface NotificationSettings {
   enabled: boolean;
-  smtpUrl: string;
+  emailEnabled: boolean;
+  emailAddress: string;
+  emailPassword: string;
+  emailSmtpHost: string;
+  emailSmtpPort: string;
   broadcastUrls: string;
   slackEnabled: boolean;
   slackWebhook: string;
@@ -32,7 +40,11 @@ export interface NotificationSettings {
 
 const DEFAULTS: NotificationSettings = {
   enabled: false,
-  smtpUrl: "",
+  emailEnabled: false,
+  emailAddress: "",
+  emailPassword: "",
+  emailSmtpHost: "smtp.gmail.com",
+  emailSmtpPort: "587",
   broadcastUrls: "",
   slackEnabled: false,
   slackWebhook: "",
@@ -51,7 +63,11 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
 
   return {
     enabled: map.get(SETTINGS_KEYS.enabled) === "true",
-    smtpUrl: map.get(SETTINGS_KEYS.smtpUrl) ?? DEFAULTS.smtpUrl,
+    emailEnabled: map.get(SETTINGS_KEYS.emailEnabled) === "true",
+    emailAddress: map.get(SETTINGS_KEYS.emailAddress) ?? DEFAULTS.emailAddress,
+    emailPassword: map.get(SETTINGS_KEYS.emailPassword) ?? DEFAULTS.emailPassword,
+    emailSmtpHost: map.get(SETTINGS_KEYS.emailSmtpHost) ?? DEFAULTS.emailSmtpHost,
+    emailSmtpPort: map.get(SETTINGS_KEYS.emailSmtpPort) ?? DEFAULTS.emailSmtpPort,
     broadcastUrls: map.get(SETTINGS_KEYS.broadcastUrls) ?? DEFAULTS.broadcastUrls,
     slackEnabled: map.get(SETTINGS_KEYS.slackEnabled) === "true",
     slackWebhook: map.get(SETTINGS_KEYS.slackWebhook) ?? DEFAULTS.slackWebhook,
@@ -67,7 +83,11 @@ export async function saveNotificationSettings(
 ): Promise<void> {
   const pairs: { key: string; value: string }[] = [
     { key: SETTINGS_KEYS.enabled, value: String(settings.enabled) },
-    { key: SETTINGS_KEYS.smtpUrl, value: settings.smtpUrl },
+    { key: SETTINGS_KEYS.emailEnabled, value: String(settings.emailEnabled) },
+    { key: SETTINGS_KEYS.emailAddress, value: settings.emailAddress },
+    { key: SETTINGS_KEYS.emailPassword, value: settings.emailPassword },
+    { key: SETTINGS_KEYS.emailSmtpHost, value: settings.emailSmtpHost },
+    { key: SETTINGS_KEYS.emailSmtpPort, value: settings.emailSmtpPort },
     { key: SETTINGS_KEYS.broadcastUrls, value: settings.broadcastUrls },
     { key: SETTINGS_KEYS.slackEnabled, value: String(settings.slackEnabled) },
     { key: SETTINGS_KEYS.slackWebhook, value: settings.slackWebhook },
@@ -85,6 +105,23 @@ export async function saveNotificationSettings(
       })
     )
   );
+}
+
+// --- Email URL helper ---
+
+/**
+ * Build the Apprise SMTP base URL from structured email settings.
+ * Returns empty string if email is not configured.
+ */
+export function getSmtpBaseUrl(settings: NotificationSettings): string {
+  if (!settings.emailEnabled || !settings.emailAddress || !settings.emailPassword) {
+    return "";
+  }
+  const host = settings.emailSmtpHost || "smtp.gmail.com";
+  const port = settings.emailSmtpPort || "587";
+  const user = encodeURIComponent(settings.emailAddress);
+  const pass = encodeURIComponent(settings.emailPassword);
+  return `mailtos://${host}:${port}?user=${user}&pass=${pass}&from=${user}`;
 }
 
 // --- Broadcast URL helper ---
@@ -244,9 +281,10 @@ export async function sendReminders(): Promise<SendResult> {
   const shiftSummary = buildShiftSummary(preview.upcomingShifts);
 
   // Send individual mentor emails via SMTP
-  if (settings.smtpUrl) {
+  const smtpBase = getSmtpBaseUrl(settings);
+  if (smtpBase) {
     for (const mentor of preview.mentors) {
-      const url = buildMailtoUrl(settings.smtpUrl, mentor.email);
+      const url = buildMailtoUrl(smtpBase, mentor.email);
       const body = `Hi ${mentor.name},\n\nYou haven't signed up for any upcoming shifts in the next ${settings.lookAheadDays} days. Here are the available shifts:\n\n${shiftSummary}\n\nPlease sign up at your earliest convenience!`;
 
       const result = await sendNotification(
@@ -300,13 +338,14 @@ export async function sendTestDigestEmail(recipientEmail: string): Promise<{ ok:
   // Import here to avoid circular dependency at module level
   const { buildDigest } = await import("@/lib/digest");
   const settings = await getNotificationSettings();
+  const smtpBase = getSmtpBaseUrl(settings);
 
-  if (!settings.smtpUrl) {
-    return { ok: false, error: "No SMTP URL configured" };
+  if (!smtpBase) {
+    return { ok: false, error: "Email is not configured. Enable email and enter your credentials." };
   }
 
   const content = await buildDigest();
-  const url = buildMailtoUrl(settings.smtpUrl, recipientEmail);
+  const url = buildMailtoUrl(smtpBase, recipientEmail);
 
   return sendNotification(
     [url],
@@ -319,16 +358,17 @@ export async function sendTestDigestEmail(recipientEmail: string): Promise<{ ok:
 export async function sendTestReminder(recipientEmail: string): Promise<{ ok: boolean; error?: string }> {
   const settings = await getNotificationSettings();
   const preview = await previewReminders();
+  const smtpBase = getSmtpBaseUrl(settings);
 
-  if (!settings.smtpUrl) {
-    return { ok: false, error: "No SMTP URL configured" };
+  if (!smtpBase) {
+    return { ok: false, error: "Email is not configured. Enable email and enter your credentials." };
   }
 
   const shiftSummary = buildShiftSummary(preview.upcomingShifts);
 
   const body = `Hi Admin (Test),\n\nThis is a test of the mentor reminder email. Below is what mentors who haven't signed up would see.\n\n${preview.mentors.length} mentor(s) currently need reminders.\n\nAvailable shifts in the next ${settings.lookAheadDays} days:\n\n${shiftSummary}\n\nPlease sign up at your earliest convenience!`;
 
-  const url = buildMailtoUrl(settings.smtpUrl, recipientEmail);
+  const url = buildMailtoUrl(smtpBase, recipientEmail);
 
   return sendNotification(
     [url],
