@@ -88,6 +88,9 @@ export default function SettingsPage() {
   } | null>(null);
   const [testEmail, setTestEmail] = useState("");
   const [showTestEmail, setShowTestEmail] = useState(false);
+  const [broadcastTestResults, setBroadcastTestResults] = useState<
+    { url: string; ok: boolean; error?: string }[] | null
+  >(null);
 
   // Feedback state
   const [message, setMessage] = useState("");
@@ -903,6 +906,33 @@ export default function SettingsPage() {
       showMessage("Test notification sent!");
     } catch {
       showError("Failed to send test notification");
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function handleTestBroadcast() {
+    setLoading("notif-test-broadcast");
+    setBroadcastTestResults(null);
+
+    try {
+      const res = await fetch("/api/admin/notifications/test-broadcast", { method: "POST" });
+      const data = await res.json();
+
+      if (res.status === 400) {
+        showError(data.error || "No broadcast URLs configured");
+        return;
+      }
+
+      setBroadcastTestResults(data.results);
+
+      if (data.allOk) {
+        showMessage("All broadcast URLs working!");
+      } else {
+        showError("Some broadcast URLs failed — see results below");
+      }
+    } catch {
+      showError("Failed to test broadcast URLs");
     } finally {
       setLoading("");
     }
@@ -2053,6 +2083,14 @@ export default function SettingsPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={handleTestBroadcast}
+                    disabled={loading === "notif-test-broadcast"}
+                    className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-sm"
+                  >
+                    {loading === "notif-test-broadcast" ? "Testing..." : "Test Broadcast"}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setShowTestEmail(!showTestEmail)}
                     className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors text-sm"
                   >
@@ -2103,6 +2141,32 @@ export default function SettingsPage() {
                 <p className="text-xs text-slate-500 mt-1">
                   Sends a realistic reminder email to just this address (not to mentors).
                 </p>
+              </div>
+            )}
+
+            {broadcastTestResults && (
+              <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <p className="text-sm font-medium mb-2">Broadcast Test Results</p>
+                <div className="space-y-1">
+                  {broadcastTestResults.map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <span className={r.ok ? "text-green-600" : "text-red-600"}>
+                        {r.ok ? "\u2713" : "\u2717"}
+                      </span>
+                      <span className="font-mono text-xs">{r.url}</span>
+                      {!r.ok && r.error && (
+                        <span className="text-red-500 text-xs">&mdash; {r.error}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBroadcastTestResults(null)}
+                  className="text-xs text-slate-400 hover:text-slate-600 mt-2"
+                >
+                  Dismiss
+                </button>
               </div>
             )}
           </form>
