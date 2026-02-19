@@ -968,10 +968,15 @@ export default function SettingsPage() {
     setEmailTestError("");
 
     try {
-      const res = await fetch("/api/admin/notifications/test-email", {
+      const res = await fetch("/api/admin/notifications/test-email-connection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailAddress, type: "reminder" }),
+        body: JSON.stringify({
+          emailAddress,
+          emailPassword,
+          smtpHost: emailSmtpHost,
+          smtpPort: emailSmtpPort,
+        }),
       });
       const data = await res.json();
 
@@ -1059,14 +1064,34 @@ export default function SettingsPage() {
   }
 
   async function handleSendTestEmail(type: "reminder" | "digest" = "reminder") {
-    if (!emailAddress || !emailAddress.includes("@")) {
-      showError("Enter your email address first");
+    if (!emailAddress || !emailAddress.includes("@") || !emailPassword) {
+      showError("Enter your email address and app password first");
       return;
     }
 
     setLoading("notif-test-email");
 
     try {
+      // Save settings first so the test endpoint can read them from DB
+      await fetch("/api/admin/notifications/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: notifEnabled,
+          emailEnabled: true,
+          emailAddress,
+          emailPassword,
+          emailSmtpHost,
+          emailSmtpPort,
+          broadcastUrls: notifBroadcastUrls,
+          slackEnabled,
+          slackWebhook,
+          reminderDay: notifReminderDay,
+          reminderTime: notifReminderTime,
+          lookAheadDays: notifLookAheadDays,
+        }),
+      });
+
       const res = await fetch("/api/admin/notifications/test-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
