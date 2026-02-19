@@ -7,6 +7,7 @@ import {
   formatDateMedium,
 } from "@/lib/utils";
 import { sendNotification } from "@/lib/apprise";
+import { getNotificationSettings, getAllBroadcastUrls } from "@/lib/notifications";
 import { MIN_MENTOR_SIGNUPS } from "@/lib/constants";
 
 // --- Settings keys ---
@@ -266,15 +267,9 @@ export interface DigestResult {
 }
 
 export async function sendDigest(): Promise<DigestResult> {
-  // Read broadcast URLs from notification settings
-  const broadcastUrlSetting = await prisma.setting.findUnique({
-    where: { key: "notifications_broadcast_urls" },
-  });
-
-  const broadcastUrls = (broadcastUrlSetting?.value || "")
-    .split("\n")
-    .map((u) => u.trim())
-    .filter(Boolean);
+  // Read broadcast URLs from notification settings (includes Slack if enabled)
+  const notifSettings = await getNotificationSettings();
+  const broadcastUrls = getAllBroadcastUrls(notifSettings);
 
   if (broadcastUrls.length === 0) {
     return { sent: false, error: "No broadcast URLs configured" };

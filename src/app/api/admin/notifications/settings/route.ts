@@ -25,12 +25,14 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { enabled, smtpUrl, broadcastUrls, reminderDay, reminderTime, lookAheadDays } = body;
+    const { enabled, smtpUrl, broadcastUrls, slackEnabled, slackWebhook, reminderDay, reminderTime, lookAheadDays } = body;
 
     await saveNotificationSettings({
       enabled: Boolean(enabled),
       smtpUrl: String(smtpUrl ?? ""),
       broadcastUrls: String(broadcastUrls ?? ""),
+      slackEnabled: Boolean(slackEnabled),
+      slackWebhook: String(slackWebhook ?? ""),
       reminderDay: String(reminderDay ?? "1"),
       reminderTime: String(reminderTime ?? "09:00"),
       lookAheadDays: Math.max(1, Math.min(30, parseInt(lookAheadDays, 10) || 7)),

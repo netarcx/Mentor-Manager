@@ -10,6 +10,8 @@ const SETTINGS_KEYS = {
   enabled: "notifications_enabled",
   smtpUrl: "notifications_smtp_url",
   broadcastUrls: "notifications_broadcast_urls",
+  slackEnabled: "notifications_slack_enabled",
+  slackWebhook: "notifications_slack_webhook",
   reminderDay: "notifications_reminder_day",
   reminderTime: "notifications_reminder_time",
   lookAheadDays: "notifications_look_ahead_days",
@@ -20,6 +22,8 @@ export interface NotificationSettings {
   enabled: boolean;
   smtpUrl: string;
   broadcastUrls: string;
+  slackEnabled: boolean;
+  slackWebhook: string;
   reminderDay: string;
   reminderTime: string;
   lookAheadDays: number;
@@ -30,6 +34,8 @@ const DEFAULTS: NotificationSettings = {
   enabled: false,
   smtpUrl: "",
   broadcastUrls: "",
+  slackEnabled: false,
+  slackWebhook: "",
   reminderDay: "1", // Monday (0=Sunday)
   reminderTime: "09:00",
   lookAheadDays: 7,
@@ -47,6 +53,8 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
     enabled: map.get(SETTINGS_KEYS.enabled) === "true",
     smtpUrl: map.get(SETTINGS_KEYS.smtpUrl) ?? DEFAULTS.smtpUrl,
     broadcastUrls: map.get(SETTINGS_KEYS.broadcastUrls) ?? DEFAULTS.broadcastUrls,
+    slackEnabled: map.get(SETTINGS_KEYS.slackEnabled) === "true",
+    slackWebhook: map.get(SETTINGS_KEYS.slackWebhook) ?? DEFAULTS.slackWebhook,
     reminderDay: map.get(SETTINGS_KEYS.reminderDay) ?? DEFAULTS.reminderDay,
     reminderTime: map.get(SETTINGS_KEYS.reminderTime) ?? DEFAULTS.reminderTime,
     lookAheadDays: parseInt(map.get(SETTINGS_KEYS.lookAheadDays) ?? String(DEFAULTS.lookAheadDays), 10),
@@ -61,6 +69,8 @@ export async function saveNotificationSettings(
     { key: SETTINGS_KEYS.enabled, value: String(settings.enabled) },
     { key: SETTINGS_KEYS.smtpUrl, value: settings.smtpUrl },
     { key: SETTINGS_KEYS.broadcastUrls, value: settings.broadcastUrls },
+    { key: SETTINGS_KEYS.slackEnabled, value: String(settings.slackEnabled) },
+    { key: SETTINGS_KEYS.slackWebhook, value: settings.slackWebhook },
     { key: SETTINGS_KEYS.reminderDay, value: settings.reminderDay },
     { key: SETTINGS_KEYS.reminderTime, value: settings.reminderTime },
     { key: SETTINGS_KEYS.lookAheadDays, value: String(settings.lookAheadDays) },
@@ -75,6 +85,24 @@ export async function saveNotificationSettings(
       })
     )
   );
+}
+
+// --- Broadcast URL helper ---
+
+export function getAllBroadcastUrls(settings: NotificationSettings): string[] {
+  const urls: string[] = [];
+
+  if (settings.slackEnabled && settings.slackWebhook.trim()) {
+    urls.push(settings.slackWebhook.trim());
+  }
+
+  const textareaUrls = settings.broadcastUrls
+    .split("\n")
+    .map((u) => u.trim())
+    .filter(Boolean);
+  urls.push(...textareaUrls);
+
+  return urls;
 }
 
 // --- Preview & Send ---
@@ -237,10 +265,7 @@ export async function sendReminders(): Promise<SendResult> {
   }
 
   // Send broadcast summary
-  const broadcastUrlList = settings.broadcastUrls
-    .split("\n")
-    .map((u) => u.trim())
-    .filter(Boolean);
+  const broadcastUrlList = getAllBroadcastUrls(settings);
 
   if (broadcastUrlList.length > 0) {
     const mentorNames = preview.mentors.map((m) => m.name).join(", ");

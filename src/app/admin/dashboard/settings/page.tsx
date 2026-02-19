@@ -91,6 +91,10 @@ export default function SettingsPage() {
   const [broadcastTestResults, setBroadcastTestResults] = useState<
     { url: string; ok: boolean; error?: string }[] | null
   >(null);
+  const [slackEnabled, setSlackEnabled] = useState(false);
+  const [slackWebhook, setSlackWebhook] = useState("");
+  const [slackTestStatus, setSlackTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [slackTestError, setSlackTestError] = useState("");
 
   // Feedback state
   const [message, setMessage] = useState("");
@@ -136,6 +140,8 @@ export default function SettingsPage() {
           setNotifEnabled(data.enabled);
           setNotifSmtpUrl(data.smtpUrl);
           setNotifBroadcastUrls(data.broadcastUrls);
+          setSlackEnabled(data.slackEnabled);
+          setSlackWebhook(data.slackWebhook);
           setNotifReminderDay(data.reminderDay);
           setNotifReminderTime(data.reminderTime);
           setNotifLookAheadDays(data.lookAheadDays);
@@ -871,6 +877,8 @@ export default function SettingsPage() {
           enabled: notifEnabled,
           smtpUrl: notifSmtpUrl,
           broadcastUrls: notifBroadcastUrls,
+          slackEnabled,
+          slackWebhook,
           reminderDay: notifReminderDay,
           reminderTime: notifReminderTime,
           lookAheadDays: notifLookAheadDays,
@@ -935,6 +943,30 @@ export default function SettingsPage() {
       showError("Failed to test broadcast URLs");
     } finally {
       setLoading("");
+    }
+  }
+
+  async function handleTestSlack() {
+    setSlackTestStatus("testing");
+    setSlackTestError("");
+
+    try {
+      const res = await fetch("/api/admin/notifications/test-slack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookUrl: slackWebhook }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSlackTestStatus("error");
+        setSlackTestError(data.error || "Test failed");
+      } else {
+        setSlackTestStatus("success");
+      }
+    } catch {
+      setSlackTestStatus("error");
+      setSlackTestError("Failed to reach server");
     }
   }
 
@@ -1997,19 +2029,95 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
+                {/* Slack Integration */}
+                <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.52-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.52V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.165 0a2.528 2.528 0 0 1 2.522 2.522v6.312zm-2.522 10.124a2.528 2.528 0 0 1 2.522 2.52A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.521-2.522v-2.52h2.521zm0-1.271a2.527 2.527 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.313A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.522h-6.313z"/>
+                      </svg>
+                      <span className="text-sm font-medium">Slack</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="slack-enabled"
+                        checked={slackEnabled}
+                        onChange={(e) => setSlackEnabled(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300"
+                      />
+                      <label htmlFor="slack-enabled" className="text-sm text-slate-600">
+                        Enabled
+                      </label>
+                    </div>
+                  </div>
+
+                  {slackEnabled && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Webhook URL
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={slackWebhook}
+                          onChange={(e) => {
+                            setSlackWebhook(e.target.value);
+                            setSlackTestStatus("idle");
+                          }}
+                          className="flex-1 border border-slate-300 rounded-lg px-3 py-2 font-mono text-sm"
+                          placeholder="https://hooks.slack.com/services/T.../B.../xxx"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleTestSlack}
+                          disabled={slackTestStatus === "testing" || !slackWebhook.trim()}
+                          className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-sm whitespace-nowrap"
+                        >
+                          {slackTestStatus === "testing" ? "Testing..." : "Test"}
+                        </button>
+                      </div>
+
+                      {slackTestStatus === "success" && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Connected! Check your Slack channel for the test message.
+                        </p>
+                      )}
+                      {slackTestStatus === "error" && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {slackTestError}
+                        </p>
+                      )}
+
+                      <p className="text-xs text-slate-500 mt-1">
+                        Create a webhook at{" "}
+                        <a
+                          href="https://api.slack.com/messaging/webhooks"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          api.slack.com/messaging/webhooks
+                        </a>
+                        {" "}and paste the URL here. The webhook&apos;s default channel will be used.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Broadcast URLs
+                    Other Broadcast URLs
                   </label>
                   <textarea
                     value={notifBroadcastUrls}
                     onChange={(e) => setNotifBroadcastUrls(e.target.value)}
                     rows={3}
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 font-mono text-sm"
-                    placeholder={"slack://token@channel\ndiscord://webhook_id/webhook_token"}
+                    placeholder={"discord://webhook_id/webhook_token\ntelegram://bot_token/chat_id"}
                   />
                   <p className="text-xs text-slate-500 mt-1">
-                    One Apprise URL per line. Summary notifications go here (Slack, Discord, etc.)
+                    One Apprise URL per line for other services (Discord, Telegram, etc.). Slack users should use the section above.
                   </p>
                 </div>
 

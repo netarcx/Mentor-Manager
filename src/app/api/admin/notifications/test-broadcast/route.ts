@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { getNotificationSettings } from "@/lib/notifications";
+import { getNotificationSettings, getAllBroadcastUrls } from "@/lib/notifications";
 import { sendNotification } from "@/lib/apprise";
 
 export async function POST() {
@@ -11,10 +11,7 @@ export async function POST() {
   try {
     const settings = await getNotificationSettings();
 
-    const urls = settings.broadcastUrls
-      .split("\n")
-      .map((u) => u.trim())
-      .filter(Boolean);
+    const urls = getAllBroadcastUrls(settings);
 
     if (urls.length === 0) {
       return NextResponse.json(

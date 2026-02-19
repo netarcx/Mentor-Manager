@@ -1,33 +1,26 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { getNotificationSettings, getAllBroadcastUrls } from "@/lib/notifications";
 import { sendNotification } from "@/lib/apprise";
 
-export async function POST() {
+export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const settings = await getNotificationSettings();
+    const { webhookUrl } = await request.json();
 
-    const urls: string[] = getAllBroadcastUrls(settings);
-
-    if (settings.smtpUrl) {
-      urls.push(settings.smtpUrl);
-    }
-
-    if (urls.length === 0) {
+    if (!webhookUrl || !webhookUrl.startsWith("https://hooks.slack.com/")) {
       return NextResponse.json(
-        { error: "No notification URLs configured. Add an SMTP URL or broadcast URL first." },
+        { error: "Invalid Slack webhook URL. It should start with https://hooks.slack.com/services/" },
         { status: 400 }
       );
     }
 
     const result = await sendNotification(
-      urls,
-      "Test Notification",
-      "This is a test notification from Mentor Manager. If you see this, notifications are working!",
+      [webhookUrl],
+      "Test from Mentor Manager",
+      "Slack integration is working! You will receive notifications here.",
       "success"
     );
 
