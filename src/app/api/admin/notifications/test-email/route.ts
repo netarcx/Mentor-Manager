@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { sendTestReminder } from "@/lib/notifications";
+import { sendTestReminder, sendTestDigestEmail } from "@/lib/notifications";
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { email } = await request.json();
+    const { email, type = "reminder" } = await request.json();
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json(
@@ -17,7 +17,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await sendTestReminder(email.trim());
+    const result = type === "digest"
+      ? await sendTestDigestEmail(email.trim())
+      : await sendTestReminder(email.trim());
 
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 502 });

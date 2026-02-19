@@ -946,7 +946,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleTestSlack() {
+  async function handleTestSlack(type: "connection" | "reminder" | "digest" = "connection") {
     setSlackTestStatus("testing");
     setSlackTestError("");
 
@@ -954,7 +954,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/admin/notifications/test-slack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ webhookUrl: slackWebhook }),
+        body: JSON.stringify({ webhookUrl: slackWebhook, type }),
       });
       const data = await res.json();
 
@@ -1017,7 +1017,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleSendTestEmail() {
+  async function handleSendTestEmail(type: "reminder" | "digest" = "reminder") {
     if (!testEmail || !testEmail.includes("@")) {
       showError("Please enter a valid email address");
       return;
@@ -1029,7 +1029,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/admin/notifications/test-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: testEmail }),
+        body: JSON.stringify({ email: testEmail, type }),
       });
       const data = await res.json();
 
@@ -1038,8 +1038,8 @@ export default function SettingsPage() {
         return;
       }
 
-      showMessage(`Test reminder sent to ${testEmail}!`);
-      setShowTestEmail(false);
+      const label = type === "digest" ? "digest" : "reminder";
+      showMessage(`Test ${label} sent to ${testEmail}!`);
     } catch {
       showError("Failed to send test email");
     } finally {
@@ -2070,7 +2070,7 @@ export default function SettingsPage() {
                         />
                         <button
                           type="button"
-                          onClick={handleTestSlack}
+                          onClick={() => handleTestSlack("connection")}
                           disabled={slackTestStatus === "testing" || !slackWebhook.trim()}
                           className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-sm whitespace-nowrap"
                         >
@@ -2078,9 +2078,28 @@ export default function SettingsPage() {
                         </button>
                       </div>
 
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleTestSlack("reminder")}
+                          disabled={slackTestStatus === "testing" || !slackWebhook.trim()}
+                          className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-xs"
+                        >
+                          Send Reminder
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTestSlack("digest")}
+                          disabled={slackTestStatus === "testing" || !slackWebhook.trim()}
+                          className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 text-xs"
+                        >
+                          Send Digest
+                        </button>
+                      </div>
+
                       {slackTestStatus === "success" && (
                         <p className="text-xs text-green-600 mt-1">
-                          Connected! Check your Slack channel for the test message.
+                          Sent! Check your Slack channel.
                         </p>
                       )}
                       {slackTestStatus === "error" && (
@@ -2227,7 +2246,7 @@ export default function SettingsPage() {
             {showTestEmail && notifEnabled && (
               <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
                 <label className="block text-sm font-medium mb-1">
-                  Send a test reminder email to:
+                  Send a test email to:
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -2239,15 +2258,23 @@ export default function SettingsPage() {
                   />
                   <button
                     type="button"
-                    onClick={handleSendTestEmail}
+                    onClick={() => handleSendTestEmail("reminder")}
                     disabled={loading === "notif-test-email"}
-                    className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm whitespace-nowrap"
+                    className="bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm whitespace-nowrap"
                   >
-                    {loading === "notif-test-email" ? "Sending..." : "Send"}
+                    {loading === "notif-test-email" ? "Sending..." : "Send Reminder"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSendTestEmail("digest")}
+                    disabled={loading === "notif-test-email"}
+                    className="bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm whitespace-nowrap"
+                  >
+                    Send Digest
                   </button>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Sends a realistic reminder email to just this address (not to mentors).
+                  Sends a test email to just this address (not to mentors).
                 </p>
               </div>
             )}

@@ -296,6 +296,26 @@ export async function sendReminders(): Promise<SendResult> {
   return { mentorsSent, broadcastSent, errors };
 }
 
+export async function sendTestDigestEmail(recipientEmail: string): Promise<{ ok: boolean; error?: string }> {
+  // Import here to avoid circular dependency at module level
+  const { buildDigest } = await import("@/lib/digest");
+  const settings = await getNotificationSettings();
+
+  if (!settings.smtpUrl) {
+    return { ok: false, error: "No SMTP URL configured" };
+  }
+
+  const content = await buildDigest();
+  const url = buildMailtoUrl(settings.smtpUrl, recipientEmail);
+
+  return sendNotification(
+    [url],
+    "Team Digest Report (TEST)",
+    content,
+    "info"
+  );
+}
+
 export async function sendTestReminder(recipientEmail: string): Promise<{ ok: boolean; error?: string }> {
   const settings = await getNotificationSettings();
   const preview = await previewReminders();
