@@ -31,8 +31,11 @@ export async function POST(request: Request) {
         ? preview.mentors.map((m) => m.name).join(", ")
         : "(No mentors need reminders right now)";
 
+      const siteUrl = (settings.siteUrl || "https://mentors.swrobotics.com").replace(/\/+$/, "");
+      const signupLink = `${siteUrl}/signup`;
+
       title = "Mentor Signup Reminder Summary";
-      body = `Weekly Reminder Summary\n\n${preview.mentors.length} mentor(s) have not signed up for shifts in the next ${settings.lookAheadDays} days:\n${mentorNames}\n\nUpcoming shifts:\n${shiftSummary}`;
+      body = `Weekly Reminder Summary\n\n${preview.mentors.length} mentor(s) have not signed up for shifts in the next ${settings.lookAheadDays} days:\n${mentorNames}\n\nUpcoming shifts:\n${shiftSummary}\n\nSign up: ${signupLink}`;
       notifType = "warning";
     } else if (type === "digest") {
       title = "Team Digest Report";

@@ -20,6 +20,9 @@ const SETTINGS_KEYS = {
   reminderTime: "notifications_reminder_time",
   lookAheadDays: "notifications_look_ahead_days",
   lastReminderSent: "notifications_last_reminder_sent",
+  siteUrl: "notifications_site_url",
+  reminderSubject: "notifications_reminder_subject",
+  reminderBody: "notifications_reminder_body",
 } as const;
 
 export interface NotificationSettings {
@@ -36,7 +39,19 @@ export interface NotificationSettings {
   reminderTime: string;
   lookAheadDays: number;
   lastReminderSent: string;
+  siteUrl: string;
+  reminderSubject: string;
+  reminderBody: string;
 }
+
+const DEFAULT_REMINDER_BODY = `Hi {name},
+
+You haven't signed up for any upcoming shifts in the next {days} days.
+
+Upcoming shifts:
+{shifts}
+
+Sign up here: {link}`;
 
 const DEFAULTS: NotificationSettings = {
   enabled: false,
@@ -52,6 +67,9 @@ const DEFAULTS: NotificationSettings = {
   reminderTime: "09:00",
   lookAheadDays: 7,
   lastReminderSent: "",
+  siteUrl: "https://mentors.swrobotics.com",
+  reminderSubject: "Reminder: Sign Up for Upcoming Shifts",
+  reminderBody: DEFAULT_REMINDER_BODY,
 };
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
@@ -75,6 +93,9 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
     reminderTime: map.get(SETTINGS_KEYS.reminderTime) ?? DEFAULTS.reminderTime,
     lookAheadDays: parseInt(map.get(SETTINGS_KEYS.lookAheadDays) ?? String(DEFAULTS.lookAheadDays), 10),
     lastReminderSent: map.get(SETTINGS_KEYS.lastReminderSent) ?? DEFAULTS.lastReminderSent,
+    siteUrl: map.get(SETTINGS_KEYS.siteUrl) ?? DEFAULTS.siteUrl,
+    reminderSubject: map.get(SETTINGS_KEYS.reminderSubject) ?? DEFAULTS.reminderSubject,
+    reminderBody: map.get(SETTINGS_KEYS.reminderBody) ?? DEFAULTS.reminderBody,
   };
 }
 
@@ -94,6 +115,9 @@ export async function saveNotificationSettings(
     { key: SETTINGS_KEYS.reminderDay, value: settings.reminderDay },
     { key: SETTINGS_KEYS.reminderTime, value: settings.reminderTime },
     { key: SETTINGS_KEYS.lookAheadDays, value: String(settings.lookAheadDays) },
+    { key: SETTINGS_KEYS.siteUrl, value: settings.siteUrl },
+    { key: SETTINGS_KEYS.reminderSubject, value: settings.reminderSubject },
+    { key: SETTINGS_KEYS.reminderBody, value: settings.reminderBody },
   ];
 
   await prisma.$transaction(
@@ -266,6 +290,22 @@ export interface SendResult {
   errors: string[];
 }
 
+function buildSignupLink(siteUrl: string): string {
+  const base = siteUrl.replace(/\/+$/, "");
+  return `${base}/signup`;
+}
+
+function applyTemplate(
+  template: string,
+  vars: { name: string; days: number; shifts: string; link: string }
+): string {
+  return template
+    .replace(/\{name\}/g, vars.name)
+    .replace(/\{days\}/g, String(vars.days))
+    .replace(/\{shifts\}/g, vars.shifts)
+    .replace(/\{link\}/g, vars.link);
+}
+
 export async function sendReminders(): Promise<SendResult> {
   const settings = await getNotificationSettings();
   const preview = await previewReminders();
@@ -279,17 +319,25 @@ export async function sendReminders(): Promise<SendResult> {
 
   // Build shift summary for email body (grouped by day with warnings)
   const shiftSummary = buildShiftSummary(preview.upcomingShifts);
+  const signupLink = buildSignupLink(settings.siteUrl || DEFAULTS.siteUrl);
+  const subject = settings.reminderSubject || DEFAULTS.reminderSubject;
+  const bodyTemplate = settings.reminderBody || DEFAULTS.reminderBody;
 
   // Send individual mentor emails via SMTP
   const smtpBase = getSmtpBaseUrl(settings);
   if (smtpBase) {
     for (const mentor of preview.mentors) {
       const url = buildMailtoUrl(smtpBase, mentor.email);
-      const body = `Hi ${mentor.name},\n\nYou haven't signed up for any upcoming shifts in the next ${settings.lookAheadDays} days. Here are the available shifts:\n\n${shiftSummary}\n\nPlease sign up at your earliest convenience!`;
+      const body = applyTemplate(bodyTemplate, {
+        name: mentor.name,
+        days: settings.lookAheadDays,
+        shifts: shiftSummary,
+        link: signupLink,
+      });
 
       const result = await sendNotification(
         [url],
-        "Reminder: Sign Up for Upcoming Shifts",
+        subject,
         body,
         "info"
       );
@@ -307,7 +355,7 @@ export async function sendReminders(): Promise<SendResult> {
 
   if (broadcastUrlList.length > 0) {
     const mentorNames = preview.mentors.map((m) => m.name).join(", ");
-    const broadcastBody = `Weekly Reminder Summary\n\n${preview.mentors.length} mentor(s) have not signed up for shifts in the next ${settings.lookAheadDays} days:\n${mentorNames}\n\nUpcoming shifts:\n${shiftSummary}`;
+    const broadcastBody = `Weekly Reminder Summary\n\n${preview.mentors.length} mentor(s) have not signed up for shifts in the next ${settings.lookAheadDays} days:\n${mentorNames}\n\nUpcoming shifts:\n${shiftSummary}\n\nSign up: ${signupLink}`;
 
     const result = await sendNotification(
       broadcastUrlList,
@@ -365,14 +413,22 @@ export async function sendTestReminder(recipientEmail: string): Promise<{ ok: bo
   }
 
   const shiftSummary = buildShiftSummary(preview.upcomingShifts);
+  const signupLink = buildSignupLink(settings.siteUrl || DEFAULTS.siteUrl);
+  const subject = settings.reminderSubject || DEFAULTS.reminderSubject;
+  const bodyTemplate = settings.reminderBody || DEFAULTS.reminderBody;
 
-  const body = `Hi Admin (Test),\n\nThis is a test of the mentor reminder email. Below is what mentors who haven't signed up would see.\n\n${preview.mentors.length} mentor(s) currently need reminders.\n\nAvailable shifts in the next ${settings.lookAheadDays} days:\n\n${shiftSummary}\n\nPlease sign up at your earliest convenience!`;
+  const body = applyTemplate(bodyTemplate, {
+    name: "Admin (Test)",
+    days: settings.lookAheadDays,
+    shifts: shiftSummary,
+    link: signupLink,
+  });
 
   const url = buildMailtoUrl(smtpBase, recipientEmail);
 
   return sendNotification(
     [url],
-    "Reminder: Sign Up for Upcoming Shifts (TEST)",
+    `${subject} (TEST)`,
     body,
     "info"
   );

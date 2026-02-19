@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     const {
       enabled, emailEnabled, emailAddress, emailPassword, emailSmtpHost, emailSmtpPort,
       broadcastUrls, slackEnabled, slackWebhook, reminderDay, reminderTime, lookAheadDays,
+      siteUrl, reminderSubject, reminderBody,
     } = body;
 
     await saveNotificationSettings({
@@ -43,6 +44,9 @@ export async function POST(request: Request) {
       reminderDay: String(reminderDay ?? "1"),
       reminderTime: String(reminderTime ?? "09:00"),
       lookAheadDays: Math.max(1, Math.min(30, parseInt(lookAheadDays, 10) || 7)),
+      siteUrl: String(siteUrl ?? ""),
+      reminderSubject: String(reminderSubject ?? ""),
+      reminderBody: String(reminderBody ?? ""),
     });
 
     return NextResponse.json({ success: true });

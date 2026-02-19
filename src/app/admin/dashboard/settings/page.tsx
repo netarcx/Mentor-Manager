@@ -99,6 +99,9 @@ export default function SettingsPage() {
   const [slackWebhook, setSlackWebhook] = useState("");
   const [slackTestStatus, setSlackTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [slackTestError, setSlackTestError] = useState("");
+  const [siteUrl, setSiteUrl] = useState("https://mentors.swrobotics.com");
+  const [reminderSubject, setReminderSubject] = useState("Reminder: Sign Up for Upcoming Shifts");
+  const [reminderBody, setReminderBody] = useState("Hi {name},\n\nYou haven't signed up for any upcoming shifts in the next {days} days.\n\nUpcoming shifts:\n{shifts}\n\nSign up here: {link}");
 
   // Feedback state
   const [message, setMessage] = useState("");
@@ -155,6 +158,9 @@ export default function SettingsPage() {
           setNotifLookAheadDays(data.lookAheadDays);
           setNotifLastSent(data.lastReminderSent);
           setNotifAppriseHealthy(data.appriseHealthy);
+          if (data.siteUrl) setSiteUrl(data.siteUrl);
+          if (data.reminderSubject) setReminderSubject(data.reminderSubject);
+          if (data.reminderBody) setReminderBody(data.reminderBody);
         }
       } catch {
         // Use defaults
@@ -894,6 +900,9 @@ export default function SettingsPage() {
           reminderDay: notifReminderDay,
           reminderTime: notifReminderTime,
           lookAheadDays: notifLookAheadDays,
+          siteUrl,
+          reminderSubject,
+          reminderBody,
         }),
       });
 
@@ -2328,6 +2337,64 @@ export default function SettingsPage() {
                   <p className="text-xs text-slate-500 mt-1">
                     One Apprise URL per line for other services (Discord, Telegram, etc.). Slack users should use the section above.
                   </p>
+                </div>
+
+                {/* Email Templates */}
+                <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/>
+                      <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                    <span className="text-sm font-medium">Email Templates</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Site URL
+                    </label>
+                    <input
+                      type="url"
+                      value={siteUrl}
+                      onChange={(e) => setSiteUrl(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="https://mentors.swrobotics.com"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Base URL of your app. Used to build the signup link in reminder emails.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Reminder Subject
+                    </label>
+                    <input
+                      type="text"
+                      value={reminderSubject}
+                      onChange={(e) => setReminderSubject(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Reminder: Sign Up for Upcoming Shifts"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Reminder Body
+                    </label>
+                    <textarea
+                      value={reminderBody}
+                      onChange={(e) => setReminderBody(e.target.value)}
+                      rows={8}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
+                      placeholder={"Hi {name},\n\nYou haven't signed up for any upcoming shifts in the next {days} days.\n\nUpcoming shifts:\n{shifts}\n\nSign up here: {link}"}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Available placeholders: <code className="bg-slate-100 px-1 rounded">{"{name}"}</code> (mentor&apos;s name), <code className="bg-slate-100 px-1 rounded">{"{days}"}</code> (look-ahead days), <code className="bg-slate-100 px-1 rounded">{"{shifts}"}</code> (shift summary), <code className="bg-slate-100 px-1 rounded">{"{link}"}</code> (signup page link)
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
