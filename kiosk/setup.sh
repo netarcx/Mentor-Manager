@@ -102,8 +102,15 @@ PROFILE
 cat > /home/kiosk/.xinitrc << 'XINITRC'
 #!/bin/bash
 
-# Read dashboard URL
+# Read dashboard URL and append ?tv=1 for TV mode
 URL=$(cat /home/kiosk/url.txt 2>/dev/null || echo "about:blank")
+if [ "$URL" != "about:blank" ]; then
+  URL="${URL%/}"
+  case "$URL" in
+    *\?*) URL="$URL&tv=1" ;;
+    *)    URL="$URL?tv=1" ;;
+  esac
+fi
 
 # Disable screen blanking and power management
 xset s off
