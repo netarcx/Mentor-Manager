@@ -58,7 +58,7 @@ export default function MyShiftsPage() {
     setError("");
 
     try {
-      const res = await fetch(`/api/mentors?email=${encodeURIComponent(selectedMentor.email)}`);
+      const res = await fetch(`/api/mentors?id=${selectedMentor.id}`);
       if (!res.ok) {
         throw new Error("Mentor not found");
       }

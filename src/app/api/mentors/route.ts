@@ -5,11 +5,12 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const email = searchParams.get("email");
+    const id = searchParams.get("id");
 
-    // If email is provided, return that specific mentor with signups
-    if (email) {
+    // If email or id is provided, return that specific mentor with signups
+    if (email || id) {
       const mentor = await prisma.mentor.findUnique({
-        where: { email: email.toLowerCase().trim() },
+        where: id ? { id: Number(id) } : { email: email!.toLowerCase().trim() },
         include: {
           signups: {
             include: {
