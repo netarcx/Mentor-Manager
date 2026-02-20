@@ -634,8 +634,13 @@ export default function DashboardPage() {
     };
   }, [currentShift, nextShift]);
 
+  function stripEmojis(str: string): string {
+    return str.replace(/\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu, "");
+  }
+
   function handleGoalsChange(text: string) {
-    setGoals(text);
+    const cleaned = stripEmojis(text);
+    setGoals(cleaned);
     setGoalsSaved(false);
     if (goalsSaveTimeoutRef.current) clearTimeout(goalsSaveTimeoutRef.current);
     goalsSaveTimeoutRef.current = setTimeout(async () => {
@@ -643,7 +648,7 @@ export default function DashboardPage() {
         await fetch("/api/goals", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text: cleaned }),
         });
         setGoalsSaved(true);
         setTimeout(() => setGoalsSaved(false), 2000);

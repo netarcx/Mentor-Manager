@@ -19,11 +19,12 @@ export async function PUT(request: Request) {
   try {
     const { text } = await request.json();
     const today = todayISO();
+    const cleaned = (text || "").replace(/\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu, "");
 
     const goal = await prisma.dailyGoal.upsert({
       where: { date: today },
-      update: { text: text || "" },
-      create: { date: today, text: text || "" },
+      update: { text: cleaned },
+      create: { date: today, text: cleaned },
     });
 
     return NextResponse.json({ date: goal.date, text: goal.text });
