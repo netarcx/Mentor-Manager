@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       body = await buildDigest();
       notifType = "info";
     } else {
-      title = "Test from Mentor Manager";
+      title = "Test from UV PitCrew";
       body = "Slack integration is working! You will receive notifications here.";
       notifType = "success";
     }

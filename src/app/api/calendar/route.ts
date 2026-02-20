@@ -14,7 +14,7 @@ function toICalDateLocal(dateStr: string, timeStr: string): string {
 
 // Generate unique UID for each event
 function generateUID(shiftId: number, mentorId: number): string {
-  return `shift-${shiftId}-mentor-${mentorId}@mentor-manager`;
+  return `shift-${shiftId}-mentor-${mentorId}@uv-pitcrew`;
 }
 
 // Escape special characters in iCal text fields
@@ -92,7 +92,7 @@ END:VEVENT`;
 
     const icalContent = `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Mentor Manager//Shift Calendar//EN
+PRODID:-//UV PitCrew//Shift Calendar//EN
 CALSCALE:GREGORIAN
 METHOD:PUBLISH
 X-WR-CALNAME:${escapeICalText(mentor.name)} - Mentor Shifts

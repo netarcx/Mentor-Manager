@@ -29,7 +29,7 @@ export async function POST() {
     const result = await sendNotification(
       urls,
       "Test Notification",
-      "This is a test notification from Mentor Manager. If you see this, notifications are working!",
+      "This is a test notification from UV PitCrew. If you see this, notifications are working!",
       "success"
     );
 

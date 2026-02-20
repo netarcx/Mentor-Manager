@@ -1394,7 +1394,7 @@ export default function SettingsPage() {
                 value={appName}
                 onChange={(e) => setAppName(e.target.value)}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2"
-                placeholder="FRC Workshop Signup"
+                placeholder="UV PitCrew"
               />
               <p className="text-xs text-slate-500 mt-1">
                 Shown in the navigation bar and pages
@@ -1409,7 +1409,7 @@ export default function SettingsPage() {
                 value={appTitle}
                 onChange={(e) => setAppTitle(e.target.value)}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2"
-                placeholder="FRC Workshop Signup"
+                placeholder="UV PitCrew"
               />
               <p className="text-xs text-slate-500 mt-1">
                 Shown in the browser tab

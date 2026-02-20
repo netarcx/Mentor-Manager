@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/netarcx/mentor-manager:latest
+    image: ghcr.io/netarcx/uv-pitcrew:latest
     ports:
       - "3000:3000"
     volumes:
@@ -9,7 +9,7 @@ services:
       - DATABASE_URL=file:/app/data/mentor-signup.db
       - SESSION_SECRET=change-me-to-a-long-random-string-at-least-32-chars
       - ADMIN_DEFAULT_PASSWORD=changeme
-      - NEXT_PUBLIC_APP_NAME=FRC Workshop Signup
+      - NEXT_PUBLIC_APP_NAME=UV PitCrew
       - NEXT_PUBLIC_REFRESH_INTERVAL=30000
       - COOKIE_SECURE=false
       - APPRISE_URL=http://apprise:8000

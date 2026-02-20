@@ -17,8 +17,8 @@ export interface Branding {
 }
 
 const defaults: Branding = {
-  appName: "FRC Workshop Signup",
-  appTitle: "FRC Workshop Signup",
+  appName: "UV PitCrew",
+  appTitle: "UV PitCrew",
   colorPrimary: "#51077a",
   colorPrimaryDark: "#3b0559",
   colorPrimaryLight: "#c084fc",

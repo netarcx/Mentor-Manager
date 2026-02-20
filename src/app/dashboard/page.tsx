@@ -431,7 +431,7 @@ export default function DashboardPage() {
   const [isLastShiftOfDay, setIsLastShiftOfDay] = useState(false);
   const [cleanupConfig, setCleanupConfig] = useState({ soundMinutes: 20, displayMinutes: 10, soundVolume: 0.5 });
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [branding, setBranding] = useState<Branding>({ appName: "Workshop Dashboard", logoPath: "" });
+  const [branding, setBranding] = useState<Branding>({ appName: "UV PitCrew", logoPath: "" });
   const [countdown, setCountdown] = useState<CountdownConfig>({ enabled: false, targetDate: "", label: "" });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [quote, setQuote] = useState<QuoteData | null>(null);

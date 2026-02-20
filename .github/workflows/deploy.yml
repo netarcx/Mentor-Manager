@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: netarcx/mentor-manager
+  IMAGE_NAME: netarcx/uv-pitcrew
 
 jobs:
   deploy:

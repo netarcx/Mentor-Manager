@@ -28,7 +28,7 @@ export async function POST() {
         const result = await sendNotification(
           [url],
           "Test Broadcast",
-          "This is a test broadcast from Mentor Manager. If you see this, your integration is working!",
+          "This is a test broadcast from UV PitCrew. If you see this, your integration is working!",
           "success"
         );
         return { url: scheme + "://***", ok: result.ok, error: result.error };

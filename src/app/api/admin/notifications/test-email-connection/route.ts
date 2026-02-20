@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     const result = await sendNotification(
       [url],
-      "Test from Mentor Manager",
+      "Test from UV PitCrew",
       "Email integration is working! You will receive notifications at this address.",
       "success"
     );

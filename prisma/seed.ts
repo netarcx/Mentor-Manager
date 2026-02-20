@@ -27,8 +27,8 @@ async function main() {
 
   // Seed default branding values (only if not already set)
   const brandingDefaults: Record<string, string> = {
-    app_name: "FRC Workshop Signup",
-    app_title: "FRC Workshop Signup",
+    app_name: "UV PitCrew",
+    app_title: "UV PitCrew",
     color_primary: "#51077a",
     color_primary_dark: "#3b0559",
     color_primary_light: "#c084fc",

@@ -1,10 +1,10 @@
 #!/bin/bash
 # ============================================================================
-# Mentor Manager — Raspberry Pi Kiosk Setup
+# UV PitCrew — Raspberry Pi Kiosk Setup
 # ============================================================================
 #
 # Turns a Raspberry Pi 3 into a dedicated kiosk that auto-boots into the
-# Mentor Manager dashboard in fullscreen Chromium.
+# UV PitCrew dashboard in fullscreen Chromium.
 #
 # Prerequisites:
 #   1. Flash Raspberry Pi OS Lite (Bookworm, 32-bit) to an SD card
@@ -41,7 +41,7 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-echo "=== Mentor Manager Kiosk Setup ==="
+echo "=== UV PitCrew Kiosk Setup ==="
 echo "URL: $DASHBOARD_URL"
 echo ""
 
@@ -150,7 +150,7 @@ chmod +x /home/kiosk/.xinitrc
 echo "[5/7] Creating systemd service..."
 cat > /etc/systemd/system/kiosk.service << 'SERVICE'
 [Unit]
-Description=Mentor Manager Kiosk
+Description=UV PitCrew Kiosk
 After=network-online.target
 Wants=network-online.target
 
