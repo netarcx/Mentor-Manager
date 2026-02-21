@@ -33,6 +33,12 @@ const navGroups = [
     ],
   },
   {
+    label: "Competition",
+    items: [
+      { href: "/admin/dashboard/competition", label: "Competition" },
+    ],
+  },
+  {
     items: [{ href: "/admin/dashboard/settings", label: "Settings" }],
   },
 ];

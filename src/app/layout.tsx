@@ -68,6 +68,12 @@ export default async function RootLayout({
                   Students
                 </Link>
                 <Link
+                  href="/competition"
+                  className="font-semibold hover:text-primary-light transition-colors"
+                >
+                  Competition
+                </Link>
+                <Link
                   href="/leaderboard"
                   className="font-semibold hover:text-primary-light transition-colors"
                 >
