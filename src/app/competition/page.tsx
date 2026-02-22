@@ -77,6 +77,14 @@ interface TeamRanking {
   record: { wins: number; losses: number; ties: number };
 }
 
+interface EventTeam {
+  number: number;
+  name: string;
+  city: string | null;
+  stateProv: string | null;
+  country: string | null;
+}
+
 interface CompetitionData {
   enabled: boolean;
   event: EventInfo | null;
@@ -84,6 +92,7 @@ interface CompetitionData {
   teamStatus: TeamStatus | null;
   teamNames: Record<string, string>;
   teamRankings: Record<string, TeamRanking>;
+  eventTeams: EventTeam[];
   pitNotes: Record<string, string>;
   checklist: {
     items: ChecklistItem[];
@@ -898,6 +907,7 @@ export default function CompetitionPage() {
 
   const event = data.event;
   const matches = data.matches || [];
+  const eventTeams = data.eventTeams || [];
   const checklistItems = data.checklist?.items || [];
   const teamKey = data.teamKey || "";
   const teamNumber = teamNumberFromKey(teamKey);
@@ -969,21 +979,65 @@ export default function CompetitionPage() {
         <div className={`flex-[3] flex-col min-h-0 border-r border-slate-700/50 md:flex ${mobileTab === "schedule" ? "flex" : "hidden"}`}>
           <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
             <h2 className="text-base font-bold uppercase tracking-wider text-slate-300">
-              Match Schedule
+              {matches.length === 0 ? "Event Teams" : "Match Schedule"}
             </h2>
             <span className="text-sm text-slate-500">
-              {matches.length} match{matches.length !== 1 ? "es" : ""}
+              {matches.length === 0
+                ? `${eventTeams.length} team${eventTeams.length !== 1 ? "s" : ""}`
+                : `${matches.length} match${matches.length !== 1 ? "es" : ""}`}
             </span>
           </div>
 
           {matches.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center px-6">
-              <div className="text-center">
-                <div className="text-4xl mb-3 opacity-30">&#x1F3C1;</div>
-                <p className="text-slate-500 text-lg">No matches scheduled yet</p>
-                <p className="text-slate-600 text-sm mt-1">Check back once the event begins</p>
+            eventTeams.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center px-6">
+                <div className="text-center">
+                  <div className="text-4xl mb-3 opacity-30">&#x1F3C1;</div>
+                  <p className="text-slate-500 text-lg">No matches scheduled yet</p>
+                  <p className="text-slate-600 text-sm mt-1">Check back once the event begins</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-slate-800/95 backdrop-blur-sm">
+                    <tr className="text-left text-slate-400 uppercase tracking-wider text-xs">
+                      <th className="px-4 py-2.5 font-semibold w-20">#</th>
+                      <th className="px-4 py-2.5 font-semibold">Team</th>
+                      <th className="px-4 py-2.5 font-semibold">Hometown</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/40">
+                    {eventTeams.map((team) => {
+                      const isOurTeam = String(team.number) === teamNumber;
+                      const hometown = [team.city, team.stateProv, team.country]
+                        .filter(Boolean)
+                        .join(", ");
+                      return (
+                        <tr
+                          key={team.number}
+                          className={
+                            isOurTeam
+                              ? "bg-blue-500/15 text-blue-200"
+                              : "text-slate-300 hover:bg-slate-800/50"
+                          }
+                        >
+                          <td className="px-4 py-2 font-mono font-bold tabular-nums">
+                            {team.number}
+                          </td>
+                          <td className="px-4 py-2">
+                            {team.name}
+                          </td>
+                          <td className="px-4 py-2 text-slate-400 text-xs">
+                            {hometown || "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
           ) : (
             <div className="flex-1 flex flex-col min-h-0">
               {/* Expanded cards: last result + next match */}

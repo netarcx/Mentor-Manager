@@ -41,6 +41,9 @@ export interface TBATeam {
   key: string;
   team_number: number;
   nickname: string;
+  city: string | null;
+  state_prov: string | null;
+  country: string | null;
 }
 
 export interface TBAMedia {

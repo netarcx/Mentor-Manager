@@ -70,6 +70,16 @@ export async function GET() {
       }
     }
 
+    const eventTeamList = eventTeams
+      .map((t) => ({
+        number: t.team_number,
+        name: t.nickname,
+        city: t.city,
+        stateProv: t.state_prov,
+        country: t.country,
+      }))
+      .sort((a, b) => a.number - b.number);
+
     return NextResponse.json({
       enabled: true,
       event: event
@@ -88,6 +98,7 @@ export async function GET() {
         : null,
       matches: sortMatches(matches),
       teamStatus,
+      eventTeams: eventTeamList,
       checklist: {
         items: checklistItems.map((item) => ({
           id: item.id,
