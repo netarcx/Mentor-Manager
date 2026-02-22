@@ -147,6 +147,29 @@ function teamNumberFromKey(teamKey: string): string {
   return teamKey.replace("frc", "");
 }
 
+function LiveClock() {
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    function tick() {
+      setTime(
+        new Date().toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+          timeZone: "America/Chicago",
+        })
+      );
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return <span>{time}</span>;
+}
+
 // --- Components ---
 
 function MatchCountdown({ targetTime }: { targetTime: number }) {
@@ -442,6 +465,7 @@ export default function CompetitionPage() {
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [robotImageError, setRobotImageError] = useState(false);
+  const [expandedMatchKey, setExpandedMatchKey] = useState<string | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const pollIntervalRef = useRef(60);
 
@@ -658,7 +682,12 @@ export default function CompetitionPage() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="text-right">
+            <div className="text-lg font-bold tracking-tight text-slate-200 tabular-nums">
+              <LiveClock />
+            </div>
+          </div>
           {data.robotImageSource !== "none" && !robotImageError && (
             <img
               src="/api/robot-image"
@@ -718,71 +747,104 @@ export default function CompetitionPage() {
                   const redScore = match.alliances.red.score;
                   const blueScore = match.alliances.blue.score;
                   const scheduledTime = match.predicted_time || match.time;
+                  const isExpanded = expandedMatchKey === match.key;
 
                   return (
-                    <div
-                      key={match.key}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-all ${
-                        completed
-                          ? "bg-slate-800/30 opacity-60"
-                          : "bg-slate-800/50"
-                      }`}
-                    >
-                      {/* Alliance color bar */}
+                    <div key={match.key} className="rounded-lg overflow-hidden">
                       <div
-                        className={`w-1 self-stretch rounded-full flex-shrink-0 ${
-                          alliance === "red"
-                            ? "bg-red-500"
-                            : alliance === "blue"
-                              ? "bg-blue-500"
-                              : "bg-slate-700"
+                        onClick={() => setExpandedMatchKey(isExpanded ? null : match.key)}
+                        className={`flex items-center gap-2 px-3 py-2.5 transition-all cursor-pointer ${
+                          completed
+                            ? "bg-slate-800/30 opacity-60 hover:opacity-80"
+                            : "bg-slate-800/50 hover:bg-slate-800/70"
                         }`}
-                      />
+                      >
+                        {/* Alliance color bar */}
+                        <div
+                          className={`w-1 self-stretch rounded-full flex-shrink-0 ${
+                            alliance === "red"
+                              ? "bg-red-500"
+                              : alliance === "blue"
+                                ? "bg-blue-500"
+                                : "bg-slate-700"
+                          }`}
+                        />
 
-                      {/* Match label */}
-                      <div className="min-w-[5.5rem] flex-shrink-0">
-                        <span className="text-sm font-semibold text-slate-300">
-                          {getMatchLabel(match)}
-                        </span>
+                        {/* Match label */}
+                        <div className="min-w-[5.5rem] flex-shrink-0">
+                          <span className="text-sm font-semibold text-slate-300">
+                            {getMatchLabel(match)}
+                          </span>
+                        </div>
+
+                        {/* Scores / Time */}
+                        <div className="flex-1 flex items-center gap-2 min-w-0">
+                          {completed ? (
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <span className={`font-mono font-bold ${alliance === "red" ? "text-red-400" : "text-red-400/60"}`}>
+                                {redScore}
+                              </span>
+                              <span className="text-slate-600">-</span>
+                              <span className={`font-mono font-bold ${alliance === "blue" ? "text-blue-400" : "text-blue-400/60"}`}>
+                                {blueScore}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-500">
+                              {formatMatchTime(scheduledTime)}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Result badge */}
+                        <div className="w-8 flex-shrink-0 text-right">
+                          {result === "W" && (
+                            <span className="inline-block text-xs font-bold text-green-400 bg-green-500/15 px-1.5 py-0.5 rounded">
+                              W
+                            </span>
+                          )}
+                          {result === "L" && (
+                            <span className="inline-block text-xs font-bold text-red-400 bg-red-500/15 px-1.5 py-0.5 rounded">
+                              L
+                            </span>
+                          )}
+                          {result === "T" && (
+                            <span className="inline-block text-xs font-bold text-yellow-400 bg-yellow-500/15 px-1.5 py-0.5 rounded">
+                              T
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Scores / Time */}
-                      <div className="flex-1 flex items-center gap-2 min-w-0">
-                        {completed ? (
-                          <div className="flex items-center gap-1.5 text-sm">
-                            <span className={`font-mono font-bold ${alliance === "red" ? "text-red-400" : "text-red-400/60"}`}>
-                              {redScore}
-                            </span>
-                            <span className="text-slate-600">-</span>
-                            <span className={`font-mono font-bold ${alliance === "blue" ? "text-blue-400" : "text-blue-400/60"}`}>
-                              {blueScore}
-                            </span>
+                      {/* Expanded alliance details */}
+                      {isExpanded && (
+                        <div className="grid grid-cols-2 divide-x divide-slate-700/50 bg-slate-800/40">
+                          <div className={`px-4 py-2.5 space-y-0.5 ${alliance === "red" ? "bg-red-500/5" : ""}`}>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-1">Red Alliance</div>
+                            {match.alliances.red.team_keys.map((k) => {
+                              const isUs = k === teamKey;
+                              return (
+                                <div key={k} className={`flex items-baseline gap-2 ${isUs ? "text-white font-bold" : "text-slate-300"}`}>
+                                  <span className="font-mono text-xs w-10 text-right">{teamNumberFromKey(k)}</span>
+                                  <span className={`text-xs truncate ${isUs ? "text-white" : "text-slate-500"}`}>{teamNames[k] || ""}</span>
+                                </div>
+                              );
+                            })}
                           </div>
-                        ) : (
-                          <span className="text-xs text-slate-500">
-                            {formatMatchTime(scheduledTime)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Result badge */}
-                      <div className="w-8 flex-shrink-0 text-right">
-                        {result === "W" && (
-                          <span className="inline-block text-xs font-bold text-green-400 bg-green-500/15 px-1.5 py-0.5 rounded">
-                            W
-                          </span>
-                        )}
-                        {result === "L" && (
-                          <span className="inline-block text-xs font-bold text-red-400 bg-red-500/15 px-1.5 py-0.5 rounded">
-                            L
-                          </span>
-                        )}
-                        {result === "T" && (
-                          <span className="inline-block text-xs font-bold text-yellow-400 bg-yellow-500/15 px-1.5 py-0.5 rounded">
-                            T
-                          </span>
-                        )}
-                      </div>
+                          <div className={`px-4 py-2.5 space-y-0.5 ${alliance === "blue" ? "bg-blue-500/5" : ""}`}>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-400 mb-1">Blue Alliance</div>
+                            {match.alliances.blue.team_keys.map((k) => {
+                              const isUs = k === teamKey;
+                              return (
+                                <div key={k} className={`flex items-baseline gap-2 ${isUs ? "text-white font-bold" : "text-slate-300"}`}>
+                                  <span className="font-mono text-xs w-10 text-right">{teamNumberFromKey(k)}</span>
+                                  <span className={`text-xs truncate ${isUs ? "text-white" : "text-slate-500"}`}>{teamNames[k] || ""}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
