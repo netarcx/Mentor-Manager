@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { ResponsiveContainer, AreaChart, Area, Tooltip } from "recharts";
 
 // --- Types ---
 
@@ -71,12 +72,19 @@ interface BatteryInfo {
   matchKey: string;
 }
 
+interface TeamRanking {
+  rank: number;
+  record: { wins: number; losses: number; ties: number };
+}
+
 interface CompetitionData {
   enabled: boolean;
   event: EventInfo | null;
   matches: Match[];
   teamStatus: TeamStatus | null;
   teamNames: Record<string, string>;
+  teamRankings: Record<string, TeamRanking>;
+  pitNotes: Record<string, string>;
   checklist: {
     items: ChecklistItem[];
     checkedIds: number[];
@@ -192,10 +200,12 @@ function StatusBar({
   teamStatus,
   teamKey,
   nextMatch,
+  matchGap,
 }: {
   teamStatus: TeamStatus | null;
   teamKey: string;
   nextMatch: Match | null;
+  matchGap: number;
 }) {
   const ranking = teamStatus?.qual?.ranking;
   const numTeams = teamStatus?.qual?.num_teams;
@@ -232,6 +242,15 @@ function StatusBar({
         )}
       </div>
 
+      {/* Match gap */}
+      {matchGap > 0 && (
+        <div>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">
+            {matchGap} match{matchGap !== 1 ? "es" : ""} away
+          </span>
+        </div>
+      )}
+
       {/* Alliance (playoffs) */}
       {alliance && (
         <div className="text-slate-300">
@@ -265,10 +284,12 @@ function ExpandedNextMatch({
   match,
   teamKey,
   teamNames,
+  teamRankings,
 }: {
   match: Match;
   teamKey: string;
   teamNames: Record<string, string>;
+  teamRankings: Record<string, TeamRanking>;
 }) {
   const scheduledTime = match.predicted_time || match.time;
   const ourAlliance = getTeamAlliance(match, teamKey);
@@ -277,6 +298,7 @@ function ExpandedNextMatch({
     const num = teamNumberFromKey(key);
     const name = teamNames[key] || "";
     const isUs = key === teamKey;
+    const ranking = teamRankings[key];
     return (
       <div
         key={key}
@@ -286,6 +308,11 @@ function ExpandedNextMatch({
         <span className={`text-sm truncate ${isUs ? "text-white" : "text-slate-400"}`}>
           {name}
         </span>
+        {ranking && (
+          <span className="text-xs text-slate-500 flex-shrink-0">
+            #{ranking.rank} ({ranking.record.wins}-{ranking.record.losses}-{ranking.record.ties})
+          </span>
+        )}
       </div>
     );
   }
@@ -328,10 +355,12 @@ function ExpandedLastMatch({
   match,
   teamKey,
   teamNames,
+  teamRankings,
 }: {
   match: Match;
   teamKey: string;
   teamNames: Record<string, string>;
+  teamRankings: Record<string, TeamRanking>;
 }) {
   const ourAlliance = getTeamAlliance(match, teamKey);
   const result = getMatchResult(match, teamKey);
@@ -346,6 +375,7 @@ function ExpandedLastMatch({
     const num = teamNumberFromKey(key);
     const name = teamNames[key] || "";
     const isUs = key === teamKey;
+    const ranking = teamRankings[key];
     return (
       <div
         key={key}
@@ -355,6 +385,11 @@ function ExpandedLastMatch({
         <span className={`text-sm truncate ${isUs ? "text-white" : "text-slate-400"}`}>
           {name}
         </span>
+        {ranking && (
+          <span className="text-xs text-slate-500 flex-shrink-0">
+            #{ranking.rank} ({ranking.record.wins}-{ranking.record.losses}-{ranking.record.ties})
+          </span>
+        )}
       </div>
     );
   }
@@ -393,6 +428,182 @@ function ExpandedLastMatch({
       </div>
     </div>
   );
+}
+
+// --- Score Trend Sparkline ---
+
+interface SparklinePoint {
+  match: string;
+  score: number;
+  result: "W" | "L" | "T";
+}
+
+function ScoreTrendSparkline({
+  matches,
+  teamKey,
+}: {
+  matches: Match[];
+  teamKey: string;
+}) {
+  const data = useMemo(() => {
+    const points: SparklinePoint[] = [];
+    for (const m of matches) {
+      if (m.comp_level !== "qm" || !isMatchCompleted(m)) continue;
+      const alliance = getTeamAlliance(m, teamKey);
+      if (!alliance) continue;
+      const score = m.alliances[alliance].score;
+      const result = getMatchResult(m, teamKey) || "T";
+      points.push({ match: `Q${m.match_number}`, score, result });
+    }
+    return points;
+  }, [matches, teamKey]);
+
+  if (data.length < 2) return null;
+
+  const resultColors: Record<string, string> = { W: "#4ade80", L: "#f87171", T: "#facc15" };
+
+  return (
+    <div className="mx-3 mt-2 flex-shrink-0">
+      <div className="rounded-lg bg-slate-800/60 border border-slate-700/40 px-3 py-2">
+        <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Score Trend</div>
+        <div style={{ width: "100%", height: 70 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+              <defs>
+                <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area
+                type="monotone"
+                dataKey="score"
+                stroke="#10b981"
+                strokeWidth={2}
+                fill="url(#scoreFill)"
+                dot={(props: Record<string, unknown>) => {
+                  const cx = (props.cx as number) ?? 0;
+                  const cy = (props.cy as number) ?? 0;
+                  const payload = props.payload as SparklinePoint | undefined;
+                  const fill = payload ? (resultColors[payload.result] || "#10b981") : "#10b981";
+                  return (
+                    <circle
+                      key={payload?.match ?? `${cx}-${cy}`}
+                      cx={cx}
+                      cy={cy}
+                      r={3}
+                      fill={fill}
+                      stroke="none"
+                    />
+                  );
+                }}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "#1e293b",
+                  border: "1px solid #334155",
+                  borderRadius: "0.5rem",
+                  fontSize: "0.75rem",
+                  padding: "4px 8px",
+                }}
+                labelStyle={{ color: "#94a3b8" }}
+                itemStyle={{ color: "#e2e8f0" }}
+                formatter={(value: unknown) => [`${value}`, "Score"]}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Pit Notes ---
+
+function PitNoteEditor({
+  matchKey,
+  initialContent,
+  onSaved,
+}: {
+  matchKey: string;
+  initialContent: string;
+  onSaved: (matchKey: string, content: string) => void;
+}) {
+  const [content, setContent] = useState(initialContent);
+  const [expanded, setExpanded] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setContent(initialContent);
+  }, [initialContent]);
+
+  function handleChange(value: string) {
+    setContent(value);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveNote(matchKey, value);
+      onSaved(matchKey, value);
+    }, 800);
+  }
+
+  function handleBlur() {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveNote(matchKey, content);
+    onSaved(matchKey, content);
+  }
+
+  const hasContent = content.trim().length > 0;
+
+  return (
+    <div className="mx-3 mt-2 flex-shrink-0">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+          hasContent
+            ? "bg-amber-500/10 border border-amber-500/30 text-amber-300"
+            : "bg-slate-800/60 border border-slate-700/40 text-slate-400 hover:text-slate-300"
+        }`}
+      >
+        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+        </svg>
+        <span className="flex-1 text-left truncate">
+          {hasContent ? content.split("\n")[0] : "Pit notes..."}
+        </span>
+        <svg
+          className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+      {expanded && (
+        <textarea
+          value={content}
+          onChange={(e) => handleChange(e.target.value)}
+          onBlur={handleBlur}
+          placeholder="Add pit notes for this match..."
+          rows={3}
+          className="mt-1 w-full rounded-lg bg-slate-800/80 border border-slate-700/50 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 resize-none focus:outline-none focus:border-emerald-500/50"
+        />
+      )}
+    </div>
+  );
+}
+
+async function saveNote(matchKey: string, content: string) {
+  try {
+    await fetch("/api/competition/notes", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matchKey, content }),
+    });
+  } catch {
+    // Silent fail
+  }
 }
 
 // --- Battery Helpers ---
@@ -466,6 +677,9 @@ export default function CompetitionPage() {
   const [robotImageError, setRobotImageError] = useState(false);
   const [expandedMatchKey, setExpandedMatchKey] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<"pit" | "schedule">("pit");
+  const [pitNotes, setPitNotes] = useState<Record<string, string>>({});
+  const [showResetPrompt, setShowResetPrompt] = useState(false);
+  const prevLastMatchKeyRef = useRef<string | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const pollIntervalRef = useRef(60);
 
@@ -478,6 +692,7 @@ export default function CompetitionPage() {
       } else {
         setData(json);
         setCheckedIds(json.checklist?.checkedIds || []);
+        setPitNotes(json.pitNotes || {});
         if (json.pollInterval) pollIntervalRef.current = json.pollInterval;
       }
     } catch {
@@ -584,6 +799,29 @@ export default function CompetitionPage() {
     return data.matches[lastCompletedMatchIndex];
   }, [data?.matches, lastCompletedMatchIndex]);
 
+  // Match gap: number of our uncompleted matches between last completed and next
+  const matchGap = useMemo(() => {
+    if (nextMatchIndex <= 0 || lastCompletedMatchIndex < 0) return 0;
+    return nextMatchIndex - lastCompletedMatchIndex - 1;
+  }, [nextMatchIndex, lastCompletedMatchIndex]);
+
+  // Bumper color for next match
+  const nextMatchAlliance = useMemo(() => {
+    if (!nextMatch || !data?.teamKey) return null;
+    return getTeamAlliance(nextMatch, data.teamKey);
+  }, [nextMatch, data?.teamKey]);
+
+  // Detect new match completion → prompt checklist reset
+  useEffect(() => {
+    const key = lastCompletedMatch?.key ?? null;
+    const prev = prevLastMatchKeyRef.current;
+    // Only prompt if a new match completed (not on initial load) and checklist has items checked
+    if (prev !== null && key !== null && key !== prev && checkedIds.length > 0) {
+      setShowResetPrompt(true);
+    }
+    prevLastMatchKeyRef.current = key;
+  }, [lastCompletedMatch?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Determine next battery to use (longest on charger)
   const nextBattery = useMemo(() => {
     if (!data?.batteries) return null;
@@ -608,6 +846,7 @@ export default function CompetitionPage() {
 
   async function handleResetChecklist() {
     setCheckedIds([]);
+    setShowResetPrompt(false);
     await fetch("/api/competition/checklist", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -703,6 +942,19 @@ export default function CompetitionPage() {
         </div>
       </div>
 
+      {/* Bumper color banner */}
+      {nextMatchAlliance && (
+        <div
+          className={`flex-shrink-0 py-2 text-center text-sm font-bold uppercase tracking-widest ${
+            nextMatchAlliance === "red"
+              ? "bg-red-600 text-white"
+              : "bg-blue-600 text-white"
+          }`}
+        >
+          {nextMatchAlliance === "red" ? "RED" : "BLUE"} BUMPERS
+        </div>
+      )}
+
       {/* Mobile tab bar */}
       <div className="md:hidden flex-shrink-0 bg-slate-800/70 border-b border-slate-700/50 flex">
         <button
@@ -752,11 +1004,21 @@ export default function CompetitionPage() {
             <div className="flex-1 flex flex-col min-h-0">
               {/* Expanded cards: last result + next match */}
               {lastCompletedMatch && (
-                <ExpandedLastMatch match={lastCompletedMatch} teamKey={teamKey} teamNames={teamNames} />
+                <ExpandedLastMatch match={lastCompletedMatch} teamKey={teamKey} teamNames={teamNames} teamRankings={data.teamRankings || {}} />
               )}
               {nextMatch && (
-                <ExpandedNextMatch match={nextMatch} teamKey={teamKey} teamNames={teamNames} />
+                <>
+                  <ExpandedNextMatch match={nextMatch} teamKey={teamKey} teamNames={teamNames} teamRankings={data.teamRankings || {}} />
+                  <PitNoteEditor
+                    matchKey={nextMatch.key}
+                    initialContent={pitNotes[nextMatch.key] || ""}
+                    onSaved={(mk, content) => setPitNotes((prev) => ({ ...prev, [mk]: content }))}
+                  />
+                </>
               )}
+
+              {/* Score trend sparkline */}
+              <ScoreTrendSparkline matches={matches} teamKey={teamKey} />
 
               {/* Scrollable match list (expanded matches excluded) */}
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
@@ -817,6 +1079,13 @@ export default function CompetitionPage() {
                             </span>
                           )}
                         </div>
+
+                        {/* Note indicator */}
+                        {pitNotes[match.key] && (
+                          <svg className="w-3.5 h-3.5 text-amber-400/60 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                          </svg>
+                        )}
 
                         {/* Result badge */}
                         <div className="w-8 flex-shrink-0 text-right">
@@ -891,6 +1160,25 @@ export default function CompetitionPage() {
                 {checkedCount}/{totalCount}
               </span>
             </div>
+
+            {/* Auto-reset prompt after match completion */}
+            {showResetPrompt && (
+              <div className="mx-3 mt-2 flex items-center gap-2 rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-2.5 flex-shrink-0">
+                <span className="text-sm text-amber-200 flex-1">Match completed — reset checklist?</span>
+                <button
+                  onClick={handleResetChecklist}
+                  className="px-3 py-1 text-xs font-semibold rounded-md bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-colors"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={() => setShowResetPrompt(false)}
+                  className="px-2 py-1 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
 
             {checklistItems.length === 0 ? (
               <div className="flex-1 flex items-center justify-center px-6">
@@ -1009,7 +1297,7 @@ export default function CompetitionPage() {
       </div>
 
       {/* Status bar */}
-      <StatusBar teamStatus={data.teamStatus} teamKey={teamKey} nextMatch={nextMatch} />
+      <StatusBar teamStatus={data.teamStatus} teamKey={teamKey} nextMatch={nextMatch} matchGap={matchGap} />
 
       {/* Floating controls (bottom-right, hidden on mobile) */}
       <div className="fixed bottom-14 right-4 hidden md:flex items-center gap-1.5 z-50">

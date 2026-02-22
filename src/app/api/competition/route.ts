@@ -6,6 +6,7 @@ import {
   fetchTeamMatches,
   fetchTeamStatus,
   fetchEventTeams,
+  fetchEventRankings,
   sortMatches,
 } from "@/lib/tba";
 import { getBranding } from "@/lib/branding";
@@ -20,12 +21,13 @@ export async function GET() {
       return NextResponse.json({ enabled: false });
     }
 
-    const [event, matches, teamStatus, eventTeams, checklistItems, checklistState, branding, robotImageSetting, batteries] =
+    const [event, matches, teamStatus, eventTeams, rankings, checklistItems, checklistState, branding, robotImageSetting, batteries, pitNoteSettings] =
       await Promise.all([
         fetchEvent(config.eventKey, config.tbaApiKey),
         fetchTeamMatches(config.teamKey, config.eventKey, config.tbaApiKey),
         fetchTeamStatus(config.teamKey, config.eventKey, config.tbaApiKey),
         fetchEventTeams(config.eventKey, config.tbaApiKey),
+        fetchEventRankings(config.eventKey, config.tbaApiKey),
         prisma.checklistItem.findMany({
           where: { active: true },
           orderBy: { sortOrder: "asc" },
@@ -38,11 +40,25 @@ export async function GET() {
           orderBy: { sortOrder: "asc" },
           include: { logs: { take: 1, orderBy: { createdAt: "desc" } } },
         }),
+        prisma.setting.findMany({
+          where: { key: { startsWith: "pit_note_" } },
+        }),
       ]);
 
     const teamNames: Record<string, string> = {};
     for (const team of eventTeams) {
       teamNames[team.key] = team.nickname;
+    }
+
+    const teamRankings: Record<string, { rank: number; record: { wins: number; losses: number; ties: number } }> = {};
+    for (const r of rankings) {
+      teamRankings[r.team_key] = { rank: r.rank, record: r.record };
+    }
+
+    const pitNotes: Record<string, string> = {};
+    for (const s of pitNoteSettings) {
+      const matchKey = s.key.replace("pit_note_", "");
+      if (s.value) pitNotes[matchKey] = s.value;
     }
 
     let checkedIds: number[] = [];
@@ -85,6 +101,8 @@ export async function GET() {
         logoPath: branding.logoPath,
       },
       teamNames,
+      teamRankings,
+      pitNotes,
       teamKey: config.teamKey,
       pollInterval: config.pollInterval,
       robotImageSource: robotImageSetting?.value || "none",

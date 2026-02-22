@@ -219,6 +219,28 @@ export function getBestRobotImageUrl(media: TBAMedia[]): string | null {
   return null;
 }
 
+// ── Event rankings ──────────────────────────────────────────────
+
+export interface TBARanking {
+  team_key: string;
+  rank: number;
+  record: { wins: number; losses: number; ties: number };
+}
+
+export async function fetchEventRankings(
+  eventKey: string,
+  apiKey: string
+): Promise<TBARanking[]> {
+  const data = await tbaFetch<{
+    rankings: Array<{
+      team_key: string;
+      rank: number;
+      record: { wins: number; losses: number; ties: number };
+    }>;
+  }>(`/event/${eventKey}/rankings`, apiKey);
+  return data?.rankings || [];
+}
+
 // ── Match sorting ───────────────────────────────────────────────────
 
 const COMP_LEVEL_ORDER: Record<string, number> = {
