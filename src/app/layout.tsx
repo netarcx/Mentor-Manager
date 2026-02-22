@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { getBranding } from "@/lib/branding";
+import { getCompetitionConfig } from "@/lib/tba";
 import NavBrand from "@/components/NavBrand";
 import NavDashboardLink from "@/components/NavDashboardLink";
 import "./globals.css";
@@ -28,7 +29,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const branding = await getBranding();
+  const [branding, competitionConfig] = await Promise.all([
+    getBranding(),
+    getCompetitionConfig(),
+  ]);
 
   const cssOverrides = `:root {
   --primary: ${branding.colorPrimary};
@@ -67,12 +71,14 @@ export default async function RootLayout({
                 >
                   Students
                 </Link>
-                <Link
-                  href="/competition"
-                  className="font-semibold hover:text-primary-light transition-colors"
-                >
-                  Competition
-                </Link>
+                {competitionConfig.enabled && (
+                  <Link
+                    href="/competition"
+                    className="font-semibold hover:text-primary-light transition-colors"
+                  >
+                    Competition
+                  </Link>
+                )}
                 <Link
                   href="/leaderboard"
                   className="font-semibold hover:text-primary-light transition-colors"
