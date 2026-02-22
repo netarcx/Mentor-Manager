@@ -8,6 +8,16 @@ set -euo pipefail
 
 CMD="${1:-help}"
 URL_FILE="/home/kiosk/url.txt"
+KIOSK_USER="kiosk"
+
+# Commands that need X access must run as the kiosk user
+run_as_kiosk() {
+  if [ "$(id -u)" -ne "$(id -u "$KIOSK_USER" 2>/dev/null || echo -1)" ]; then
+    exec sudo -u "$KIOSK_USER" DISPLAY=:0 XAUTHORITY="/home/$KIOSK_USER/.Xauthority" "$0" "$@"
+  fi
+  export DISPLAY=:0
+  export XAUTHORITY="/home/$KIOSK_USER/.Xauthority"
+}
 
 case "$CMD" in
   url)
@@ -33,14 +43,13 @@ case "$CMD" in
       echo "Install xdotool: sudo apt install xdotool"
       exit 1
     fi
-    export DISPLAY=:0
-    export XAUTHORITY=/home/kiosk/.Xauthority
-    xdotool key F5 && echo "Page refreshed" || echo "xdotool failed — check DISPLAY and XAUTHORITY"
+    run_as_kiosk "$@"
+    xdotool key F5 && echo "Page refreshed" || echo "xdotool failed — is Chromium running?"
     ;;
 
   screenshot)
     # Take a screenshot (useful for remote debugging)
-    export DISPLAY=:0
+    run_as_kiosk "$@"
     DEST="/tmp/kiosk-screenshot.png"
     if command -v scrot &>/dev/null; then
       scrot "$DEST" && echo "Screenshot saved to $DEST"
