@@ -177,10 +177,42 @@ show_status() {
   draw_line
 }
 
+# ─── Auto-accept Agent ───────────────────────────────────────────────
+# Runs a bluetoothctl session in the background with an auto-accepting
+# agent. This handles the passkey confirmation automatically so the user
+# only needs to confirm on the iPhone side.
+AGENT_PID=""
+
+_start_auto_agent() {
+  # Kill any existing agent
+  _stop_auto_agent
+
+  # Launch bluetoothctl in background with auto-accept agent.
+  # "agent NoInputNoOutput" tells BlueZ to use JustWorks pairing —
+  # it auto-accepts without requiring passkey entry on the Linux side.
+  (
+    bluetoothctl <<-AGENT_EOF
+      agent off
+      agent NoInputNoOutput
+      default-agent
+AGENT_EOF
+    # Keep it alive so the agent stays registered
+    sleep 120
+  ) >/dev/null 2>&1 &
+  AGENT_PID=$!
+  sleep 1  # Give agent time to register
+}
+
+_stop_auto_agent() {
+  if [[ -n "${AGENT_PID:-}" ]]; then
+    kill "$AGENT_PID" 2>/dev/null || true
+    wait "$AGENT_PID" 2>/dev/null || true
+    AGENT_PID=""
+  fi
+}
+
 # ─── Actions ─────────────────────────────────────────────────────────
 
-# Interactive pairing using an embedded bluetoothctl session.
-# iPhones need proper agent handling for the passkey confirmation flow.
 do_pair() {
   ensure_bnep
 
@@ -215,11 +247,15 @@ do_pair() {
   bluetoothctl discoverable off >/dev/null 2>&1 || true
 }
 
-# iPhone-initiated pairing: Ubuntu stays discoverable and waits
+# iPhone-initiated pairing: Ubuntu stays discoverable, auto-accepts via agent
 _pair_from_iphone() {
-  # Get the Ubuntu adapter name so user knows what to look for
   local adapter_name
   adapter_name=$(bluetoothctl show 2>/dev/null | grep "Name:" | sed 's/.*Name: //' || echo "this computer")
+
+  # Start a background bluetoothctl agent that auto-accepts pairing
+  # NoInputNoOutput means "just accept" — no passkey prompt on the Ubuntu side.
+  # The iPhone will show a pairing prompt the user confirms there.
+  _start_auto_agent
 
   echo ""
   print_info "Ubuntu is now discoverable as: ${WHITE}${adapter_name}${RESET}"
@@ -228,45 +264,38 @@ _pair_from_iphone() {
   echo "    1. Go to Settings > Bluetooth"
   echo "    2. Look for \"$adapter_name\" under Other Devices"
   echo "    3. Tap it to pair"
+  echo "    4. Confirm the pairing prompt on your iPhone"
   echo ""
-  print_info "Waiting for iPhone to initiate pairing..."
-  print_info "An interactive bluetoothctl session will open to handle the pairing."
-  echo ""
-  print_warn "When you see a passkey confirmation, type 'yes' and press Enter."
-  echo ""
-  printf "  ${DIM}Press any key to open bluetoothctl...${RESET}"
-  read -rsn1
-  echo ""
+  print_info "Waiting for iPhone to pair (60s timeout)..."
   echo ""
 
-  draw_line
-  printf "  ${YELLOW}>>> bluetoothctl interactive session <<<${RESET}\n"
-  printf "  ${DIM}Type 'yes' when asked to confirm passkey, then 'quit' when done.${RESET}\n"
-  draw_line
-  echo ""
+  # Poll for a paired iPhone to appear
+  local waited=0
+  local mac=""
+  while (( waited < 60 )); do
+    mac=$(get_iphone_mac)
+    if [[ -n "$mac" ]]; then break; fi
+    printf "\r  ${DIM}Waiting... %2ds${RESET}" "$waited"
+    sleep 2
+    (( waited += 2 )) || true
+  done
+  printf "\r  ${DIM}%-40s${RESET}\n" ""
 
-  # Run interactive bluetoothctl so user can handle the passkey prompt
-  bluetoothctl || true
+  _stop_auto_agent
 
-  echo ""
-  draw_line
-
-  # Trust the device after pairing
-  local mac
-  mac=$(get_iphone_mac)
-  if [[ -n "$mac" ]]; then
-    bluetoothctl trust "$mac" >/dev/null 2>&1 || true
-    local name
-    name=$(get_iphone_name "$mac")
-    print_ok "Paired and trusted: $name ($mac)"
-  else
-    print_err "No iPhone found after pairing session."
-    print_info "Make sure you completed the pairing on both devices."
+  if [[ -z "$mac" ]]; then
+    print_err "No iPhone paired within 60 seconds."
+    print_info "Make sure you tapped the device name on your iPhone."
     return 1
   fi
+
+  bluetoothctl trust "$mac" >/dev/null 2>&1 || true
+  local name
+  name=$(get_iphone_name "$mac")
+  print_ok "Paired and trusted: $name ($mac)"
 }
 
-# Ubuntu-initiated pairing: scan, find iPhone, pair
+# Ubuntu-initiated pairing: scan, find iPhone, auto-pair
 _pair_from_ubuntu() {
   echo ""
   print_warn "Open iPhone Settings > Bluetooth NOW"
@@ -283,7 +312,6 @@ _pair_from_ubuntu() {
   printf "\r  ${DIM}%-40s${RESET}\n" "Scan complete."
   kill "$scan_pid" 2>/dev/null || true
 
-  # Check for any iPhone (paired or newly discovered)
   local mac
   mac=$(bluetoothctl devices 2>/dev/null | grep -i iphone | head -1 | awk '{print $2}')
   if [[ -z "$mac" ]]; then
@@ -295,41 +323,39 @@ _pair_from_ubuntu() {
   name=$(bluetoothctl devices 2>/dev/null | grep "$mac" | sed 's/^Device [^ ]* //')
   print_ok "Found: $name ($mac)"
 
-  echo ""
-  print_info "Starting interactive pairing session..."
-  print_warn "When you see a passkey, CONFIRM on BOTH devices."
-  echo ""
-  printf "  ${DIM}Press any key to open bluetoothctl...${RESET}"
-  read -rsn1
-  echo ""
-  echo ""
-
-  draw_line
-  printf "  ${YELLOW}>>> bluetoothctl interactive session <<<${RESET}\n"
-  printf "  ${DIM}Commands to run inside:${RESET}\n"
-  printf "  ${WHITE}  pair $mac${RESET}\n"
-  printf "  ${DIM}  (confirm passkey with 'yes')${RESET}\n"
-  printf "  ${WHITE}  trust $mac${RESET}\n"
-  printf "  ${WHITE}  quit${RESET}\n"
-  draw_line
-  echo ""
-
-  # Run interactive bluetoothctl
-  bluetoothctl || true
+  # Start auto-accept agent, then pair
+  _start_auto_agent
 
   echo ""
-  draw_line
+  print_info "Pairing with $name..."
+  print_warn "Confirm the pairing prompt on your iPhone!"
+  echo ""
 
-  # Verify pairing succeeded
-  local paired_mac
-  paired_mac=$(get_iphone_mac)
-  if [[ -n "$paired_mac" ]]; then
-    bluetoothctl trust "$paired_mac" >/dev/null 2>&1 || true
-    local pname
-    pname=$(get_iphone_name "$paired_mac")
-    print_ok "Paired and trusted: $pname ($paired_mac)"
+  # Send pair command via a short-lived bluetoothctl
+  bluetoothctl pair "$mac" 2>/dev/null &
+  local pair_pid=$!
+
+  # Wait up to 30s for pairing to complete
+  local waited=0
+  while (( waited < 30 )); do
+    # Check if already paired
+    if bluetoothctl info "$mac" 2>/dev/null | grep -q "Paired: yes"; then
+      break
+    fi
+    printf "\r  ${DIM}Waiting for iPhone confirmation... %2ds${RESET}" "$waited"
+    sleep 2
+    (( waited += 2 )) || true
+  done
+  printf "\r  ${DIM}%-50s${RESET}\n" ""
+
+  kill "$pair_pid" 2>/dev/null || true
+  _stop_auto_agent
+
+  if bluetoothctl info "$mac" 2>/dev/null | grep -q "Paired: yes"; then
+    bluetoothctl trust "$mac" >/dev/null 2>&1 || true
+    print_ok "Paired and trusted: $name ($mac)"
   else
-    print_err "Pairing may not have completed."
+    print_err "Pairing was not confirmed."
     print_info "Try option 2 (Pair from iPhone) instead."
     return 1
   fi
