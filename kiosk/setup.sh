@@ -130,6 +130,9 @@ mkdir -p "$CHROMIUM_DIR"
 sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$CHROMIUM_DIR/Preferences" 2>/dev/null || true
 sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$CHROMIUM_DIR/Preferences" 2>/dev/null || true
 
+# Refresh the page after 10 seconds to ensure full load
+(sleep 10 && xdotool key F5) &
+
 # Launch Chromium in kiosk mode
 exec chromium-browser \
   --kiosk \
