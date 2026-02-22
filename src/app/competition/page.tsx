@@ -537,6 +537,12 @@ function PitNoteEditor({
     setContent(initialContent);
   }, [initialContent]);
 
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
+
   function handleChange(value: string) {
     setContent(value);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -943,7 +949,7 @@ export default function CompetitionPage() {
       </div>
 
       {/* Bumper color banner */}
-      {nextMatchAlliance && (
+      {nextMatchAlliance ? (
         <div
           className={`flex-shrink-0 py-2 text-center text-sm font-bold uppercase tracking-widest ${
             nextMatchAlliance === "red"
@@ -953,7 +959,11 @@ export default function CompetitionPage() {
         >
           {nextMatchAlliance === "red" ? "RED" : "BLUE"} BUMPERS
         </div>
-      )}
+      ) : matches.length > 0 && !nextMatch ? (
+        <div className="flex-shrink-0 py-2 text-center text-sm font-bold uppercase tracking-widest bg-purple-600 text-white">
+          DONE WITH MATCHES
+        </div>
+      ) : null}
 
       {/* Mobile tab bar */}
       <div className="md:hidden flex-shrink-0 bg-slate-800/70 border-b border-slate-700/50 flex">
