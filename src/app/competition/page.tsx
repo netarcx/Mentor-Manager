@@ -302,6 +302,77 @@ function ExpandedNextMatch({
   );
 }
 
+function ExpandedLastMatch({
+  match,
+  teamKey,
+  teamNames,
+}: {
+  match: Match;
+  teamKey: string;
+  teamNames: Record<string, string>;
+}) {
+  const ourAlliance = getTeamAlliance(match, teamKey);
+  const result = getMatchResult(match, teamKey);
+  const redScore = match.alliances.red.score;
+  const blueScore = match.alliances.blue.score;
+
+  const resultColor = result === "W" ? "text-green-400" : result === "L" ? "text-red-400" : "text-yellow-400";
+  const borderColor = result === "W" ? "border-green-500/40 shadow-green-500/5" : result === "L" ? "border-red-500/40 shadow-red-500/5" : "border-yellow-500/40 shadow-yellow-500/5";
+  const resultLabel = result === "W" ? "WIN" : result === "L" ? "LOSS" : "TIE";
+
+  function renderTeamRow(key: string) {
+    const num = teamNumberFromKey(key);
+    const name = teamNames[key] || "";
+    const isUs = key === teamKey;
+    return (
+      <div
+        key={key}
+        className={`flex items-baseline gap-2 ${isUs ? "text-white font-bold" : "text-slate-300"}`}
+      >
+        <span className="font-mono text-sm w-12 text-right">{num}</span>
+        <span className={`text-sm truncate ${isUs ? "text-white" : "text-slate-400"}`}>
+          {name}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`mx-3 mt-2 rounded-xl bg-slate-800/80 border ${borderColor} shadow-lg overflow-hidden flex-shrink-0 opacity-80`}>
+      {/* Header row */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/50">
+        <span className={`text-base font-bold ${resultColor}`}>{getMatchLabel(match)}</span>
+        <div className="flex items-center gap-3">
+          <span className={`font-bold text-sm ${resultColor}`}>
+            {resultLabel}
+          </span>
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className={`font-mono font-bold ${ourAlliance === "red" ? "text-red-400" : "text-red-400/60"}`}>
+              {redScore}
+            </span>
+            <span className="text-slate-600">-</span>
+            <span className={`font-mono font-bold ${ourAlliance === "blue" ? "text-blue-400" : "text-blue-400/60"}`}>
+              {blueScore}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Alliances */}
+      <div className="grid grid-cols-2 divide-x divide-slate-700/50">
+        <div className={`px-4 py-3 space-y-1 ${ourAlliance === "red" ? "bg-red-500/5" : ""}`}>
+          <div className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Red Alliance</div>
+          {match.alliances.red.team_keys.map(renderTeamRow)}
+        </div>
+        <div className={`px-4 py-3 space-y-1 ${ourAlliance === "blue" ? "bg-blue-500/5" : ""}`}>
+          <div className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1.5">Blue Alliance</div>
+          {match.alliances.blue.team_keys.map(renderTeamRow)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Battery Helpers ---
 
 function batteryStatusColor(status: string | null): string {
@@ -472,6 +543,23 @@ export default function CompetitionPage() {
     return data.matches[nextMatchIndex];
   }, [data?.matches, nextMatchIndex]);
 
+  // Determine last completed match
+  const lastCompletedMatchIndex = useMemo(() => {
+    if (!data?.matches) return -1;
+    if (nextMatchIndex > 0) return nextMatchIndex - 1;
+    if (nextMatchIndex < 0) {
+      // All matches completed — last one in the array
+      const last = data.matches.length - 1;
+      return last >= 0 ? last : -1;
+    }
+    return -1; // nextMatchIndex === 0, no completed matches yet
+  }, [data?.matches, nextMatchIndex]);
+
+  const lastCompletedMatch = useMemo(() => {
+    if (!data?.matches || lastCompletedMatchIndex < 0) return null;
+    return data.matches[lastCompletedMatchIndex];
+  }, [data?.matches, lastCompletedMatchIndex]);
+
   // Determine next battery to use (longest on charger)
   const nextBattery = useMemo(() => {
     if (!data?.batteries) return null;
@@ -611,15 +699,18 @@ export default function CompetitionPage() {
             </div>
           ) : (
             <div className="flex-1 flex flex-col min-h-0">
-              {/* Expanded next match card */}
+              {/* Expanded cards: last result + next match */}
+              {lastCompletedMatch && (
+                <ExpandedLastMatch match={lastCompletedMatch} teamKey={teamKey} teamNames={teamNames} />
+              )}
               {nextMatch && (
                 <ExpandedNextMatch match={nextMatch} teamKey={teamKey} teamNames={teamNames} />
               )}
 
-              {/* Scrollable match list (next match excluded) */}
+              {/* Scrollable match list (expanded matches excluded) */}
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
                 {matches.map((match, index) => {
-                  if (index === nextMatchIndex) return null;
+                  if (index === nextMatchIndex || index === lastCompletedMatchIndex) return null;
 
                   const completed = isMatchCompleted(match);
                   const alliance = getTeamAlliance(match, teamKey);
