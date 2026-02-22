@@ -680,7 +680,6 @@ export default function CompetitionPage() {
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [robotImageError, setRobotImageError] = useState(false);
   const [expandedMatchKey, setExpandedMatchKey] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<"pit" | "schedule">("pit");
   const [pitNotes, setPitNotes] = useState<Record<string, string>>({});
@@ -1144,18 +1143,6 @@ export default function CompetitionPage() {
               DONE WITH MATCHES
             </div>
           ) : null}
-
-          {/* Robot photo */}
-          {data.robotImageSource !== "none" && !robotImageError && (
-            <div className="flex-shrink-0 px-4 py-3 flex justify-center">
-              <img
-                src="/api/robot-image"
-                alt="Robot"
-                className="w-full max-h-48 rounded-xl object-cover bg-slate-700"
-                onError={() => setRobotImageError(true)}
-              />
-            </div>
-          )}
 
           {/* Pre-Match Checklist */}
           <div className="flex-1 flex flex-col min-h-0">
