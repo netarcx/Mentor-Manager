@@ -747,7 +747,7 @@ export default function CompetitionPage() {
                       </div>
 
                       {/* Scores / Time */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex-1 flex items-center gap-2 min-w-0">
                         {completed ? (
                           <div className="flex items-center gap-1.5 text-sm">
                             <span className={`font-mono font-bold ${alliance === "red" ? "text-red-400" : "text-red-400/60"}`}>
@@ -763,25 +763,6 @@ export default function CompetitionPage() {
                             {formatMatchTime(scheduledTime)}
                           </span>
                         )}
-                      </div>
-
-                      {/* Team numbers */}
-                      <div className="flex-1 flex items-center gap-1 min-w-0">
-                        <div className="flex items-center gap-0.5">
-                          {match.alliances.red.team_keys.map((k) => (
-                            <span key={k} className={`font-mono text-[10px] ${k === teamKey ? "text-red-400 font-bold" : "text-red-400/40"}`}>
-                              {teamNumberFromKey(k)}
-                            </span>
-                          ))}
-                        </div>
-                        <span className="text-slate-700 text-[10px]">v</span>
-                        <div className="flex items-center gap-0.5">
-                          {match.alliances.blue.team_keys.map((k) => (
-                            <span key={k} className={`font-mono text-[10px] ${k === teamKey ? "text-blue-400 font-bold" : "text-blue-400/40"}`}>
-                              {teamNumberFromKey(k)}
-                            </span>
-                          ))}
-                        </div>
                       </div>
 
                       {/* Result badge */}
