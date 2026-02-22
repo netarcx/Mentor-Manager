@@ -212,7 +212,9 @@ do_pair() {
   print_ok "Paired and trusted!"
 }
 
-do_connect() {
+# Inner connect logic. Pass skip_repair=1 to suppress the re-pair prompt.
+_do_connect_inner() {
+  local skip_repair="${1:-0}"
   local mac
   mac=$(get_iphone_mac)
   if [[ -z "$mac" ]]; then
@@ -226,22 +228,43 @@ do_connect() {
 
   bluetoothctl power on >/dev/null 2>&1 || true
   bluetoothctl connect "$mac" >/dev/null 2>&1 || true
-  sleep 2
 
-  print_info "Joining PAN network..."
-  dbus_nap_connect "$mac"
+  # Wait for BT connection to settle
+  print_info "Waiting for Bluetooth link to settle..."
+  sleep 4
 
-  # Wait for bnep interface
-  local retries=10
+  # Try NAP connection up to 3 times (iPhone can be slow to expose NAP)
+  local nap_attempt=0
   local bt_if=""
-  while (( retries-- > 0 )); do
-    bt_if=$(get_bnep_iface)
-    if [[ -n "$bt_if" ]]; then break; fi
-    sleep 1
+  while (( nap_attempt < 3 )); do
+    (( nap_attempt++ )) || true
+    print_info "Joining PAN network (attempt $nap_attempt/3)..."
+    dbus_nap_connect "$mac"
+
+    # Wait for bnep interface
+    local retries=8
+    while (( retries-- > 0 )); do
+      bt_if=$(get_bnep_iface)
+      if [[ -n "$bt_if" ]]; then break 2; fi
+      sleep 1
+    done
+
+    if (( nap_attempt < 3 )); then
+      print_warn "No interface yet, retrying in 3s..."
+      sleep 3
+    fi
   done
 
   if [[ -z "$bt_if" ]]; then
-    print_err "No bnep interface appeared."
+    print_err "No bnep interface appeared after 3 attempts."
+
+    if [[ "$skip_repair" == "1" ]]; then
+      echo ""
+      print_warn "Connection failed after fresh pairing."
+      print_info "Make sure Personal Hotspot is ON and iPhone is unlocked."
+      return 1
+    fi
+
     echo ""
     print_warn "This usually means the pairing is stale."
     print_info "The iPhone may be asking you to forget this device."
@@ -259,12 +282,11 @@ do_connect() {
       print_info "Then press any key when ready to re-pair..."
       read -rsn1
       echo ""
-      do_pair
-      if [[ $? -eq 0 ]]; then
-        echo ""
-        print_info "Now attempting to connect with fresh pairing..."
-        do_connect
-      fi
+      do_pair || return 1
+      echo ""
+      print_info "Now attempting to connect with fresh pairing..."
+      sleep 2
+      _do_connect_inner 1  # skip_repair=1 to prevent infinite loop
       return $?
     fi
     echo ""
@@ -285,6 +307,10 @@ do_connect() {
   else
     print_warn "Interface up but no IP assigned. DHCP may have failed."
   fi
+}
+
+do_connect() {
+  _do_connect_inner 0
 }
 
 do_disconnect() {
