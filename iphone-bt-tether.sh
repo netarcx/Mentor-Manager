@@ -46,6 +46,17 @@ pause() {
   echo ""
   printf "  ${DIM}Press any key to continue...${RESET}"
   read -rsn1
+  echo ""
+}
+
+wait_for_user() {
+  local msg="$1"
+  echo ""
+  printf "  ${YELLOW}%s${RESET}\n" "$msg"
+  printf "  ${DIM}Press any key when ready...${RESET}"
+  read -rsn1
+  echo ""
+  echo ""
 }
 
 # ─── Dependency check ───────────────────────────────────────────────
@@ -77,8 +88,14 @@ get_bt_powered() {
 }
 
 get_paired_iphones() {
-  bluetoothctl devices Paired 2>/dev/null | grep -i iphone || \
+  # "devices Paired" only available on BlueZ 5.65+; fall back to all devices
+  local paired
+  paired=$(bluetoothctl devices Paired 2>/dev/null | grep -i iphone) || true
+  if [[ -n "$paired" ]]; then
+    echo "$paired"
+  else
     bluetoothctl devices 2>/dev/null | grep -i iphone || true
+  fi
 }
 
 get_iphone_mac() {
@@ -178,27 +195,20 @@ show_status() {
 }
 
 # ─── Auto-accept Agent ───────────────────────────────────────────────
-# Runs a bluetoothctl session in the background with an auto-accepting
-# agent. This handles the passkey confirmation automatically so the user
-# only needs to confirm on the iPhone side.
+# Runs a bluetoothctl process in the background with an auto-accepting
+# agent. Uses a pipe to keep bluetoothctl's stdin open so the agent
+# stays registered for the lifetime of the background process.
 AGENT_PID=""
 
 _start_auto_agent() {
-  # Kill any existing agent
   _stop_auto_agent
 
-  # Launch bluetoothctl in background with auto-accept agent.
-  # "agent NoInputNoOutput" tells BlueZ to use JustWorks pairing —
-  # it auto-accepts without requiring passkey entry on the Linux side.
+  # Pipe keeps stdin open → bluetoothctl stays running → agent stays alive.
+  # "agent NoInputNoOutput" = JustWorks pairing (auto-accept on Linux side).
   (
-    bluetoothctl <<-AGENT_EOF
-      agent off
-      agent NoInputNoOutput
-      default-agent
-AGENT_EOF
-    # Keep it alive so the agent stays registered
+    printf "agent off\nagent NoInputNoOutput\ndefault-agent\n"
     sleep 120
-  ) >/dev/null 2>&1 &
+  ) | bluetoothctl >/dev/null 2>&1 &
   AGENT_PID=$!
   sleep 1  # Give agent time to register
 }
@@ -252,9 +262,6 @@ _pair_from_iphone() {
   local adapter_name
   adapter_name=$(bluetoothctl show 2>/dev/null | grep "Name:" | sed 's/.*Name: //' || echo "this computer")
 
-  # Start a background bluetoothctl agent that auto-accepts pairing
-  # NoInputNoOutput means "just accept" — no passkey prompt on the Ubuntu side.
-  # The iPhone will show a pairing prompt the user confirms there.
   _start_auto_agent
 
   echo ""
@@ -266,13 +273,13 @@ _pair_from_iphone() {
   echo "    3. Tap it to pair"
   echo "    4. Confirm the pairing prompt on your iPhone"
   echo ""
-  print_info "Waiting for iPhone to pair (60s timeout)..."
+  print_info "Waiting for iPhone to pair (90s timeout)..."
   echo ""
 
   # Poll for a paired iPhone to appear
   local waited=0
   local mac=""
-  while (( waited < 60 )); do
+  while (( waited < 90 )); do
     mac=$(get_iphone_mac)
     if [[ -n "$mac" ]]; then break; fi
     printf "\r  ${DIM}Waiting... %2ds${RESET}" "$waited"
@@ -284,7 +291,7 @@ _pair_from_iphone() {
   _stop_auto_agent
 
   if [[ -z "$mac" ]]; then
-    print_err "No iPhone paired within 60 seconds."
+    print_err "No iPhone paired within 90 seconds."
     print_info "Make sure you tapped the device name on your iPhone."
     return 1
   fi
@@ -299,10 +306,12 @@ _pair_from_iphone() {
 _pair_from_ubuntu() {
   echo ""
   print_warn "Open iPhone Settings > Bluetooth NOW"
+  wait_for_user "Make sure the Bluetooth settings screen is open on your iPhone."
+
   print_info "Scanning for 30 seconds..."
   echo ""
 
-  bluetoothctl --timeout 30 scan on >/dev/null 2>&1 &disown
+  bluetoothctl --timeout 30 scan on >/dev/null 2>&1 &
   local scan_pid=$!
 
   for i in $(seq 30 -1 1); do
@@ -323,22 +332,20 @@ _pair_from_ubuntu() {
   name=$(bluetoothctl devices 2>/dev/null | grep "$mac" | sed 's/^Device [^ ]* //')
   print_ok "Found: $name ($mac)"
 
-  # Start auto-accept agent, then pair
   _start_auto_agent
 
   echo ""
   print_info "Pairing with $name..."
-  print_warn "Confirm the pairing prompt on your iPhone!"
+  print_warn "A pairing prompt will appear on your iPhone — tap Pair!"
   echo ""
 
-  # Send pair command via a short-lived bluetoothctl
-  bluetoothctl pair "$mac" 2>/dev/null &
+  # Send pair command in background
+  bluetoothctl pair "$mac" >/dev/null 2>&1 &
   local pair_pid=$!
 
-  # Wait up to 30s for pairing to complete
+  # Wait up to 45s for pairing to complete (user needs time to tap)
   local waited=0
-  while (( waited < 30 )); do
-    # Check if already paired
+  while (( waited < 45 )); do
     if bluetoothctl info "$mac" 2>/dev/null | grep -q "Paired: yes"; then
       break
     fi
@@ -376,6 +383,15 @@ _do_connect_inner() {
 
   local name
   name=$(get_iphone_name "$mac")
+
+  # Remind user to enable hotspot before we try to connect
+  echo ""
+  print_warn "Before connecting, make sure on your iPhone:"
+  echo "    1. Personal Hotspot is ON"
+  echo "    2. \"Allow Others to Join\" is enabled"
+  echo "    3. iPhone is unlocked"
+  wait_for_user "Press any key when your iPhone hotspot is ready."
+
   print_info "Connecting to $name..."
 
   bluetoothctl power on >/dev/null 2>&1 || true
@@ -391,8 +407,18 @@ _do_connect_inner() {
   if [[ -z "$bt_connected" ]]; then
     print_warn "Bluetooth not connected yet, retrying..."
     bluetoothctl connect "$mac" >/dev/null 2>&1 || true
-    sleep 3
+    sleep 4
+
+    bt_connected=$(bluetoothctl info "$mac" 2>/dev/null | grep "Connected: yes" || true)
+    if [[ -z "$bt_connected" ]]; then
+      print_warn "Still not connected. Your iPhone may need to accept the connection."
+      wait_for_user "Check your iPhone for any prompts, then press any key."
+      bluetoothctl connect "$mac" >/dev/null 2>&1 || true
+      sleep 3
+    fi
   fi
+
+  print_ok "Bluetooth link established"
 
   # Try NAP connection up to 3 times (iPhone can be slow to expose NAP)
   local nap_attempt=0
@@ -412,7 +438,6 @@ _do_connect_inner() {
 
     if (( nap_attempt < 3 )); then
       print_warn "No interface yet, retrying in 3s..."
-      # Re-poke the BT connection before retrying NAP
       bluetoothctl connect "$mac" >/dev/null 2>&1 || true
       sleep 3
     fi
@@ -442,9 +467,7 @@ _do_connect_inner() {
       bluetoothctl remove "$mac" >/dev/null 2>&1 || true
       echo ""
       print_warn "On your iPhone: Settings > Bluetooth > forget this device too"
-      print_info "Then press any key when ready to re-pair..."
-      read -rsn1
-      echo ""
+      wait_for_user "Forget the device on iPhone, then press any key to re-pair."
       do_pair || return 1
       echo ""
       print_info "Now attempting to connect with fresh pairing..."
@@ -460,7 +483,7 @@ _do_connect_inner() {
   fi
 
   print_info "Requesting IP via DHCP on $bt_if..."
-  ip link set "$bt_if" up 2>/dev/null
+  ip link set "$bt_if" up 2>/dev/null || true
   dhclient "$bt_if" >/dev/null 2>&1 || true
 
   local ip_addr
