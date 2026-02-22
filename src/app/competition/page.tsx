@@ -463,10 +463,10 @@ function ScoreTrendSparkline({
   const resultColors: Record<string, string> = { W: "#4ade80", L: "#f87171", T: "#facc15" };
 
   return (
-    <div className="mx-3 mt-2 flex-shrink-0">
-      <div className="rounded-lg bg-slate-800/60 border border-slate-700/40 px-3 py-2">
-        <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Score Trend</div>
-        <div style={{ width: "100%", height: 70 }}>
+    <div className="flex-shrink-0 border-t border-slate-700/50">
+      <div className="bg-slate-800/60 px-4 py-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Score Trend</div>
+        <div style={{ width: "100%", height: 50 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
               <defs>
@@ -931,14 +931,6 @@ export default function CompetitionPage() {
           <LiveClock />
         </div>
         <div className="flex items-center gap-4 flex-shrink-0">
-          {data.robotImageSource !== "none" && !robotImageError && (
-            <img
-              src="/api/robot-image"
-              alt="Robot"
-              className="h-12 w-12 rounded-lg object-cover bg-slate-700 flex-shrink-0"
-              onError={() => setRobotImageError(true)}
-            />
-          )}
           <div className="text-right">
             <div className="text-2xl font-bold tracking-tight text-emerald-400">
               {teamNumber}
@@ -947,23 +939,6 @@ export default function CompetitionPage() {
           </div>
         </div>
       </div>
-
-      {/* Bumper color banner */}
-      {nextMatchAlliance ? (
-        <div
-          className={`flex-shrink-0 py-2 text-center text-sm font-bold uppercase tracking-widest ${
-            nextMatchAlliance === "red"
-              ? "bg-red-600 text-white"
-              : "bg-blue-600 text-white"
-          }`}
-        >
-          {nextMatchAlliance === "red" ? "RED" : "BLUE"} BUMPERS
-        </div>
-      ) : matches.length > 0 && !nextMatch ? (
-        <div className="flex-shrink-0 py-2 text-center text-sm font-bold uppercase tracking-widest bg-purple-600 text-white">
-          DONE WITH MATCHES
-        </div>
-      ) : null}
 
       {/* Mobile tab bar */}
       <div className="md:hidden flex-shrink-0 bg-slate-800/70 border-b border-slate-700/50 flex">
@@ -994,10 +969,10 @@ export default function CompetitionPage() {
         {/* Left: Match Schedule (hidden on mobile unless schedule tab active) */}
         <div className={`flex-[3] flex-col min-h-0 border-r border-slate-700/50 md:flex ${mobileTab === "schedule" ? "flex" : "hidden"}`}>
           <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+            <h2 className="text-base font-bold uppercase tracking-wider text-slate-300">
               Match Schedule
             </h2>
-            <span className="text-xs text-slate-500">
+            <span className="text-sm text-slate-500">
               {matches.length} match{matches.length !== 1 ? "es" : ""}
             </span>
           </div>
@@ -1027,11 +1002,8 @@ export default function CompetitionPage() {
                 </>
               )}
 
-              {/* Score trend sparkline */}
-              <ScoreTrendSparkline matches={matches} teamKey={teamKey} />
-
               {/* Scrollable match list (expanded matches excluded) */}
-              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
                 {matches.map((match, index) => {
                   if (index === nextMatchIndex || index === lastCompletedMatchIndex) return null;
 
@@ -1047,7 +1019,7 @@ export default function CompetitionPage() {
                     <div key={match.key} className="rounded-lg overflow-hidden">
                       <div
                         onClick={() => setExpandedMatchKey(isExpanded ? null : match.key)}
-                        className={`flex items-center gap-2 px-3 py-2.5 transition-all cursor-pointer ${
+                        className={`flex items-center gap-3 px-4 py-3 transition-all cursor-pointer ${
                           completed
                             ? "bg-slate-800/30 opacity-60 hover:opacity-80"
                             : "bg-slate-800/50 hover:bg-slate-800/70"
@@ -1055,7 +1027,7 @@ export default function CompetitionPage() {
                       >
                         {/* Alliance color bar */}
                         <div
-                          className={`w-1 self-stretch rounded-full flex-shrink-0 ${
+                          className={`w-1.5 self-stretch rounded-full flex-shrink-0 ${
                             alliance === "red"
                               ? "bg-red-500"
                               : alliance === "blue"
@@ -1065,8 +1037,8 @@ export default function CompetitionPage() {
                         />
 
                         {/* Match label */}
-                        <div className="min-w-[5.5rem] flex-shrink-0">
-                          <span className="text-sm font-semibold text-slate-300">
+                        <div className="min-w-[6.5rem] flex-shrink-0">
+                          <span className="text-base font-bold text-slate-200">
                             {getMatchLabel(match)}
                           </span>
                         </div>
@@ -1074,7 +1046,7 @@ export default function CompetitionPage() {
                         {/* Scores / Time */}
                         <div className="flex-1 flex items-center gap-2 min-w-0">
                           {completed ? (
-                            <div className="flex items-center gap-1.5 text-sm">
+                            <div className="flex items-center gap-2 text-base">
                               <span className={`font-mono font-bold ${alliance === "red" ? "text-red-400" : "text-red-400/60"}`}>
                                 {redScore}
                               </span>
@@ -1084,7 +1056,7 @@ export default function CompetitionPage() {
                               </span>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-500">
+                            <span className="text-sm text-slate-500">
                               {formatMatchTime(scheduledTime)}
                             </span>
                           )}
@@ -1092,25 +1064,25 @@ export default function CompetitionPage() {
 
                         {/* Note indicator */}
                         {pitNotes[match.key] && (
-                          <svg className="w-3.5 h-3.5 text-amber-400/60 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <svg className="w-4 h-4 text-amber-400/60 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                           </svg>
                         )}
 
                         {/* Result badge */}
-                        <div className="w-8 flex-shrink-0 text-right">
+                        <div className="w-10 flex-shrink-0 text-right">
                           {result === "W" && (
-                            <span className="inline-block text-xs font-bold text-green-400 bg-green-500/15 px-1.5 py-0.5 rounded">
+                            <span className="inline-block text-sm font-bold text-green-400 bg-green-500/15 px-2 py-0.5 rounded">
                               W
                             </span>
                           )}
                           {result === "L" && (
-                            <span className="inline-block text-xs font-bold text-red-400 bg-red-500/15 px-1.5 py-0.5 rounded">
+                            <span className="inline-block text-sm font-bold text-red-400 bg-red-500/15 px-2 py-0.5 rounded">
                               L
                             </span>
                           )}
                           {result === "T" && (
-                            <span className="inline-block text-xs font-bold text-yellow-400 bg-yellow-500/15 px-1.5 py-0.5 rounded">
+                            <span className="inline-block text-sm font-bold text-yellow-400 bg-yellow-500/15 px-2 py-0.5 rounded">
                               T
                             </span>
                           )}
@@ -1154,8 +1126,37 @@ export default function CompetitionPage() {
           )}
         </div>
 
-        {/* Right: Checklist + Batteries (hidden on mobile unless pit tab active) */}
+        {/* Right: Bumper + Photo + Checklist + Batteries (hidden on mobile unless pit tab active) */}
         <div className={`flex-[2] flex-col min-h-0 md:flex ${mobileTab === "pit" ? "flex" : "hidden"}`}>
+          {/* Bumper color banner */}
+          {nextMatchAlliance ? (
+            <div
+              className={`flex-shrink-0 py-2.5 text-center text-sm font-bold uppercase tracking-widest ${
+                nextMatchAlliance === "red"
+                  ? "bg-red-600 text-white"
+                  : "bg-blue-600 text-white"
+              }`}
+            >
+              {nextMatchAlliance === "red" ? "RED" : "BLUE"} BUMPERS
+            </div>
+          ) : matches.length > 0 && !nextMatch ? (
+            <div className="flex-shrink-0 py-2.5 text-center text-sm font-bold uppercase tracking-widest bg-purple-600 text-white">
+              DONE WITH MATCHES
+            </div>
+          ) : null}
+
+          {/* Robot photo */}
+          {data.robotImageSource !== "none" && !robotImageError && (
+            <div className="flex-shrink-0 px-4 py-3 flex justify-center">
+              <img
+                src="/api/robot-image"
+                alt="Robot"
+                className="w-full max-h-48 rounded-xl object-cover bg-slate-700"
+                onError={() => setRobotImageError(true)}
+              />
+            </div>
+          )}
+
           {/* Pre-Match Checklist */}
           <div className="flex-1 flex flex-col min-h-0">
             <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
@@ -1305,6 +1306,9 @@ export default function CompetitionPage() {
           )}
         </div>
       </div>
+
+      {/* Score trend sparkline (full width at bottom) */}
+      <ScoreTrendSparkline matches={matches} teamKey={teamKey} />
 
       {/* Status bar */}
       <StatusBar teamStatus={data.teamStatus} teamKey={teamKey} nextMatch={nextMatch} matchGap={matchGap} />
