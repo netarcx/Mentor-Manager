@@ -156,7 +156,6 @@ function LiveClock() {
         new Date().toLocaleTimeString("en-US", {
           hour: "numeric",
           minute: "2-digit",
-          second: "2-digit",
           hour12: true,
           timeZone: "America/Chicago",
         })
@@ -665,7 +664,7 @@ export default function CompetitionPage() {
   return (
     <div className="h-screen bg-slate-900 text-white flex flex-col overflow-hidden" style={{ zoom: `${zoom}%` }}>
       {/* Header */}
-      <div className="bg-slate-800/90 border-b border-slate-700 px-5 py-3 flex items-center justify-between flex-shrink-0">
+      <div className="bg-slate-800/90 border-b border-slate-700 px-5 py-3 flex items-center justify-between flex-shrink-0 relative">
         <div className="flex items-center gap-3 min-w-0">
           {branding.logoPath && (
             <img src="/api/logo" alt="" className="h-10 w-auto flex-shrink-0" />
@@ -682,12 +681,10 @@ export default function CompetitionPage() {
             )}
           </div>
         </div>
+        <div className="absolute left-1/2 -translate-x-1/2 text-xl font-bold tracking-tight text-slate-200 tabular-nums">
+          <LiveClock />
+        </div>
         <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="text-right">
-            <div className="text-lg font-bold tracking-tight text-slate-200 tabular-nums">
-              <LiveClock />
-            </div>
-          </div>
           {data.robotImageSource !== "none" && !robotImageError && (
             <img
               src="/api/robot-image"
