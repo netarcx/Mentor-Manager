@@ -51,14 +51,14 @@ pause() {
 # ─── Dependency check ───────────────────────────────────────────────
 check_deps() {
   local missing=()
-  for cmd in bluetoothctl bt-network dhclient ip; do
+  for cmd in bluetoothctl dbus-send dhclient ip; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
   done
   if (( ${#missing[@]} )); then
     print_err "Missing commands: ${missing[*]}"
     echo ""
     print_info "Install with:"
-    echo "    sudo apt install bluez bluez-tools isc-dhcp-client iproute2"
+    echo "    sudo apt install bluez dbus isc-dhcp-client iproute2"
     echo ""
     exit 1
   fi
@@ -82,6 +82,12 @@ get_iphone_name() {
   bluetoothctl devices 2>/dev/null | grep "$mac" | sed 's/^Device [^ ]* //'
 }
 
+mac_to_dbus_path() {
+  # Convert AA:BB:CC:DD:EE:FF -> /org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF
+  local mac="$1"
+  echo "/org/bluez/hci0/dev_${mac//:/_}"
+}
+
 get_bnep_iface() {
   ip -o link show 2>/dev/null | grep -o 'bnep[0-9]*' | head -1 || true
 }
@@ -93,6 +99,27 @@ get_bnep_ip() {
 
 is_connected() {
   [[ -n "$(get_bnep_iface)" ]]
+}
+
+# Connect to NAP profile via D-Bus (replaces bt-network which segfaults)
+dbus_nap_connect() {
+  local mac="$1"
+  local dev_path
+  dev_path=$(mac_to_dbus_path "$mac")
+
+  dbus-send --system --type=method_call --dest=org.bluez \
+    "$dev_path" org.bluez.Network1.Connect \
+    string:"nap" 2>&1 || true
+}
+
+# Disconnect NAP profile via D-Bus
+dbus_nap_disconnect() {
+  local mac="$1"
+  local dev_path
+  dev_path=$(mac_to_dbus_path "$mac")
+
+  dbus-send --system --type=method_call --dest=org.bluez \
+    "$dev_path" org.bluez.Network1.Disconnect 2>&1 || true
 }
 
 # ─── Status Display ─────────────────────────────────────────────────
@@ -202,7 +229,7 @@ do_connect() {
   sleep 2
 
   print_info "Joining PAN network..."
-  bt-network -c "$mac" nap >/dev/null 2>&1 || true
+  dbus_nap_connect "$mac"
 
   # Wait for bnep interface
   local retries=10
@@ -224,7 +251,7 @@ do_connect() {
     echo ""
     if [[ ! "$repair_choice" =~ ^[Nn]$ ]]; then
       print_info "Removing stale pairing..."
-      bt-network -d "$mac" >/dev/null 2>&1 || true
+      dbus_nap_disconnect "$mac"
       bluetoothctl disconnect "$mac" >/dev/null 2>&1 || true
       bluetoothctl remove "$mac" >/dev/null 2>&1 || true
       echo ""
@@ -274,7 +301,7 @@ do_disconnect() {
   mac=$(get_iphone_mac)
   if [[ -n "$mac" ]]; then
     print_info "Disconnecting Bluetooth..."
-    bt-network -d "$mac" >/dev/null 2>&1 || true
+    dbus_nap_disconnect "$mac"
     bluetoothctl disconnect "$mac" >/dev/null 2>&1 || true
   fi
 
