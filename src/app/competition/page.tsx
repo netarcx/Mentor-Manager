@@ -68,6 +68,7 @@ interface CompetitionData {
   event: EventInfo | null;
   matches: Match[];
   teamStatus: TeamStatus | null;
+  teamNames: Record<string, string>;
   checklist: {
     items: ChecklistItem[];
     checkedIds: number[];
@@ -229,6 +230,69 @@ function StatusBar({
   );
 }
 
+function ExpandedNextMatch({
+  match,
+  teamKey,
+  teamNames,
+}: {
+  match: Match;
+  teamKey: string;
+  teamNames: Record<string, string>;
+}) {
+  const scheduledTime = match.predicted_time || match.time;
+  const ourAlliance = getTeamAlliance(match, teamKey);
+
+  function renderTeamRow(key: string) {
+    const num = teamNumberFromKey(key);
+    const name = teamNames[key] || "";
+    const isUs = key === teamKey;
+    return (
+      <div
+        key={key}
+        className={`flex items-baseline gap-2 ${isUs ? "text-white font-bold" : "text-slate-300"}`}
+      >
+        <span className="font-mono text-sm w-12 text-right">{num}</span>
+        <span className={`text-sm truncate ${isUs ? "text-white" : "text-slate-400"}`}>
+          {name}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-3 mt-2 rounded-xl bg-slate-800/80 border border-emerald-500/40 shadow-lg shadow-emerald-500/5 overflow-hidden flex-shrink-0">
+      {/* Header row */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/50">
+        <span className="text-base font-bold text-emerald-400">{getMatchLabel(match)}</span>
+        <div className="flex items-center gap-3">
+          {scheduledTime && (
+            <span className="text-emerald-400 font-semibold text-sm bg-emerald-500/10 px-2.5 py-1 rounded-full">
+              in <MatchCountdown targetTime={scheduledTime} />
+            </span>
+          )}
+          <span className="text-xs text-slate-400">
+            ~{formatMatchTime(scheduledTime)}
+          </span>
+        </div>
+      </div>
+
+      {/* Alliances */}
+      <div className="grid grid-cols-2 divide-x divide-slate-700/50">
+        {/* Red alliance */}
+        <div className={`px-4 py-3 space-y-1 ${ourAlliance === "red" ? "bg-red-500/5" : ""}`}>
+          <div className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Red Alliance</div>
+          {match.alliances.red.team_keys.map(renderTeamRow)}
+        </div>
+        {/* Blue alliance */}
+        <div className={`px-4 py-3 space-y-1 ${ourAlliance === "blue" ? "bg-blue-500/5" : ""}`}>
+          <div className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1.5">Blue Alliance</div>
+          {match.alliances.blue.team_keys.map(renderTeamRow)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Main Page ---
 
 export default function CompetitionPage() {
@@ -238,7 +302,6 @@ export default function CompetitionPage() {
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [robotImageError, setRobotImageError] = useState(false);
-  const nextMatchRef = useRef<HTMLDivElement | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const pollIntervalRef = useRef(60);
 
@@ -340,13 +403,6 @@ export default function CompetitionPage() {
     return data.matches[nextMatchIndex];
   }, [data?.matches, nextMatchIndex]);
 
-  // Auto-scroll to next match
-  useEffect(() => {
-    if (nextMatchRef.current) {
-      nextMatchRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [nextMatchIndex]);
-
   // Checklist toggle
   async function handleToggleItem(itemId: number) {
     const newChecked = checkedIds.includes(itemId)
@@ -411,6 +467,7 @@ export default function CompetitionPage() {
   const checklistItems = data.checklist?.items || [];
   const teamKey = data.teamKey || "";
   const teamNumber = teamNumberFromKey(teamKey);
+  const teamNames = data.teamNames || {};
   const branding = data.branding;
   const checkedCount = checkedIds.length;
   const totalCount = checklistItems.length;
@@ -475,100 +532,92 @@ export default function CompetitionPage() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
-              {matches.map((match, index) => {
-                const completed = isMatchCompleted(match);
-                const isNext = index === nextMatchIndex;
-                const alliance = getTeamAlliance(match, teamKey);
-                const result = getMatchResult(match, teamKey);
-                const redScore = match.alliances.red.score;
-                const blueScore = match.alliances.blue.score;
-                const scheduledTime = match.predicted_time || match.time;
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* Expanded next match card */}
+              {nextMatch && (
+                <ExpandedNextMatch match={nextMatch} teamKey={teamKey} teamNames={teamNames} />
+              )}
 
-                return (
-                  <div
-                    key={match.key}
-                    ref={isNext ? nextMatchRef : undefined}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-all ${
-                      isNext
-                        ? "bg-emerald-500/10 border border-emerald-500/50 shadow-lg shadow-emerald-500/5"
-                        : completed
+              {/* Scrollable match list (next match excluded) */}
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+                {matches.map((match, index) => {
+                  if (index === nextMatchIndex) return null;
+
+                  const completed = isMatchCompleted(match);
+                  const alliance = getTeamAlliance(match, teamKey);
+                  const result = getMatchResult(match, teamKey);
+                  const redScore = match.alliances.red.score;
+                  const blueScore = match.alliances.blue.score;
+                  const scheduledTime = match.predicted_time || match.time;
+
+                  return (
+                    <div
+                      key={match.key}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2.5 transition-all ${
+                        completed
                           ? "bg-slate-800/30 opacity-60"
                           : "bg-slate-800/50"
-                    }`}
-                  >
-                    {/* Alliance color bar */}
-                    <div
-                      className={`w-1 self-stretch rounded-full flex-shrink-0 ${
-                        alliance === "red"
-                          ? "bg-red-500"
-                          : alliance === "blue"
-                            ? "bg-blue-500"
-                            : "bg-slate-700"
                       }`}
-                    />
+                    >
+                      {/* Alliance color bar */}
+                      <div
+                        className={`w-1 self-stretch rounded-full flex-shrink-0 ${
+                          alliance === "red"
+                            ? "bg-red-500"
+                            : alliance === "blue"
+                              ? "bg-blue-500"
+                              : "bg-slate-700"
+                        }`}
+                      />
 
-                    {/* Match label */}
-                    <div className="min-w-[5.5rem] flex-shrink-0">
-                      <span className={`text-sm font-semibold ${isNext ? "text-emerald-400" : "text-slate-300"}`}>
-                        {getMatchLabel(match)}
-                      </span>
-                    </div>
+                      {/* Match label */}
+                      <div className="min-w-[5.5rem] flex-shrink-0">
+                        <span className="text-sm font-semibold text-slate-300">
+                          {getMatchLabel(match)}
+                        </span>
+                      </div>
 
-                    {/* Scores / Time */}
-                    <div className="flex-1 flex items-center gap-2 min-w-0">
-                      {completed ? (
-                        <div className="flex items-center gap-1.5 text-sm">
-                          <span className={`font-mono font-bold ${alliance === "red" ? "text-red-400" : "text-red-400/60"}`}>
-                            {redScore}
-                          </span>
-                          <span className="text-slate-600">-</span>
-                          <span className={`font-mono font-bold ${alliance === "blue" ? "text-blue-400" : "text-blue-400/60"}`}>
-                            {blueScore}
-                          </span>
-                        </div>
-                      ) : isNext ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-400">
+                      {/* Scores / Time */}
+                      <div className="flex-1 flex items-center gap-2 min-w-0">
+                        {completed ? (
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <span className={`font-mono font-bold ${alliance === "red" ? "text-red-400" : "text-red-400/60"}`}>
+                              {redScore}
+                            </span>
+                            <span className="text-slate-600">-</span>
+                            <span className={`font-mono font-bold ${alliance === "blue" ? "text-blue-400" : "text-blue-400/60"}`}>
+                              {blueScore}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500">
                             {formatMatchTime(scheduledTime)}
                           </span>
-                          {scheduledTime && (
-                            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                              <MatchCountdown targetTime={scheduledTime} />
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-500">
-                          {formatMatchTime(scheduledTime)}
-                        </span>
-                      )}
-                    </div>
+                        )}
+                      </div>
 
-                    {/* Result badge */}
-                    <div className="w-8 flex-shrink-0 text-right">
-                      {result === "W" && (
-                        <span className="inline-block text-xs font-bold text-green-400 bg-green-500/15 px-1.5 py-0.5 rounded">
-                          W
-                        </span>
-                      )}
-                      {result === "L" && (
-                        <span className="inline-block text-xs font-bold text-red-400 bg-red-500/15 px-1.5 py-0.5 rounded">
-                          L
-                        </span>
-                      )}
-                      {result === "T" && (
-                        <span className="inline-block text-xs font-bold text-yellow-400 bg-yellow-500/15 px-1.5 py-0.5 rounded">
-                          T
-                        </span>
-                      )}
-                      {isNext && !result && (
-                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      )}
+                      {/* Result badge */}
+                      <div className="w-8 flex-shrink-0 text-right">
+                        {result === "W" && (
+                          <span className="inline-block text-xs font-bold text-green-400 bg-green-500/15 px-1.5 py-0.5 rounded">
+                            W
+                          </span>
+                        )}
+                        {result === "L" && (
+                          <span className="inline-block text-xs font-bold text-red-400 bg-red-500/15 px-1.5 py-0.5 rounded">
+                            L
+                          </span>
+                        )}
+                        {result === "T" && (
+                          <span className="inline-block text-xs font-bold text-yellow-400 bg-yellow-500/15 px-1.5 py-0.5 rounded">
+                            T
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

@@ -37,6 +37,12 @@ export interface TBAMatch {
   winning_alliance: string;
 }
 
+export interface TBATeam {
+  key: string;
+  team_number: number;
+  nickname: string;
+}
+
 export interface TBAMedia {
   type: string;
   foreign_key: string;
@@ -164,6 +170,17 @@ export async function fetchTeamStatus(
   return tbaFetch<TBATeamStatus>(
     `/team/${teamKey}/event/${eventKey}/status`,
     apiKey
+  );
+}
+
+// ── Event teams ─────────────────────────────────────────────────────
+
+export async function fetchEventTeams(
+  eventKey: string,
+  apiKey: string
+): Promise<TBATeam[]> {
+  return (
+    (await tbaFetch<TBATeam[]>(`/event/${eventKey}/teams`, apiKey)) || []
   );
 }
 

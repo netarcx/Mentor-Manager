@@ -5,6 +5,7 @@ import {
   fetchEvent,
   fetchTeamMatches,
   fetchTeamStatus,
+  fetchEventTeams,
   sortMatches,
 } from "@/lib/tba";
 import { getBranding } from "@/lib/branding";
@@ -19,11 +20,12 @@ export async function GET() {
       return NextResponse.json({ enabled: false });
     }
 
-    const [event, matches, teamStatus, checklistItems, checklistState, branding, robotImageSetting] =
+    const [event, matches, teamStatus, eventTeams, checklistItems, checklistState, branding, robotImageSetting] =
       await Promise.all([
         fetchEvent(config.eventKey, config.tbaApiKey),
         fetchTeamMatches(config.teamKey, config.eventKey, config.tbaApiKey),
         fetchTeamStatus(config.teamKey, config.eventKey, config.tbaApiKey),
+        fetchEventTeams(config.eventKey, config.tbaApiKey),
         prisma.checklistItem.findMany({
           where: { active: true },
           orderBy: { sortOrder: "asc" },
@@ -32,6 +34,11 @@ export async function GET() {
         getBranding(),
         prisma.setting.findUnique({ where: { key: "competition_robot_image_source" } }),
       ]);
+
+    const teamNames: Record<string, string> = {};
+    for (const team of eventTeams) {
+      teamNames[team.key] = team.nickname;
+    }
 
     let checkedIds: number[] = [];
     if (checklistState?.value) {
@@ -72,6 +79,7 @@ export async function GET() {
         appName: branding.appName,
         logoPath: branding.logoPath,
       },
+      teamNames,
       teamKey: config.teamKey,
       pollInterval: config.pollInterval,
       robotImageSource: robotImageSetting?.value || "none",
