@@ -216,9 +216,34 @@ do_connect() {
   if [[ -z "$bt_if" ]]; then
     print_err "No bnep interface appeared."
     echo ""
-    print_warn "Make sure:"
-    echo "    1. iPhone Personal Hotspot is ON"
-    echo "    2. iPhone is unlocked on the hotspot screen"
+    print_warn "This usually means the pairing is stale."
+    print_info "The iPhone may be asking you to forget this device."
+    echo ""
+    printf "  ${YELLOW}Forget and re-pair automatically? [Y/n]:${RESET} "
+    read -rn1 repair_choice
+    echo ""
+    if [[ ! "$repair_choice" =~ ^[Nn]$ ]]; then
+      print_info "Removing stale pairing..."
+      bt-network -d "$mac" >/dev/null 2>&1 || true
+      bluetoothctl disconnect "$mac" >/dev/null 2>&1 || true
+      bluetoothctl remove "$mac" >/dev/null 2>&1 || true
+      echo ""
+      print_warn "On your iPhone: Settings > Bluetooth > forget this device too"
+      print_info "Then press any key when ready to re-pair..."
+      read -rsn1
+      echo ""
+      do_pair
+      if [[ $? -eq 0 ]]; then
+        echo ""
+        print_info "Now attempting to connect with fresh pairing..."
+        do_connect
+      fi
+      return $?
+    fi
+    echo ""
+    print_warn "To fix manually:"
+    echo "    1. On iPhone: Settings > Bluetooth > forget this device"
+    echo "    2. Re-run pair from the menu"
     return 1
   fi
 
