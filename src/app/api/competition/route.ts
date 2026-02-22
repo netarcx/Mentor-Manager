@@ -20,7 +20,7 @@ export async function GET() {
       return NextResponse.json({ enabled: false });
     }
 
-    const [event, matches, teamStatus, eventTeams, checklistItems, checklistState, branding, robotImageSetting] =
+    const [event, matches, teamStatus, eventTeams, checklistItems, checklistState, branding, robotImageSetting, batteries] =
       await Promise.all([
         fetchEvent(config.eventKey, config.tbaApiKey),
         fetchTeamMatches(config.teamKey, config.eventKey, config.tbaApiKey),
@@ -33,6 +33,11 @@ export async function GET() {
         prisma.setting.findUnique({ where: { key: "competition_checklist_state" } }),
         getBranding(),
         prisma.setting.findUnique({ where: { key: "competition_robot_image_source" } }),
+        prisma.battery.findMany({
+          where: { active: true },
+          orderBy: { sortOrder: "asc" },
+          include: { logs: { take: 1, orderBy: { createdAt: "desc" } } },
+        }),
       ]);
 
     const teamNames: Record<string, string> = {};
@@ -83,6 +88,13 @@ export async function GET() {
       teamKey: config.teamKey,
       pollInterval: config.pollInterval,
       robotImageSource: robotImageSetting?.value || "none",
+      batteries: batteries.map((b) => ({
+        id: b.id,
+        label: b.label,
+        currentStatus: b.logs[0]?.status || null,
+        statusSince: b.logs[0]?.createdAt || null,
+        matchKey: b.logs[0]?.matchKey || "",
+      })),
     });
   } catch (error) {
     console.error("Competition API error:", error);

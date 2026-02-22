@@ -9,6 +9,15 @@ interface ChecklistItem {
   sortOrder: number;
 }
 
+interface BatteryItem {
+  id: number;
+  label: string;
+  sortOrder: number;
+  active: boolean;
+  currentStatus: string | null;
+  statusSince: string | null;
+}
+
 export default function CompetitionPage() {
   // TBA config state
   const [enabled, setEnabled] = useState(false);
@@ -34,6 +43,12 @@ export default function CompetitionPage() {
   const [formText, setFormText] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Battery state
+  const [batteries, setBatteries] = useState<BatteryItem[]>([]);
+  const [batteryShowForm, setBatteryShowForm] = useState(false);
+  const [batteryEditingId, setBatteryEditingId] = useState<number | null>(null);
+  const [batteryFormLabel, setBatteryFormLabel] = useState("");
+
   async function fetchConfig() {
     const res = await fetch("/api/admin/settings/competition");
     const data = await res.json();
@@ -52,9 +67,16 @@ export default function CompetitionPage() {
     setLoading(false);
   }
 
+  async function fetchBatteries() {
+    const res = await fetch("/api/admin/competition/batteries");
+    const data = await res.json();
+    setBatteries(data.batteries || []);
+  }
+
   useEffect(() => {
     fetchConfig();
     fetchChecklist();
+    fetchBatteries();
   }, []);
 
   async function handleSaveConfig(e: React.FormEvent) {
@@ -204,6 +226,63 @@ export default function CompetitionPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderedIds: newItems.map((i) => i.id) }),
     });
+  }
+
+  // Battery CRUD
+  async function handleBatterySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!batteryFormLabel.trim()) return;
+
+    if (batteryEditingId) {
+      await fetch(`/api/admin/competition/batteries/${batteryEditingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: batteryFormLabel.trim() }),
+      });
+    } else {
+      await fetch("/api/admin/competition/batteries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: batteryFormLabel.trim() }),
+      });
+    }
+
+    setBatteryShowForm(false);
+    setBatteryEditingId(null);
+    setBatteryFormLabel("");
+    fetchBatteries();
+  }
+
+  async function toggleBatteryActive(battery: BatteryItem) {
+    await fetch(`/api/admin/competition/batteries/${battery.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !battery.active }),
+    });
+    fetchBatteries();
+  }
+
+  async function deleteBattery(id: number) {
+    if (!confirm("Delete this battery and all its logs?")) return;
+    await fetch(`/api/admin/competition/batteries/${id}`, { method: "DELETE" });
+    fetchBatteries();
+  }
+
+  function startBatteryEdit(battery: BatteryItem) {
+    setBatteryFormLabel(battery.label);
+    setBatteryEditingId(battery.id);
+    setBatteryShowForm(true);
+  }
+
+  function batteryStatusLabel(status: string | null): string {
+    if (!status) return "No status";
+    const labels: Record<string, string> = {
+      charging: "Charging",
+      in_robot_match: "In Robot (Match)",
+      in_robot_testing: "In Robot (Testing)",
+      idle: "Not in Use",
+    };
+    return labels[status] || status;
   }
 
   return (
@@ -542,6 +621,140 @@ export default function CompetitionPage() {
                     </button>
                     <button
                       onClick={() => deleteItem(item.id)}
+                      className="text-sm text-red-500 hover:underline"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Battery Tracking */}
+      <div className="flex items-center justify-between mb-4 mt-8">
+        <h2 className="text-lg font-semibold">Battery Tracking</h2>
+        <div className="flex gap-2">
+          {batteries.length > 0 && (
+            <a
+              href="/admin/dashboard/competition/batteries/print"
+              target="_blank"
+              className="bg-navy text-white px-4 py-2 rounded-lg hover:bg-navy-dark transition-colors text-sm"
+            >
+              Print QR Codes
+            </a>
+          )}
+          <button
+            onClick={() => {
+              setBatteryShowForm(true);
+              setBatteryEditingId(null);
+              setBatteryFormLabel("");
+            }}
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors text-sm"
+          >
+            Add Battery
+          </button>
+        </div>
+      </div>
+
+      {batteryShowForm && (
+        <form
+          onSubmit={handleBatterySubmit}
+          className="bg-white rounded-xl shadow border border-slate-100 p-6 mb-6 space-y-4"
+        >
+          <h3 className="font-semibold">
+            {batteryEditingId ? "Edit Battery" : "New Battery"}
+          </h3>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Battery Label
+            </label>
+            <input
+              type="text"
+              value={batteryFormLabel}
+              onChange={(e) => setBatteryFormLabel(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2"
+              placeholder='e.g. "Battery 1" or "Battery A"'
+              required
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors text-sm"
+            >
+              {batteryEditingId ? "Update" : "Create"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setBatteryShowForm(false);
+                setBatteryEditingId(null);
+              }}
+              className="text-slate-500 hover:text-slate-700 px-4 py-2 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {batteries.length === 0 ? (
+        <p className="text-slate-500 italic">
+          No batteries configured. Add one to start tracking!
+        </p>
+      ) : (
+        <div className="bg-white rounded-xl shadow border border-slate-100 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-4 py-3 text-left text-sm font-semibold">
+                  Label
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold w-40">
+                  Current Status
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold w-24">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-right text-sm font-semibold w-32">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {batteries.map((battery) => (
+                <tr
+                  key={battery.id}
+                  className="border-t border-slate-100 hover:bg-slate-50"
+                >
+                  <td className="px-4 py-3 font-medium">{battery.label}</td>
+                  <td className="px-4 py-3 text-sm text-slate-500">
+                    {batteryStatusLabel(battery.currentStatus)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => toggleBatteryActive(battery)}
+                      className={`text-xs font-semibold px-2 py-1 rounded ${
+                        battery.active
+                          ? "bg-green-100 text-green-700"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {battery.active ? "Active" : "Inactive"}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-right space-x-2">
+                    <button
+                      onClick={() => startBatteryEdit(battery)}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteBattery(battery.id)}
                       className="text-sm text-red-500 hover:underline"
                     >
                       Delete

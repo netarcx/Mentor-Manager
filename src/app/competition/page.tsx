@@ -63,6 +63,14 @@ interface Branding {
   logoPath: string;
 }
 
+interface BatteryInfo {
+  id: number;
+  label: string;
+  currentStatus: string | null;
+  statusSince: string | null;
+  matchKey: string;
+}
+
 interface CompetitionData {
   enabled: boolean;
   event: EventInfo | null;
@@ -77,6 +85,7 @@ interface CompetitionData {
   teamKey: string;
   pollInterval: number;
   robotImageSource: "none" | "tba" | "upload";
+  batteries: BatteryInfo[];
 }
 
 // --- Helpers ---
@@ -293,6 +302,66 @@ function ExpandedNextMatch({
   );
 }
 
+// --- Battery Helpers ---
+
+function batteryStatusColor(status: string | null): string {
+  if (!status) return "bg-slate-600";
+  const colors: Record<string, string> = {
+    charging: "bg-green-500",
+    in_robot_match: "bg-amber-500",
+    in_robot_testing: "bg-blue-500",
+    idle: "bg-slate-500",
+  };
+  return colors[status] || "bg-slate-600";
+}
+
+function batteryStatusBadgeClass(status: string | null): string {
+  if (!status) return "bg-slate-500/20 text-slate-400";
+  const classes: Record<string, string> = {
+    charging: "bg-green-500/20 text-green-400",
+    in_robot_match: "bg-amber-500/20 text-amber-400",
+    in_robot_testing: "bg-blue-500/20 text-blue-400",
+    idle: "bg-slate-500/20 text-slate-400",
+  };
+  return classes[status] || "bg-slate-500/20 text-slate-400";
+}
+
+function batteryStatusLabel(status: string | null): string {
+  if (!status) return "No status";
+  const labels: Record<string, string> = {
+    charging: "Charging",
+    in_robot_match: "In Robot (Match)",
+    in_robot_testing: "In Robot (Testing)",
+    idle: "Not in Use",
+  };
+  return labels[status] || status;
+}
+
+function BatteryTimeAgo({ since }: { since: string | null }) {
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    if (!since) {
+      setText("");
+      return;
+    }
+
+    function update() {
+      const diff = Math.floor((Date.now() - new Date(since!).getTime()) / 1000);
+      if (diff < 60) setText(`${diff}s`);
+      else if (diff < 3600) setText(`${Math.floor(diff / 60)}m`);
+      else setText(`${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`);
+    }
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [since]);
+
+  if (!text) return null;
+  return <span className="text-xs text-slate-500">{text}</span>;
+}
+
 // --- Main Page ---
 
 export default function CompetitionPage() {
@@ -402,6 +471,15 @@ export default function CompetitionPage() {
     if (!data?.matches || nextMatchIndex < 0) return null;
     return data.matches[nextMatchIndex];
   }, [data?.matches, nextMatchIndex]);
+
+  // Determine next battery to use (longest on charger)
+  const nextBattery = useMemo(() => {
+    if (!data?.batteries) return null;
+    const charging = data.batteries
+      .filter((b) => b.currentStatus === "charging" && b.statusSince)
+      .sort((a, b) => new Date(a.statusSince!).getTime() - new Date(b.statusSince!).getTime());
+    return charging[0] || null;
+  }, [data?.batteries]);
 
   // Checklist toggle
   async function handleToggleItem(itemId: number) {
@@ -622,76 +700,134 @@ export default function CompetitionPage() {
           )}
         </div>
 
-        {/* Right: Pre-Match Checklist */}
+        {/* Right: Checklist + Batteries */}
         <div className="flex-[2] flex flex-col min-h-0">
-          <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-              Pre-Match Checklist
-            </h2>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-              checkedCount === totalCount && totalCount > 0
-                ? "bg-emerald-500/20 text-emerald-400"
-                : "bg-slate-700 text-slate-400"
-            }`}>
-              {checkedCount}/{totalCount}
-            </span>
+          {/* Pre-Match Checklist */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                Pre-Match Checklist
+              </h2>
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                checkedCount === totalCount && totalCount > 0
+                  ? "bg-emerald-500/20 text-emerald-400"
+                  : "bg-slate-700 text-slate-400"
+              }`}>
+                {checkedCount}/{totalCount}
+              </span>
+            </div>
+
+            {checklistItems.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center px-6">
+                <p className="text-slate-500 text-sm">No checklist items configured</p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
+                {checklistItems.map((item) => {
+                  const checked = checkedIds.includes(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleToggleItem(item.id)}
+                      className={`w-full flex items-center gap-3 rounded-lg px-4 min-h-[3rem] transition-all text-left ${
+                        checked
+                          ? "bg-emerald-500/10 border border-emerald-500/30"
+                          : "bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800 hover:border-slate-600"
+                      }`}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-colors ${
+                          checked
+                            ? "bg-emerald-500 text-white"
+                            : "bg-slate-700 border border-slate-600"
+                        }`}
+                      >
+                        {checked && (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <span
+                        className={`text-sm font-medium ${
+                          checked ? "text-emerald-300 line-through opacity-70" : "text-slate-200"
+                        }`}
+                      >
+                        {item.text}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Reset button */}
+            {checklistItems.length > 0 && (
+              <div className="px-4 py-3 border-t border-slate-700/50 flex-shrink-0">
+                <button
+                  onClick={handleResetChecklist}
+                  disabled={checkedCount === 0}
+                  className="w-full py-2.5 text-sm font-medium rounded-lg transition-colors bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Reset All
+                </button>
+              </div>
+            )}
           </div>
 
-          {checklistItems.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center px-6">
-              <p className="text-slate-500 text-sm">No checklist items configured</p>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
-              {checklistItems.map((item) => {
-                const checked = checkedIds.includes(item.id);
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleToggleItem(item.id)}
-                    className={`w-full flex items-center gap-3 rounded-lg px-4 min-h-[3rem] transition-all text-left ${
-                      checked
-                        ? "bg-emerald-500/10 border border-emerald-500/30"
-                        : "bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800 hover:border-slate-600"
-                    }`}
-                  >
-                    {/* Checkbox */}
+          {/* Battery Panel */}
+          {data.batteries && data.batteries.length > 0 && (
+            <div className="flex-shrink-0 border-t border-slate-700/50 flex flex-col max-h-[40%]">
+              <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                  Batteries
+                </h2>
+                {nextBattery && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">
+                    Next: {nextBattery.label}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
+                {data.batteries.map((battery) => {
+                  const isNext = nextBattery?.id === battery.id;
+                  return (
                     <div
-                      className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-colors ${
-                        checked
-                          ? "bg-emerald-500 text-white"
-                          : "bg-slate-700 border border-slate-600"
+                      key={battery.id}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${
+                        isNext
+                          ? "bg-green-500/10 border border-green-500/30 ring-1 ring-green-500/20"
+                          : "bg-slate-800/50 border border-slate-700/30"
                       }`}
                     >
-                      {checked && (
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
+                      {/* Status dot */}
+                      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${batteryStatusColor(battery.currentStatus)}`} />
+
+                      {/* Label */}
+                      <span className={`text-sm font-medium flex-shrink-0 ${isNext ? "text-green-300" : "text-slate-200"}`}>
+                        {battery.label}
+                      </span>
+
+                      {/* Status badge */}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${batteryStatusBadgeClass(battery.currentStatus)}`}>
+                        {batteryStatusLabel(battery.currentStatus)}
+                      </span>
+
+                      {/* Time in status */}
+                      <div className="ml-auto flex-shrink-0">
+                        <BatteryTimeAgo since={battery.statusSince} />
+                      </div>
+
+                      {/* Next up indicator */}
+                      {isNext && (
+                        <span className="text-xs font-bold text-green-400 flex-shrink-0">
+                          NEXT
+                        </span>
                       )}
                     </div>
-                    <span
-                      className={`text-sm font-medium ${
-                        checked ? "text-emerald-300 line-through opacity-70" : "text-slate-200"
-                      }`}
-                    >
-                      {item.text}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Reset button */}
-          {checklistItems.length > 0 && (
-            <div className="px-4 py-3 border-t border-slate-700/50 flex-shrink-0">
-              <button
-                onClick={handleResetChecklist}
-                disabled={checkedCount === 0}
-                className="w-full py-2.5 text-sm font-medium rounded-lg transition-colors bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Reset All
-              </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

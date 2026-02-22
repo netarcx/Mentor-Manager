@@ -175,3 +175,28 @@ model ChecklistItem {
 
   @@map("checklist_items")
 }
+
+model Battery {
+  id        Int          @id @default(autoincrement())
+  label     String
+  sortOrder Int          @default(0) @map("sort_order")
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now()) @map("created_at")
+  logs      BatteryLog[]
+
+  @@map("batteries")
+}
+
+model BatteryLog {
+  id        Int      @id @default(autoincrement())
+  batteryId Int      @map("battery_id")
+  status    String // "charging" | "in_robot_match" | "in_robot_testing" | "idle"
+  matchKey  String   @default("") @map("match_key")
+  note      String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+  battery   Battery  @relation(fields: [batteryId], references: [id], onDelete: Cascade)
+
+  @@index([batteryId])
+  @@index([createdAt])
+  @@map("battery_logs")
+}
