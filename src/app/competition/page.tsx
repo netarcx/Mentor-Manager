@@ -465,6 +465,7 @@ export default function CompetitionPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [robotImageError, setRobotImageError] = useState(false);
   const [expandedMatchKey, setExpandedMatchKey] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<"pit" | "schedule">("pit");
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const pollIntervalRef = useRef(60);
 
@@ -702,10 +703,34 @@ export default function CompetitionPage() {
         </div>
       </div>
 
+      {/* Mobile tab bar */}
+      <div className="md:hidden flex-shrink-0 bg-slate-800/70 border-b border-slate-700/50 flex">
+        <button
+          onClick={() => setMobileTab("pit")}
+          className={`flex-1 py-2.5 text-xs font-semibold uppercase tracking-wider text-center transition-colors ${
+            mobileTab === "pit"
+              ? "text-emerald-400 border-b-2 border-emerald-400 bg-slate-800/50"
+              : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          Checklist & Batteries
+        </button>
+        <button
+          onClick={() => setMobileTab("schedule")}
+          className={`flex-1 py-2.5 text-xs font-semibold uppercase tracking-wider text-center transition-colors ${
+            mobileTab === "schedule"
+              ? "text-emerald-400 border-b-2 border-emerald-400 bg-slate-800/50"
+              : "text-slate-500 hover:text-slate-300"
+          }`}
+        >
+          Match Schedule
+        </button>
+      </div>
+
       {/* Main content */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Left: Match Schedule */}
-        <div className="flex-[3] flex flex-col min-h-0 border-r border-slate-700/50">
+        {/* Left: Match Schedule (hidden on mobile unless schedule tab active) */}
+        <div className={`flex-[3] flex-col min-h-0 border-r border-slate-700/50 md:flex ${mobileTab === "schedule" ? "flex" : "hidden"}`}>
           <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
               Match Schedule
@@ -850,8 +875,8 @@ export default function CompetitionPage() {
           )}
         </div>
 
-        {/* Right: Checklist + Batteries */}
-        <div className="flex-[2] flex flex-col min-h-0">
+        {/* Right: Checklist + Batteries (hidden on mobile unless pit tab active) */}
+        <div className={`flex-[2] flex-col min-h-0 md:flex ${mobileTab === "pit" ? "flex" : "hidden"}`}>
           {/* Pre-Match Checklist */}
           <div className="flex-1 flex flex-col min-h-0">
             <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
@@ -986,8 +1011,8 @@ export default function CompetitionPage() {
       {/* Status bar */}
       <StatusBar teamStatus={data.teamStatus} teamKey={teamKey} nextMatch={nextMatch} />
 
-      {/* Floating controls (bottom-right) */}
-      <div className="fixed bottom-14 right-4 flex items-center gap-1.5 z-50">
+      {/* Floating controls (bottom-right, hidden on mobile) */}
+      <div className="fixed bottom-14 right-4 hidden md:flex items-center gap-1.5 z-50">
         <button
           onClick={() => setZoom((z) => Math.max(40, z - 10))}
           className="w-8 h-8 rounded-md bg-slate-800/70 hover:bg-slate-700 text-slate-400 hover:text-white text-sm font-bold transition-colors backdrop-blur-sm border border-slate-700/50"
