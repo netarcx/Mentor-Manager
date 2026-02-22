@@ -91,14 +91,14 @@ export default function TemplatesPage() {
     setShowForm(true);
   }
 
-  async function generateShifts() {
+  async function generateShifts(weeks: number) {
     setGenerating(true);
     setGenResult("");
     try {
       const res = await fetch("/api/admin/shifts/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weeksAhead: 4 }),
+        body: JSON.stringify({ weeksAhead: weeks }),
       });
       const data = await res.json();
       setGenResult(`Generated ${data.generated} new shifts!`);
@@ -115,11 +115,18 @@ export default function TemplatesPage() {
         <h1 className="text-2xl font-bold">Shift Templates</h1>
         <div className="flex gap-3">
           <button
-            onClick={generateShifts}
+            onClick={() => generateShifts(1)}
             disabled={generating}
             className="bg-navy text-white px-4 py-2 rounded-lg hover:bg-navy-dark transition-colors disabled:opacity-50 text-sm"
           >
-            {generating ? "Generating..." : "Generate Shifts (4 weeks)"}
+            {generating ? "Generating..." : "Generate 1 Week"}
+          </button>
+          <button
+            onClick={() => generateShifts(4)}
+            disabled={generating}
+            className="bg-navy text-white px-4 py-2 rounded-lg hover:bg-navy-dark transition-colors disabled:opacity-50 text-sm"
+          >
+            {generating ? "Generating..." : "Generate 4 Weeks"}
           </button>
           <button
             onClick={() => {
