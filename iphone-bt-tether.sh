@@ -64,13 +64,21 @@ check_deps() {
   fi
 }
 
+# ─── Ensure bnep kernel module ──────────────────────────────────────
+ensure_bnep() {
+  if ! lsmod 2>/dev/null | grep -q '^bnep'; then
+    modprobe bnep 2>/dev/null || true
+  fi
+}
+
 # ─── Helpers ─────────────────────────────────────────────────────────
 get_bt_powered() {
   bluetoothctl show 2>/dev/null | grep -q "Powered: yes" && echo "on" || echo "off"
 }
 
 get_paired_iphones() {
-  bluetoothctl devices 2>/dev/null | grep -i iphone || true
+  bluetoothctl devices Paired 2>/dev/null | grep -i iphone || \
+    bluetoothctl devices 2>/dev/null | grep -i iphone || true
 }
 
 get_iphone_mac() {
@@ -83,7 +91,6 @@ get_iphone_name() {
 }
 
 mac_to_dbus_path() {
-  # Convert AA:BB:CC:DD:EE:FF -> /org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF
   local mac="$1"
   echo "/org/bluez/hci0/dev_${mac//:/_}"
 }
@@ -101,7 +108,7 @@ is_connected() {
   [[ -n "$(get_bnep_iface)" ]]
 }
 
-# Connect to NAP profile via D-Bus (replaces bt-network which segfaults)
+# Connect to NAP profile via D-Bus
 dbus_nap_connect() {
   local mac="$1"
   local dev_path
@@ -171,13 +178,96 @@ show_status() {
 }
 
 # ─── Actions ─────────────────────────────────────────────────────────
+
+# Interactive pairing using an embedded bluetoothctl session.
+# iPhones need proper agent handling for the passkey confirmation flow.
 do_pair() {
+  ensure_bnep
+
   print_info "Enabling Bluetooth adapter..."
   bluetoothctl power on >/dev/null 2>&1 || true
-  bluetoothctl agent on >/dev/null 2>&1 || true
-  bluetoothctl default-agent >/dev/null 2>&1 || true
   print_ok "Adapter is on"
 
+  # Make Ubuntu discoverable so iPhone can also initiate pairing
+  bluetoothctl discoverable on >/dev/null 2>&1 || true
+  bluetoothctl pairable on >/dev/null 2>&1 || true
+
+  echo ""
+  draw_line
+  echo ""
+  printf "  ${WHITE}How do you want to pair?${RESET}\n"
+  echo ""
+  printf "  ${WHITE}1${RESET} ${DIM})${RESET} Pair from Ubuntu ${DIM}(scan for iPhone)${RESET}\n"
+  printf "  ${WHITE}2${RESET} ${DIM})${RESET} Pair from iPhone ${DIM}(recommended for iOS)${RESET}\n"
+  echo ""
+  printf "  ${CYAN}>${RESET} "
+  read -rsn1 pair_mode
+  echo ""
+  echo ""
+
+  if [[ "$pair_mode" == "2" ]]; then
+    _pair_from_iphone
+  else
+    _pair_from_ubuntu
+  fi
+
+  # Turn off discoverable after pairing
+  bluetoothctl discoverable off >/dev/null 2>&1 || true
+}
+
+# iPhone-initiated pairing: Ubuntu stays discoverable and waits
+_pair_from_iphone() {
+  # Get the Ubuntu adapter name so user knows what to look for
+  local adapter_name
+  adapter_name=$(bluetoothctl show 2>/dev/null | grep "Name:" | sed 's/.*Name: //' || echo "this computer")
+
+  echo ""
+  print_info "Ubuntu is now discoverable as: ${WHITE}${adapter_name}${RESET}"
+  echo ""
+  print_warn "On your iPhone:"
+  echo "    1. Go to Settings > Bluetooth"
+  echo "    2. Look for \"$adapter_name\" under Other Devices"
+  echo "    3. Tap it to pair"
+  echo ""
+  print_info "Waiting for iPhone to initiate pairing..."
+  print_info "An interactive bluetoothctl session will open to handle the pairing."
+  echo ""
+  print_warn "When you see a passkey confirmation, type 'yes' and press Enter."
+  echo ""
+  printf "  ${DIM}Press any key to open bluetoothctl...${RESET}"
+  read -rsn1
+  echo ""
+  echo ""
+
+  draw_line
+  printf "  ${YELLOW}>>> bluetoothctl interactive session <<<${RESET}\n"
+  printf "  ${DIM}Type 'yes' when asked to confirm passkey, then 'quit' when done.${RESET}\n"
+  draw_line
+  echo ""
+
+  # Run interactive bluetoothctl so user can handle the passkey prompt
+  bluetoothctl || true
+
+  echo ""
+  draw_line
+
+  # Trust the device after pairing
+  local mac
+  mac=$(get_iphone_mac)
+  if [[ -n "$mac" ]]; then
+    bluetoothctl trust "$mac" >/dev/null 2>&1 || true
+    local name
+    name=$(get_iphone_name "$mac")
+    print_ok "Paired and trusted: $name ($mac)"
+  else
+    print_err "No iPhone found after pairing session."
+    print_info "Make sure you completed the pairing on both devices."
+    return 1
+  fi
+}
+
+# Ubuntu-initiated pairing: scan, find iPhone, pair
+_pair_from_ubuntu() {
   echo ""
   print_warn "Open iPhone Settings > Bluetooth NOW"
   print_info "Scanning for 30 seconds..."
@@ -186,7 +276,6 @@ do_pair() {
   bluetoothctl --timeout 30 scan on >/dev/null 2>&1 &disown
   local scan_pid=$!
 
-  # Show a progress indicator
   for i in $(seq 30 -1 1); do
     printf "\r  ${DIM}Scanning... %2ds remaining${RESET}" "$i"
     sleep 1
@@ -194,27 +283,64 @@ do_pair() {
   printf "\r  ${DIM}%-40s${RESET}\n" "Scan complete."
   kill "$scan_pid" 2>/dev/null || true
 
+  # Check for any iPhone (paired or newly discovered)
   local mac
-  mac=$(get_iphone_mac)
+  mac=$(bluetoothctl devices 2>/dev/null | grep -i iphone | head -1 | awk '{print $2}')
   if [[ -z "$mac" ]]; then
     print_err "No iPhone found during scan."
     return 1
   fi
 
   local name
-  name=$(get_iphone_name "$mac")
+  name=$(bluetoothctl devices 2>/dev/null | grep "$mac" | sed 's/^Device [^ ]* //')
   print_ok "Found: $name ($mac)"
 
   echo ""
-  print_info "Pairing... Accept the prompt on BOTH devices."
-  bluetoothctl pair "$mac" 2>&1 | sed 's/^/    /' || true
-  bluetoothctl trust "$mac" >/dev/null 2>&1 || true
-  print_ok "Paired and trusted!"
+  print_info "Starting interactive pairing session..."
+  print_warn "When you see a passkey, CONFIRM on BOTH devices."
+  echo ""
+  printf "  ${DIM}Press any key to open bluetoothctl...${RESET}"
+  read -rsn1
+  echo ""
+  echo ""
+
+  draw_line
+  printf "  ${YELLOW}>>> bluetoothctl interactive session <<<${RESET}\n"
+  printf "  ${DIM}Commands to run inside:${RESET}\n"
+  printf "  ${WHITE}  pair $mac${RESET}\n"
+  printf "  ${DIM}  (confirm passkey with 'yes')${RESET}\n"
+  printf "  ${WHITE}  trust $mac${RESET}\n"
+  printf "  ${WHITE}  quit${RESET}\n"
+  draw_line
+  echo ""
+
+  # Run interactive bluetoothctl
+  bluetoothctl || true
+
+  echo ""
+  draw_line
+
+  # Verify pairing succeeded
+  local paired_mac
+  paired_mac=$(get_iphone_mac)
+  if [[ -n "$paired_mac" ]]; then
+    bluetoothctl trust "$paired_mac" >/dev/null 2>&1 || true
+    local pname
+    pname=$(get_iphone_name "$paired_mac")
+    print_ok "Paired and trusted: $pname ($paired_mac)"
+  else
+    print_err "Pairing may not have completed."
+    print_info "Try option 2 (Pair from iPhone) instead."
+    return 1
+  fi
 }
 
 # Inner connect logic. Pass skip_repair=1 to suppress the re-pair prompt.
 _do_connect_inner() {
   local skip_repair="${1:-0}"
+
+  ensure_bnep
+
   local mac
   mac=$(get_iphone_mac)
   if [[ -z "$mac" ]]; then
@@ -231,7 +357,16 @@ _do_connect_inner() {
 
   # Wait for BT connection to settle
   print_info "Waiting for Bluetooth link to settle..."
-  sleep 4
+  sleep 5
+
+  # Verify the BT connection is actually up
+  local bt_connected
+  bt_connected=$(bluetoothctl info "$mac" 2>/dev/null | grep "Connected: yes" || true)
+  if [[ -z "$bt_connected" ]]; then
+    print_warn "Bluetooth not connected yet, retrying..."
+    bluetoothctl connect "$mac" >/dev/null 2>&1 || true
+    sleep 3
+  fi
 
   # Try NAP connection up to 3 times (iPhone can be slow to expose NAP)
   local nap_attempt=0
@@ -251,6 +386,8 @@ _do_connect_inner() {
 
     if (( nap_attempt < 3 )); then
       print_warn "No interface yet, retrying in 3s..."
+      # Re-poke the BT connection before retrying NAP
+      bluetoothctl connect "$mac" >/dev/null 2>&1 || true
       sleep 3
     fi
   done
@@ -286,7 +423,7 @@ _do_connect_inner() {
       echo ""
       print_info "Now attempting to connect with fresh pairing..."
       sleep 2
-      _do_connect_inner 1  # skip_repair=1 to prevent infinite loop
+      _do_connect_inner 1
       return $?
     fi
     echo ""
@@ -425,6 +562,7 @@ run_tui() {
 
 # ─── Main ───────────────────────────────────────────────────────────
 check_deps
+ensure_bnep
 
 case "${1:-}" in
   pair)       do_pair ;;
