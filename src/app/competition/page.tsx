@@ -269,7 +269,7 @@ export default function CompetitionPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("tv") === "1") {
-      setZoom(70);
+      setZoom(100);
       document.documentElement.requestFullscreen().catch(() => {});
       window.history.replaceState({}, "", "/competition");
     }
