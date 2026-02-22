@@ -146,9 +146,9 @@ show_status() {
 # ─── Actions ─────────────────────────────────────────────────────────
 do_pair() {
   print_info "Enabling Bluetooth adapter..."
-  bluetoothctl power on >/dev/null 2>&1
-  bluetoothctl agent on >/dev/null 2>&1
-  bluetoothctl default-agent >/dev/null 2>&1
+  bluetoothctl power on >/dev/null 2>&1 || true
+  bluetoothctl agent on >/dev/null 2>&1 || true
+  bluetoothctl default-agent >/dev/null 2>&1 || true
   print_ok "Adapter is on"
 
   echo ""
@@ -156,7 +156,7 @@ do_pair() {
   print_info "Scanning for 30 seconds..."
   echo ""
 
-  bluetoothctl --timeout 30 scan on >/dev/null 2>&1 &
+  bluetoothctl --timeout 30 scan on >/dev/null 2>&1 &disown
   local scan_pid=$!
 
   # Show a progress indicator
@@ -180,8 +180,8 @@ do_pair() {
 
   echo ""
   print_info "Pairing... Accept the prompt on BOTH devices."
-  bluetoothctl pair "$mac" 2>&1 | sed 's/^/    /'
-  bluetoothctl trust "$mac" >/dev/null 2>&1
+  bluetoothctl pair "$mac" 2>&1 | sed 's/^/    /' || true
+  bluetoothctl trust "$mac" >/dev/null 2>&1 || true
   print_ok "Paired and trusted!"
 }
 
@@ -197,7 +197,7 @@ do_connect() {
   name=$(get_iphone_name "$mac")
   print_info "Connecting to $name..."
 
-  bluetoothctl power on >/dev/null 2>&1
+  bluetoothctl power on >/dev/null 2>&1 || true
   bluetoothctl connect "$mac" >/dev/null 2>&1 || true
   sleep 2
 
@@ -272,7 +272,7 @@ do_forget() {
   echo ""
   if [[ "$confirm" =~ ^[Yy]$ ]]; then
     do_disconnect 2>/dev/null
-    bluetoothctl remove "$mac" >/dev/null 2>&1
+    bluetoothctl remove "$mac" >/dev/null 2>&1 || true
     print_ok "Removed $name"
   else
     print_info "Cancelled."
