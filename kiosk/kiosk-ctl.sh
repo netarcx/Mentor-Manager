@@ -29,8 +29,13 @@ case "$CMD" in
 
   refresh)
     # Send F5 to Chromium to reload the page
+    if ! command -v xdotool &>/dev/null; then
+      echo "Install xdotool: sudo apt install xdotool"
+      exit 1
+    fi
     export DISPLAY=:0
-    xdotool key F5 2>/dev/null && echo "Page refreshed" || echo "Install xdotool: sudo apt install xdotool"
+    export XAUTHORITY=/home/kiosk/.Xauthority
+    xdotool key F5 && echo "Page refreshed" || echo "xdotool failed — check DISPLAY and XAUTHORITY"
     ;;
 
   screenshot)
