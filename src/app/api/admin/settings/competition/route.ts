@@ -18,6 +18,7 @@ export async function GET() {
             "competition_team_key",
             "competition_event_key",
             "competition_poll_interval",
+            "competition_robot_image_source",
           ],
         },
       },
@@ -39,6 +40,7 @@ export async function GET() {
       eventKey: map.get("competition_event_key") || "",
       pollInterval: parseInt(map.get("competition_poll_interval") || "60", 10),
       hasApiKey: !!apiKey,
+      robotImageSource: map.get("competition_robot_image_source") || "none",
     });
   } catch (error) {
     console.error(error);

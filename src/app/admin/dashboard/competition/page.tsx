@@ -17,6 +17,8 @@ export default function CompetitionPage() {
   const [eventKey, setEventKey] = useState("");
   const [pollInterval, setPollInterval] = useState(60);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [robotImageSource, setRobotImageSource] = useState<"none" | "tba" | "upload">("none");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveLabel, setSaveLabel] = useState("Save");
   const [testResult, setTestResult] = useState<{
@@ -40,6 +42,7 @@ export default function CompetitionPage() {
     setEventKey(data.eventKey ?? "");
     setPollInterval(data.pollInterval ?? 60);
     setHasApiKey(data.hasApiKey ?? false);
+    setRobotImageSource(data.robotImageSource ?? "none");
   }
 
   async function fetchChecklist() {
@@ -152,6 +155,37 @@ export default function CompetitionPage() {
     setFormText(item.text);
     setEditingId(item.id);
     setShowForm(true);
+  }
+
+  async function handleRobotImageSourceChange(source: "none" | "tba" | "upload") {
+    if (source === "upload") return; // handled by file upload
+    setRobotImageSource(source);
+    await fetch("/api/admin/settings/robot-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source }),
+    });
+  }
+
+  async function handleRobotImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    const formData = new FormData();
+    formData.append("image", file);
+    await fetch("/api/admin/settings/robot-image", {
+      method: "POST",
+      body: formData,
+    });
+    setRobotImageSource("upload");
+    setUploadingImage(false);
+    // Reset input so same file can be re-selected
+    e.target.value = "";
+  }
+
+  async function handleRemoveRobotImage() {
+    await fetch("/api/admin/settings/robot-image", { method: "DELETE" });
+    setRobotImageSource("none");
   }
 
   async function moveItem(index: number, direction: "up" | "down") {
@@ -282,6 +316,101 @@ export default function CompetitionPage() {
           </button>
         </div>
       </form>
+
+      {/* Robot Image */}
+      <div className="bg-white rounded-xl shadow border border-slate-100 p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4">Robot Image</h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Show a robot photo in the top-right of the competition dashboard header.
+        </p>
+
+        <div className="space-y-3 mb-4">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="robotImageSource"
+              checked={robotImageSource === "none"}
+              onChange={() => handleRobotImageSourceChange("none")}
+              className="accent-primary"
+            />
+            <span className="text-sm font-medium">None</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="robotImageSource"
+              checked={robotImageSource === "tba"}
+              onChange={() => handleRobotImageSourceChange("tba")}
+              className="accent-primary"
+            />
+            <span className="text-sm font-medium">From The Blue Alliance</span>
+          </label>
+          {robotImageSource === "tba" && (
+            <p className="text-xs text-slate-500 ml-7">
+              Uses the team media from TBA for the current year. Requires valid TBA config above.
+            </p>
+          )}
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="robotImageSource"
+              checked={robotImageSource === "upload"}
+              onChange={() => {
+                // Trigger file picker
+                document.getElementById("robot-image-upload")?.click();
+              }}
+              className="accent-primary"
+            />
+            <span className="text-sm font-medium">Custom Upload</span>
+          </label>
+        </div>
+
+        {/* Upload input (hidden) */}
+        <input
+          id="robot-image-upload"
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp"
+          onChange={handleRobotImageUpload}
+          className="hidden"
+        />
+
+        {/* Upload button when custom is selected */}
+        {robotImageSource === "upload" && (
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              type="button"
+              onClick={() => document.getElementById("robot-image-upload")?.click()}
+              disabled={uploadingImage}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+            >
+              {uploadingImage ? "Uploading..." : "Replace Image"}
+            </button>
+            <button
+              type="button"
+              onClick={handleRemoveRobotImage}
+              className="text-red-500 hover:text-red-700 text-sm"
+            >
+              Remove
+            </button>
+          </div>
+        )}
+
+        {/* Preview */}
+        {robotImageSource !== "none" && (
+          <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 inline-block">
+            <p className="text-xs text-slate-500 mb-2">Preview</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/robot-image?t=${Date.now()}`}
+              alt="Robot"
+              className="h-20 w-20 object-cover rounded-lg bg-slate-200"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Pre-Match Checklist */}
       <div className="flex items-center justify-between mb-4">

@@ -75,6 +75,7 @@ interface CompetitionData {
   branding: Branding;
   teamKey: string;
   pollInterval: number;
+  robotImageSource: "none" | "tba" | "upload";
 }
 
 // --- Helpers ---
@@ -236,6 +237,7 @@ export default function CompetitionPage() {
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [robotImageError, setRobotImageError] = useState(false);
   const nextMatchRef = useRef<HTMLDivElement | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const pollIntervalRef = useRef(60);
@@ -275,20 +277,23 @@ export default function CompetitionPage() {
     }
   }, []);
 
-  // Fullscreen state tracking
+  // Hide nav on mount (competition page always hides it)
   useEffect(() => {
-    function handleChange() {
-      const fs = !!document.fullscreenElement;
-      setIsFullscreen(fs);
-      const nav = document.getElementById("main-nav");
-      if (nav) nav.style.display = fs ? "none" : "";
-    }
-    document.addEventListener("fullscreenchange", handleChange);
+    const nav = document.getElementById("main-nav");
+    if (nav) nav.style.display = "none";
     return () => {
-      document.removeEventListener("fullscreenchange", handleChange);
       const nav = document.getElementById("main-nav");
       if (nav) nav.style.display = "";
     };
+  }, []);
+
+  // Fullscreen state tracking
+  useEffect(() => {
+    function handleChange() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+    document.addEventListener("fullscreenchange", handleChange);
+    return () => document.removeEventListener("fullscreenchange", handleChange);
   }, []);
 
   // Wake lock
@@ -431,6 +436,14 @@ export default function CompetitionPage() {
           </div>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
+          {data.robotImageSource !== "none" && !robotImageError && (
+            <img
+              src="/api/robot-image"
+              alt="Robot"
+              className="h-12 w-12 rounded-lg object-cover bg-slate-700 flex-shrink-0"
+              onError={() => setRobotImageError(true)}
+            />
+          )}
           <div className="text-right">
             <div className="text-2xl font-bold tracking-tight text-emerald-400">
               {teamNumber}

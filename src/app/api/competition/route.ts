@@ -19,7 +19,7 @@ export async function GET() {
       return NextResponse.json({ enabled: false });
     }
 
-    const [event, matches, teamStatus, checklistItems, checklistState, branding] =
+    const [event, matches, teamStatus, checklistItems, checklistState, branding, robotImageSetting] =
       await Promise.all([
         fetchEvent(config.eventKey, config.tbaApiKey),
         fetchTeamMatches(config.teamKey, config.eventKey, config.tbaApiKey),
@@ -30,6 +30,7 @@ export async function GET() {
         }),
         prisma.setting.findUnique({ where: { key: "competition_checklist_state" } }),
         getBranding(),
+        prisma.setting.findUnique({ where: { key: "competition_robot_image_source" } }),
       ]);
 
     let checkedIds: number[] = [];
@@ -73,6 +74,7 @@ export async function GET() {
       },
       teamKey: config.teamKey,
       pollInterval: config.pollInterval,
+      robotImageSource: robotImageSetting?.value || "none",
     });
   } catch (error) {
     console.error("Competition API error:", error);

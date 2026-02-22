@@ -37,6 +37,13 @@ export interface TBAMatch {
   winning_alliance: string;
 }
 
+export interface TBAMedia {
+  type: string;
+  foreign_key: string;
+  direct_url?: string;
+  view_url?: string;
+}
+
 export interface TBATeamStatus {
   qual?: {
     ranking?: {
@@ -158,6 +165,41 @@ export async function fetchTeamStatus(
     `/team/${teamKey}/event/${eventKey}/status`,
     apiKey
   );
+}
+
+// ── Team media ──────────────────────────────────────────────────────
+
+export async function fetchTeamMedia(
+  teamKey: string,
+  year: number,
+  apiKey: string
+): Promise<TBAMedia[]> {
+  return (
+    (await tbaFetch<TBAMedia[]>(
+      `/team/${teamKey}/media/${year}`,
+      apiKey
+    )) || []
+  );
+}
+
+export function getBestRobotImageUrl(media: TBAMedia[]): string | null {
+  // Prefer direct image types: imgur, cdphotothread, etc.
+  const imageTypes = ["imgur", "cdphotothread", "instagram-image", "external-link"];
+  for (const type of imageTypes) {
+    const item = media.find((m) => m.type === type);
+    if (item) {
+      if (item.direct_url) return item.direct_url;
+      // Construct URL from foreign_key for known types
+      if (item.type === "imgur") return `https://i.imgur.com/${item.foreign_key}.jpg`;
+      if (item.type === "cdphotothread")
+        return `https://www.chiefdelphi.com/media/img/${item.foreign_key}`;
+    }
+  }
+  // Fall back to avatar
+  const avatar = media.find((m) => m.type === "avatar");
+  if (avatar?.direct_url) return avatar.direct_url;
+
+  return null;
 }
 
 // ── Match sorting ───────────────────────────────────────────────────
