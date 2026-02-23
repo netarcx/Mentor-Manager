@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 export async function GET() {
   if (!(await isAdminAuthenticated())) {
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    revalidatePath("/", "layout");
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(error);

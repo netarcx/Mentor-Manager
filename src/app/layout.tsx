@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { getBranding } from "@/lib/branding";
 import { getCompetitionConfig } from "@/lib/tba";
+import { prisma } from "@/lib/db";
 import NavBrand from "@/components/NavBrand";
 import NavDashboardLink from "@/components/NavDashboardLink";
 import "./globals.css";
@@ -29,10 +30,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [branding, competitionConfig] = await Promise.all([
+  const [branding, competitionConfig, studentsEnabledSetting] = await Promise.all([
     getBranding(),
     getCompetitionConfig(),
+    prisma.setting.findUnique({ where: { key: "student_attendance_enabled" } }),
   ]);
+
+  const studentsEnabled = studentsEnabledSetting?.value === "true";
 
   const cssOverrides = `:root {
   --primary: ${branding.colorPrimary};
@@ -65,12 +69,14 @@ export default async function RootLayout({
                   Sign Up
                 </Link>
                 <NavDashboardLink className="font-semibold hover:text-primary-light transition-colors" />
-                <Link
-                  href="/student"
-                  className="font-semibold hover:text-primary-light transition-colors"
-                >
-                  Students
-                </Link>
+                {studentsEnabled && (
+                  <Link
+                    href="/student"
+                    className="font-semibold hover:text-primary-light transition-colors"
+                  >
+                    Students
+                  </Link>
+                )}
                 {competitionConfig.enabled && (
                   <Link
                     href="/competition"
