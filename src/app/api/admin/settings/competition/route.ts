@@ -19,6 +19,8 @@ export async function GET() {
             "competition_event_key",
             "competition_poll_interval",
             "competition_robot_image_source",
+            "competition_pit_timer_enabled",
+            "competition_example_mode",
           ],
         },
       },
@@ -41,6 +43,8 @@ export async function GET() {
       pollInterval: parseInt(map.get("competition_poll_interval") || "60", 10),
       hasApiKey: !!apiKey,
       robotImageSource: map.get("competition_robot_image_source") || "none",
+      pitTimerEnabled: map.get("competition_pit_timer_enabled") === "true",
+      exampleMode: map.get("competition_example_mode") === "true",
     });
   } catch (error) {
     console.error(error);
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { enabled, tbaApiKey, teamKey, eventKey, pollInterval } = await request.json();
+    const { enabled, tbaApiKey, teamKey, eventKey, pollInterval, pitTimerEnabled, exampleMode } = await request.json();
 
     const updates: { key: string; value: string }[] = [];
 
@@ -75,6 +79,12 @@ export async function POST(request: NextRequest) {
     if (pollInterval !== undefined) {
       const interval = Math.max(15, Math.min(300, parseInt(pollInterval, 10) || 60));
       updates.push({ key: "competition_poll_interval", value: String(interval) });
+    }
+    if (pitTimerEnabled !== undefined) {
+      updates.push({ key: "competition_pit_timer_enabled", value: pitTimerEnabled ? "true" : "false" });
+    }
+    if (exampleMode !== undefined) {
+      updates.push({ key: "competition_example_mode", value: exampleMode ? "true" : "false" });
     }
 
     if (updates.length > 0) {

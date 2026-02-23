@@ -103,6 +103,7 @@ interface CompetitionData {
   pollInterval: number;
   robotImageSource: "none" | "tba" | "upload";
   batteries: BatteryInfo[];
+  pitTimerEnabled: boolean;
 }
 
 // --- Helpers ---
@@ -681,6 +682,314 @@ function BatteryTimeAgo({ since }: { since: string | null }) {
   return <span className="text-xs text-slate-500">{text}</span>;
 }
 
+// --- Pit Timer (LiveSplit-style Stopwatch) ---
+
+function PitTimer() {
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0); // in ms
+  const [splits, setSplits] = useState<number[]>([]);
+  const startTimeRef = useRef<number>(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (running) {
+      startTimeRef.current = Date.now() - elapsed;
+      intervalRef.current = setInterval(() => {
+        setElapsed(Date.now() - startTimeRef.current);
+      }, 10);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [running]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleStartStop() {
+    setRunning((r) => !r);
+  }
+
+  function handleReset() {
+    setRunning(false);
+    setElapsed(0);
+    setSplits([]);
+  }
+
+  function handleSplit() {
+    if (running && startTimeRef.current) {
+      setSplits((prev) => [...prev, Date.now() - startTimeRef.current]);
+    }
+  }
+
+  function formatTime(ms: number): string {
+    const totalCs = Math.floor(ms / 10);
+    const cs = totalCs % 100;
+    const totalSec = Math.floor(totalCs / 100);
+    const sec = totalSec % 60;
+    const min = Math.floor(totalSec / 60);
+    return `${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`;
+  }
+
+  return (
+    <div className="flex-shrink-0 border-t border-slate-700/50">
+      <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+          Pit Timer
+        </h2>
+      </div>
+      <div className="px-4 py-3">
+        {/* Time display */}
+        <div className="text-center mb-3">
+          <span className="font-mono text-4xl font-bold tabular-nums text-white tracking-tight">
+            {formatTime(elapsed)}
+          </span>
+        </div>
+
+        {/* Controls */}
+        <div className="flex gap-2 mb-2">
+          <button
+            onClick={handleStartStop}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${
+              running
+                ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
+                : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
+            }`}
+          >
+            {running ? "Stop" : "Start"}
+          </button>
+          <button
+            onClick={handleSplit}
+            disabled={!running}
+            className="flex-1 py-2 text-sm font-bold rounded-lg transition-colors bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Split
+          </button>
+          <button
+            onClick={handleReset}
+            disabled={elapsed === 0}
+            className="flex-1 py-2 text-sm font-bold rounded-lg transition-colors bg-slate-700/50 text-slate-400 border border-slate-600/50 hover:bg-slate-700 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Reset
+          </button>
+        </div>
+
+        {/* Splits list */}
+        {splits.length > 0 && (
+          <div className="max-h-28 overflow-y-auto space-y-0.5 rounded-lg bg-slate-800/60 border border-slate-700/40 px-3 py-2">
+            {splits.map((splitTime, i) => {
+              const delta = i > 0 ? splitTime - splits[i - 1] : splitTime;
+              return (
+                <div key={i} className="flex items-center justify-between text-xs font-mono tabular-nums">
+                  <span className="text-slate-500">#{i + 1}</span>
+                  <span className="text-slate-300">{formatTime(splitTime)}</span>
+                  <span className="text-slate-500">+{formatTime(delta)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Example Mode Data ---
+
+function generateExampleData(): CompetitionData {
+  const now = Math.floor(Date.now() / 1000);
+  const teamKey = "frc2129";
+
+  const teamNames: Record<string, string> = {
+    frc2129: "Ultra Violet",
+    frc254: "The Cheesy Poofs",
+    frc1678: "Citrus Circuits",
+    frc118: "Robonauts",
+    frc2056: "OP Robotics",
+    frc1114: "Simbotics",
+    frc148: "Robowranglers",
+    frc3310: "Black Hawks",
+    frc987: "HIGHROLLERS",
+    frc6800: "Valor",
+    frc4499: "The Highlanders",
+    frc5172: "Gator Robotics",
+    frc330: "Beach Bots",
+    frc2468: "Team Appreciate",
+    frc624: "CRyptonite",
+  };
+
+  const teamRankings: Record<string, TeamRanking> = {
+    frc2129: { rank: 4, record: { wins: 5, losses: 1, ties: 0 } },
+    frc254: { rank: 1, record: { wins: 6, losses: 0, ties: 0 } },
+    frc1678: { rank: 3, record: { wins: 5, losses: 1, ties: 0 } },
+    frc118: { rank: 7, record: { wins: 4, losses: 2, ties: 0 } },
+    frc2056: { rank: 2, record: { wins: 5, losses: 0, ties: 1 } },
+    frc1114: { rank: 5, record: { wins: 4, losses: 1, ties: 1 } },
+    frc148: { rank: 8, record: { wins: 4, losses: 2, ties: 0 } },
+    frc3310: { rank: 6, record: { wins: 4, losses: 2, ties: 0 } },
+    frc987: { rank: 9, record: { wins: 3, losses: 3, ties: 0 } },
+    frc6800: { rank: 12, record: { wins: 2, losses: 4, ties: 0 } },
+    frc4499: { rank: 10, record: { wins: 3, losses: 3, ties: 0 } },
+    frc5172: { rank: 11, record: { wins: 3, losses: 3, ties: 0 } },
+    frc330: { rank: 14, record: { wins: 2, losses: 4, ties: 0 } },
+    frc2468: { rank: 13, record: { wins: 2, losses: 4, ties: 0 } },
+    frc624: { rank: 15, record: { wins: 1, losses: 5, ties: 0 } },
+  };
+
+  const matches: Match[] = [
+    {
+      key: "2024wila_qm1", comp_level: "qm", set_number: 1, match_number: 1,
+      alliances: {
+        red: { team_keys: ["frc2129", "frc254", "frc987"], score: 45 },
+        blue: { team_keys: ["frc118", "frc6800", "frc624"], score: 38 },
+      },
+      predicted_time: now - 7200, time: now - 7200, actual_time: now - 7200, post_result_time: now - 7180,
+      winning_alliance: "red",
+    },
+    {
+      key: "2024wila_qm2", comp_level: "qm", set_number: 1, match_number: 2,
+      alliances: {
+        red: { team_keys: ["frc148", "frc330", "frc5172"], score: 32 },
+        blue: { team_keys: ["frc2129", "frc1678", "frc2468"], score: 41 },
+      },
+      predicted_time: now - 6000, time: now - 6000, actual_time: now - 6000, post_result_time: now - 5980,
+      winning_alliance: "blue",
+    },
+    {
+      key: "2024wila_qm3", comp_level: "qm", set_number: 1, match_number: 3,
+      alliances: {
+        red: { team_keys: ["frc2129", "frc1114", "frc4499"], score: 35 },
+        blue: { team_keys: ["frc2056", "frc3310", "frc624"], score: 42 },
+      },
+      predicted_time: now - 4800, time: now - 4800, actual_time: now - 4800, post_result_time: now - 4780,
+      winning_alliance: "blue",
+    },
+    {
+      key: "2024wila_qm4", comp_level: "qm", set_number: 1, match_number: 4,
+      alliances: {
+        red: { team_keys: ["frc6800", "frc330", "frc987"], score: 28 },
+        blue: { team_keys: ["frc2129", "frc2056", "frc148"], score: 35 },
+      },
+      predicted_time: now - 3600, time: now - 3600, actual_time: now - 3600, post_result_time: now - 3580,
+      winning_alliance: "blue",
+    },
+    {
+      key: "2024wila_qm5", comp_level: "qm", set_number: 1, match_number: 5,
+      alliances: {
+        red: { team_keys: ["frc2129", "frc3310", "frc5172"], score: 42 },
+        blue: { team_keys: ["frc1114", "frc4499", "frc2468"], score: 33 },
+      },
+      predicted_time: now - 2400, time: now - 2400, actual_time: now - 2400, post_result_time: now - 2380,
+      winning_alliance: "red",
+    },
+    {
+      key: "2024wila_qm6", comp_level: "qm", set_number: 1, match_number: 6,
+      alliances: {
+        red: { team_keys: ["frc254", "frc624", "frc6800"], score: 36 },
+        blue: { team_keys: ["frc2129", "frc118", "frc1678"], score: 44 },
+      },
+      predicted_time: now - 1200, time: now - 1200, actual_time: now - 1200, post_result_time: now - 1180,
+      winning_alliance: "blue",
+    },
+    {
+      key: "2024wila_qm7", comp_level: "qm", set_number: 1, match_number: 7,
+      alliances: {
+        red: { team_keys: ["frc1678", "frc148", "frc987"], score: -1 },
+        blue: { team_keys: ["frc2129", "frc254", "frc3310"], score: -1 },
+      },
+      predicted_time: now + 900, time: now + 900, actual_time: null, post_result_time: null,
+      winning_alliance: null,
+    },
+    {
+      key: "2024wila_qm8", comp_level: "qm", set_number: 1, match_number: 8,
+      alliances: {
+        red: { team_keys: ["frc2129", "frc1114", "frc624"], score: -1 },
+        blue: { team_keys: ["frc2056", "frc5172", "frc330"], score: -1 },
+      },
+      predicted_time: now + 2700, time: now + 2700, actual_time: null, post_result_time: null,
+      winning_alliance: null,
+    },
+    {
+      key: "2024wila_qm9", comp_level: "qm", set_number: 1, match_number: 9,
+      alliances: {
+        red: { team_keys: ["frc4499", "frc118", "frc2468"], score: -1 },
+        blue: { team_keys: ["frc2129", "frc6800", "frc148"], score: -1 },
+      },
+      predicted_time: now + 4500, time: now + 4500, actual_time: null, post_result_time: null,
+      winning_alliance: null,
+    },
+  ];
+
+  const teamEntries = [
+    { number: 118, name: "Robonauts", city: "Houston", stateProv: "TX", country: "USA" },
+    { number: 148, name: "Robowranglers", city: "Greenville", stateProv: "TX", country: "USA" },
+    { number: 254, name: "The Cheesy Poofs", city: "San Jose", stateProv: "CA", country: "USA" },
+    { number: 330, name: "Beach Bots", city: "Hermosa Beach", stateProv: "CA", country: "USA" },
+    { number: 624, name: "CRyptonite", city: "Katy", stateProv: "TX", country: "USA" },
+    { number: 987, name: "HIGHROLLERS", city: "Las Vegas", stateProv: "NV", country: "USA" },
+    { number: 1114, name: "Simbotics", city: "St. Catharines", stateProv: "ON", country: "Canada" },
+    { number: 1678, name: "Citrus Circuits", city: "Davis", stateProv: "CA", country: "USA" },
+    { number: 2056, name: "OP Robotics", city: "Windsor", stateProv: "ON", country: "Canada" },
+    { number: 2468, name: "Team Appreciate", city: "Austin", stateProv: "TX", country: "USA" },
+    { number: 3310, name: "Black Hawks", city: "San Antonio", stateProv: "TX", country: "USA" },
+    { number: 4499, name: "The Highlanders", city: "Carlsbad", stateProv: "CA", country: "USA" },
+    { number: 5172, name: "Gator Robotics", city: "Baton Rouge", stateProv: "LA", country: "USA" },
+    { number: 6800, name: "Valor", city: "Albuquerque", stateProv: "NM", country: "USA" },
+    { number: 2129, name: "Ultra Violet", city: "Burnsville", stateProv: "MN", country: "USA" },
+  ];
+
+  return {
+    enabled: true,
+    event: {
+      name: "Seven Rivers Regional",
+      shortName: "Seven Rivers",
+      city: "La Crosse",
+      stateProv: "WI",
+      country: "USA",
+      startDate: "2024-03-27",
+      endDate: "2024-03-30",
+      year: 2024,
+      eventTypeString: "Regional",
+      week: 4,
+    },
+    matches,
+    teamStatus: {
+      qual: {
+        ranking: { rank: 4, record: { wins: 5, losses: 1, ties: 0 } },
+        num_teams: 40,
+      },
+      alliance: null,
+      playoff: null,
+      overall_status_str: "Team 2129 is Rank 4 with a record of 5-1-0",
+    },
+    teamNames,
+    teamRankings,
+    eventTeams: teamEntries,
+    pitNotes: {},
+    checklist: {
+      items: [
+        { id: 101, text: "Check battery voltage (>12.4V)", sortOrder: 1 },
+        { id: 102, text: "Inspect bumpers — secure & correct color", sortOrder: 2 },
+        { id: 103, text: "Verify pneumatics pressurized", sortOrder: 3 },
+        { id: 104, text: "Radio connected & configured", sortOrder: 4 },
+        { id: 105, text: "Autonomous mode loaded & verified", sortOrder: 5 },
+      ],
+      checkedIds: [101, 102],
+    },
+    branding: { appName: "Mentor Manager", logoPath: "" },
+    teamKey,
+    pollInterval: 60,
+    robotImageSource: "none",
+    batteries: [
+      { id: 1, label: "Battery A", currentStatus: "charging", statusSince: new Date(Date.now() - 45 * 60000).toISOString(), matchKey: "" },
+      { id: 2, label: "Battery B", currentStatus: "in_robot_match", statusSince: new Date(Date.now() - 5 * 60000).toISOString(), matchKey: "2024wila_qm6" },
+      { id: 3, label: "Battery C", currentStatus: "charging", statusSince: new Date(Date.now() - 20 * 60000).toISOString(), matchKey: "" },
+      { id: 4, label: "Battery D", currentStatus: "idle", statusSince: new Date(Date.now() - 10 * 60000).toISOString(), matchKey: "" },
+    ],
+    pitTimerEnabled: true,
+  };
+}
+
 // --- Main Page ---
 
 export default function CompetitionPage() {
@@ -693,14 +1002,49 @@ export default function CompetitionPage() {
   const [mobileTab, setMobileTab] = useState<"pit" | "schedule">("pit");
   const [pitNotes, setPitNotes] = useState<Record<string, string>>({});
   const [showResetPrompt, setShowResetPrompt] = useState(false);
+  const [exampleMode, setExampleMode] = useState(false);
   const prevLastMatchKeyRef = useRef<string | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const pollIntervalRef = useRef(60);
+  const exampleDataRef = useRef<CompetitionData | null>(null);
+
+  // URL param is a sticky override (no API needed)
+  const urlExampleRef = useRef(
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("example") === "1"
+  );
+
+  function activateExampleMode() {
+    if (!exampleDataRef.current) {
+      exampleDataRef.current = generateExampleData();
+      setCheckedIds(exampleDataRef.current.checklist.checkedIds);
+      setPitNotes(exampleDataRef.current.pitNotes);
+    }
+    setExampleMode(true);
+    setData(exampleDataRef.current);
+    setLoading(false);
+  }
 
   const fetchData = useCallback(async () => {
     try {
+      // URL param: always use example data, skip API entirely
+      if (urlExampleRef.current) {
+        activateExampleMode();
+        return;
+      }
+
       const res = await fetch("/api/competition");
       const json = await res.json();
+
+      // Admin-enabled example mode (returned even when TBA not configured)
+      if (json.exampleMode) {
+        activateExampleMode();
+        return;
+      }
+
+      // Admin turned off example mode — clear example state
+      exampleDataRef.current = null;
+      setExampleMode(false);
+
       if (json.enabled === false) {
         setData({ enabled: false } as CompetitionData);
       } else {
@@ -714,7 +1058,7 @@ export default function CompetitionPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initial fetch + polling
   useEffect(() => {
@@ -729,7 +1073,9 @@ export default function CompetitionPage() {
     if (params.get("tv") === "1") {
       setZoom(100);
       document.documentElement.requestFullscreen().catch(() => {});
-      window.history.replaceState({}, "", "/competition");
+      // Preserve example param if present
+      const example = params.get("example");
+      window.history.replaceState({}, "", example === "1" ? "/competition?example=1" : "/competition");
     }
   }, []);
 
@@ -851,6 +1197,7 @@ export default function CompetitionPage() {
       ? checkedIds.filter((id) => id !== itemId)
       : [...checkedIds, itemId];
     setCheckedIds(newChecked);
+    if (exampleMode) return;
     await fetch("/api/competition/checklist", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -861,6 +1208,7 @@ export default function CompetitionPage() {
   async function handleResetChecklist() {
     setCheckedIds([]);
     setShowResetPrompt(false);
+    if (exampleMode) return;
     await fetch("/api/competition/checklist", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -940,6 +1288,11 @@ export default function CompetitionPage() {
           <LiveClock />
         </div>
         <div className="flex items-center gap-4 flex-shrink-0">
+          {exampleMode && (
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              EXAMPLE
+            </span>
+          )}
           <div className="text-right">
             <div className="text-2xl font-bold tracking-tight text-emerald-400">
               {teamNumber}
@@ -1289,6 +1642,9 @@ export default function CompetitionPage() {
               </div>
             )}
           </div>
+
+          {/* Pit Timer */}
+          {data.pitTimerEnabled && <PitTimer />}
 
           {/* Battery Panel */}
           {data.batteries && data.batteries.length > 0 && (

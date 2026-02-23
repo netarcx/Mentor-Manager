@@ -26,6 +26,8 @@ export default function CompetitionPage() {
   const [eventKey, setEventKey] = useState("");
   const [pollInterval, setPollInterval] = useState(60);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [pitTimerEnabled, setPitTimerEnabled] = useState(false);
+  const [exampleMode, setExampleMode] = useState(false);
   const [robotImageSource, setRobotImageSource] = useState<"none" | "tba" | "upload">("none");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,6 +60,8 @@ export default function CompetitionPage() {
     setPollInterval(data.pollInterval ?? 60);
     setHasApiKey(data.hasApiKey ?? false);
     setRobotImageSource(data.robotImageSource ?? "none");
+    setPitTimerEnabled(data.pitTimerEnabled ?? false);
+    setExampleMode(data.exampleMode ?? false);
   }
 
   async function fetchChecklist() {
@@ -88,6 +92,8 @@ export default function CompetitionPage() {
       teamKey: teamKey.trim(),
       eventKey: eventKey.trim(),
       pollInterval,
+      pitTimerEnabled,
+      exampleMode,
     };
     if (tbaApiKey.trim()) {
       body.tbaApiKey = tbaApiKey.trim();
@@ -291,6 +297,29 @@ export default function CompetitionPage() {
         <h1 className="text-2xl font-bold">Competition</h1>
       </div>
 
+      {/* Example Mode */}
+      <div className={`rounded-xl shadow border p-6 mb-6 ${exampleMode ? "bg-amber-50 border-amber-200" : "bg-white border-slate-100"}`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Example Mode</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Show fake demo data on the competition dashboard. Useful for showing students what it looks like.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExampleMode(!exampleMode)}
+            className={`text-xs font-semibold px-2 py-1 rounded ${
+              exampleMode
+                ? "bg-amber-100 text-amber-700"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {exampleMode ? "Enabled" : "Disabled"}
+          </button>
+        </div>
+      </div>
+
       {/* TBA Configuration */}
       <form
         onSubmit={handleSaveConfig}
@@ -489,6 +518,29 @@ export default function CompetitionPage() {
             />
           </div>
         )}
+      </div>
+
+      {/* Pit Timer */}
+      <div className="bg-white rounded-xl shadow border border-slate-100 p-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Pit Timer</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Show a LiveSplit-style stopwatch on the competition dashboard for timing battery swaps.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPitTimerEnabled(!pitTimerEnabled)}
+            className={`text-xs font-semibold px-2 py-1 rounded ${
+              pitTimerEnabled
+                ? "bg-green-100 text-green-700"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {pitTimerEnabled ? "Enabled" : "Disabled"}
+          </button>
+        </div>
       </div>
 
       {/* Pre-Match Checklist */}

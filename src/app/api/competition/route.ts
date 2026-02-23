@@ -15,13 +15,20 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const config = await getCompetitionConfig();
+    const [config, exampleModeSetting] = await Promise.all([
+      getCompetitionConfig(),
+      prisma.setting.findUnique({ where: { key: "competition_example_mode" } }),
+    ]);
+
+    if (exampleModeSetting?.value === "true") {
+      return NextResponse.json({ enabled: false, exampleMode: true });
+    }
 
     if (!config.enabled || !config.tbaApiKey || !config.teamKey || !config.eventKey) {
       return NextResponse.json({ enabled: false });
     }
 
-    const [event, matches, teamStatus, eventTeams, rankings, checklistItems, checklistState, branding, robotImageSetting, batteries, pitNoteSettings] =
+    const [event, matches, teamStatus, eventTeams, rankings, checklistItems, checklistState, branding, robotImageSetting, batteries, pitNoteSettings, pitTimerSetting] =
       await Promise.all([
         fetchEvent(config.eventKey, config.tbaApiKey),
         fetchTeamMatches(config.teamKey, config.eventKey, config.tbaApiKey),
@@ -43,6 +50,7 @@ export async function GET() {
         prisma.setting.findMany({
           where: { key: { startsWith: "pit_note_" } },
         }),
+        prisma.setting.findUnique({ where: { key: "competition_pit_timer_enabled" } }),
       ]);
 
     const teamNames: Record<string, string> = {};
@@ -117,6 +125,7 @@ export async function GET() {
       teamKey: config.teamKey,
       pollInterval: config.pollInterval,
       robotImageSource: robotImageSetting?.value || "none",
+      pitTimerEnabled: pitTimerSetting?.value === "true",
       batteries: batteries.map((b) => ({
         id: b.id,
         label: b.label,
