@@ -28,6 +28,7 @@ export default function CompetitionPage() {
   const [hasApiKey, setHasApiKey] = useState(false);
   const [pitTimerEnabled, setPitTimerEnabled] = useState(false);
   const [exampleMode, setExampleMode] = useState(false);
+  const [twitchChannel, setTwitchChannel] = useState("");
   const [robotImageSource, setRobotImageSource] = useState<"none" | "tba" | "upload">("none");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,6 +63,7 @@ export default function CompetitionPage() {
     setRobotImageSource(data.robotImageSource ?? "none");
     setPitTimerEnabled(data.pitTimerEnabled ?? false);
     setExampleMode(data.exampleMode ?? false);
+    setTwitchChannel(data.twitchChannel ?? "");
   }
 
   async function fetchChecklist() {
@@ -94,6 +96,7 @@ export default function CompetitionPage() {
       pollInterval,
       pitTimerEnabled,
       exampleMode,
+      twitchChannel: twitchChannel.trim(),
     };
     if (tbaApiKey.trim()) {
       body.tbaApiKey = tbaApiKey.trim();
@@ -540,6 +543,29 @@ export default function CompetitionPage() {
           >
             {pitTimerEnabled ? "Enabled" : "Disabled"}
           </button>
+        </div>
+      </div>
+
+      {/* Livestream */}
+      <div className="bg-white rounded-xl shadow border border-slate-100 p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-2">Livestream</h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Show a Twitch livestream popup button on the competition dashboard.
+        </p>
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Twitch Channel Name
+          </label>
+          <input
+            type="text"
+            value={twitchChannel}
+            onChange={(e) => setTwitchChannel(e.target.value)}
+            className="w-full border border-slate-300 rounded-lg px-3 py-2"
+            placeholder="e.g. firstinspires"
+          />
+          <p className="text-xs text-slate-400 mt-1">
+            Leave blank to hide the stream button. Just the channel name, not the full URL.
+          </p>
         </div>
       </div>
 

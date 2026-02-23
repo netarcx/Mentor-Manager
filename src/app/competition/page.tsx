@@ -104,6 +104,7 @@ interface CompetitionData {
   robotImageSource: "none" | "tba" | "upload";
   batteries: BatteryInfo[];
   pitTimerEnabled: boolean;
+  twitchChannel: string;
 }
 
 // --- Helpers ---
@@ -987,6 +988,7 @@ function generateExampleData(): CompetitionData {
       { id: 4, label: "Battery D", currentStatus: "idle", statusSince: new Date(Date.now() - 10 * 60000).toISOString(), matchKey: "" },
     ],
     pitTimerEnabled: true,
+    twitchChannel: "",
   };
 }
 
@@ -1003,6 +1005,7 @@ export default function CompetitionPage() {
   const [pitNotes, setPitNotes] = useState<Record<string, string>>({});
   const [showResetPrompt, setShowResetPrompt] = useState(false);
   const [exampleMode, setExampleMode] = useState(false);
+  const [showTwitch, setShowTwitch] = useState(false);
   const prevLastMatchKeyRef = useRef<string | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const pollIntervalRef = useRef(60);
@@ -1288,6 +1291,21 @@ export default function CompetitionPage() {
           <LiveClock />
         </div>
         <div className="flex items-center gap-4 flex-shrink-0">
+          {data.twitchChannel && (
+            <button
+              onClick={() => setShowTwitch((s) => !s)}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                showTwitch
+                  ? "bg-purple-500/30 text-purple-300 border border-purple-500/40"
+                  : "bg-slate-700/50 text-slate-400 border border-slate-600/50 hover:text-white hover:bg-slate-700"
+              }`}
+              title={showTwitch ? "Hide Livestream" : "Show Livestream"}
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
+              </svg>
+            </button>
+          )}
           {exampleMode && (
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
               EXAMPLE
@@ -1709,6 +1727,31 @@ export default function CompetitionPage() {
 
       {/* Status bar */}
       <StatusBar teamStatus={data.teamStatus} teamKey={teamKey} nextMatch={nextMatch} matchGap={matchGap} />
+
+      {/* Twitch Popup */}
+      {showTwitch && data.twitchChannel && (
+        <div className="fixed bottom-16 left-4 z-50 rounded-xl overflow-hidden shadow-2xl border border-slate-600/50 bg-slate-900">
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-800 border-b border-slate-700/50">
+            <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Livestream</span>
+            <button
+              onClick={() => setShowTwitch(false)}
+              className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+              title="Close"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <iframe
+            src={`https://player.twitch.tv/?channel=${encodeURIComponent(data.twitchChannel)}&parent=${typeof window !== "undefined" ? window.location.hostname : "localhost"}&muted=true`}
+            width={480}
+            height={270}
+            allowFullScreen
+            className="block"
+          />
+        </div>
+      )}
 
       {/* Floating controls (bottom-right, hidden on mobile) */}
       <div className="fixed bottom-14 right-4 hidden md:flex items-center gap-1.5 z-50">

@@ -21,6 +21,7 @@ export async function GET() {
             "competition_robot_image_source",
             "competition_pit_timer_enabled",
             "competition_example_mode",
+            "competition_twitch_channel",
           ],
         },
       },
@@ -45,6 +46,7 @@ export async function GET() {
       robotImageSource: map.get("competition_robot_image_source") || "none",
       pitTimerEnabled: map.get("competition_pit_timer_enabled") === "true",
       exampleMode: map.get("competition_example_mode") === "true",
+      twitchChannel: map.get("competition_twitch_channel") || "",
     });
   } catch (error) {
     console.error(error);
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { enabled, tbaApiKey, teamKey, eventKey, pollInterval, pitTimerEnabled, exampleMode } = await request.json();
+    const { enabled, tbaApiKey, teamKey, eventKey, pollInterval, pitTimerEnabled, exampleMode, twitchChannel } = await request.json();
 
     const updates: { key: string; value: string }[] = [];
 
@@ -85,6 +87,9 @@ export async function POST(request: NextRequest) {
     }
     if (exampleMode !== undefined) {
       updates.push({ key: "competition_example_mode", value: exampleMode ? "true" : "false" });
+    }
+    if (twitchChannel !== undefined) {
+      updates.push({ key: "competition_twitch_channel", value: twitchChannel.trim() });
     }
 
     if (updates.length > 0) {
