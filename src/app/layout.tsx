@@ -30,13 +30,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [branding, competitionConfig, studentsEnabledSetting] = await Promise.all([
+  const [branding, competitionConfig, studentsEnabled] = await Promise.all([
     getBranding(),
     getCompetitionConfig(),
-    prisma.setting.findUnique({ where: { key: "student_attendance_enabled" } }),
+    prisma.setting.findUnique({ where: { key: "student_attendance_enabled" } })
+      .then((row) => row?.value === "true")
+      .catch(() => false),
   ]);
-
-  const studentsEnabled = studentsEnabledSetting?.value === "true";
 
   const cssOverrides = `:root {
   --primary: ${branding.colorPrimary};
