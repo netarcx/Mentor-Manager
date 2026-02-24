@@ -29,6 +29,7 @@ export default function CompetitionPage() {
   const [pitTimerEnabled, setPitTimerEnabled] = useState(false);
   const [exampleMode, setExampleMode] = useState(false);
   const [twitchChannel, setTwitchChannel] = useState("");
+  const [twitchPopupSize, setTwitchPopupSize] = useState(30);
   const [robotImageSource, setRobotImageSource] = useState<"none" | "tba" | "upload">("none");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -64,6 +65,7 @@ export default function CompetitionPage() {
     setPitTimerEnabled(data.pitTimerEnabled ?? false);
     setExampleMode(data.exampleMode ?? false);
     setTwitchChannel(data.twitchChannel ?? "");
+    setTwitchPopupSize(data.twitchPopupSize ?? 30);
   }
 
   async function fetchChecklist() {
@@ -85,18 +87,15 @@ export default function CompetitionPage() {
     fetchBatteries();
   }, []);
 
-  async function handleSaveConfig(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSaveConfig() {
     setSaving(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: any = {
-      enabled,
       teamKey: teamKey.trim(),
       eventKey: eventKey.trim(),
       pollInterval,
-      pitTimerEnabled,
-      exampleMode,
       twitchChannel: twitchChannel.trim(),
+      twitchPopupSize,
     };
     if (tbaApiKey.trim()) {
       body.tbaApiKey = tbaApiKey.trim();
@@ -139,7 +138,13 @@ export default function CompetitionPage() {
   }
 
   async function toggleEnabled() {
-    setEnabled(!enabled);
+    const next = !enabled;
+    setEnabled(next);
+    await fetch("/api/admin/settings/competition", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next }),
+    });
   }
 
   // Checklist CRUD
@@ -311,7 +316,15 @@ export default function CompetitionPage() {
           </div>
           <button
             type="button"
-            onClick={() => setExampleMode(!exampleMode)}
+            onClick={async () => {
+              const next = !exampleMode;
+              setExampleMode(next);
+              await fetch("/api/admin/settings/competition", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ exampleMode: next }),
+              });
+            }}
             className={`text-xs font-semibold px-2 py-1 rounded ${
               exampleMode
                 ? "bg-amber-100 text-amber-700"
@@ -324,8 +337,7 @@ export default function CompetitionPage() {
       </div>
 
       {/* TBA Configuration */}
-      <form
-        onSubmit={handleSaveConfig}
+      <div
         className="bg-white rounded-xl shadow border border-slate-100 p-6 mb-6"
       >
         <div className="flex items-center justify-between mb-4">
@@ -409,24 +421,15 @@ export default function CompetitionPage() {
           </div>
         )}
 
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm"
-          >
-            {saving ? "Saving..." : saveLabel}
-          </button>
-          <button
-            type="button"
-            onClick={handleTestConnection}
-            disabled={testing}
-            className="bg-navy text-white px-4 py-2 rounded-lg hover:bg-navy-dark transition-colors disabled:opacity-50 text-sm"
-          >
-            {testing ? "Testing..." : "Test Connection"}
-          </button>
-        </div>
-      </form>
+        <button
+          type="button"
+          onClick={handleTestConnection}
+          disabled={testing}
+          className="bg-navy text-white px-4 py-2 rounded-lg hover:bg-navy-dark transition-colors disabled:opacity-50 text-sm"
+        >
+          {testing ? "Testing..." : "Test Connection"}
+        </button>
+      </div>
 
       {/* Robot Image */}
       <div className="bg-white rounded-xl shadow border border-slate-100 p-6 mb-6">
@@ -534,7 +537,15 @@ export default function CompetitionPage() {
           </div>
           <button
             type="button"
-            onClick={() => setPitTimerEnabled(!pitTimerEnabled)}
+            onClick={async () => {
+              const next = !pitTimerEnabled;
+              setPitTimerEnabled(next);
+              await fetch("/api/admin/settings/competition", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pitTimerEnabled: next }),
+              });
+            }}
             className={`text-xs font-semibold px-2 py-1 rounded ${
               pitTimerEnabled
                 ? "bg-green-100 text-green-700"
@@ -567,6 +578,41 @@ export default function CompetitionPage() {
             Leave blank to hide the stream button. Just the channel name, not the full URL.
           </p>
         </div>
+        <div className="mt-4">
+          <label className="block text-sm font-medium mb-1">
+            Popup Size: {twitchPopupSize}% of screen width
+          </label>
+          <input
+            type="range"
+            value={twitchPopupSize}
+            onChange={(e) => setTwitchPopupSize(Number(e.target.value))}
+            className="w-full accent-purple-500"
+            min={10}
+            max={100}
+            step={5}
+          />
+          <div className="flex justify-between text-xs text-slate-400 mt-1">
+            <span>10%</span>
+            <span>100%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Save Settings Bar */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-8 flex items-center justify-between">
+        <p className="text-sm text-slate-500">
+          Save changes to TBA configuration and livestream settings.
+          <br />
+          <span className="text-xs text-slate-400">Toggles and robot image save automatically.</span>
+        </p>
+        <button
+          type="button"
+          onClick={handleSaveConfig}
+          disabled={saving}
+          className="bg-primary text-white px-6 py-2.5 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 text-sm font-semibold"
+        >
+          {saving ? "Saving..." : saveLabel}
+        </button>
       </div>
 
       {/* Pre-Match Checklist */}

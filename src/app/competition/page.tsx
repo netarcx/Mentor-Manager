@@ -105,6 +105,7 @@ interface CompetitionData {
   batteries: BatteryInfo[];
   pitTimerEnabled: boolean;
   twitchChannel: string;
+  twitchPopupSize: number;
 }
 
 // --- Helpers ---
@@ -989,6 +990,7 @@ function generateExampleData(): CompetitionData {
     ],
     pitTimerEnabled: true,
     twitchChannel: "",
+    twitchPopupSize: 30,
   };
 }
 
@@ -1730,7 +1732,10 @@ export default function CompetitionPage() {
 
       {/* Twitch Popup */}
       {showTwitch && data.twitchChannel && (
-        <div className="fixed bottom-16 left-4 z-50 rounded-xl overflow-hidden shadow-2xl border border-slate-600/50 bg-slate-900">
+        <div
+          className="fixed bottom-16 left-4 z-50 rounded-xl overflow-hidden shadow-2xl border border-slate-600/50 bg-slate-900"
+          style={{ width: `${data.twitchPopupSize || 30}vw` }}
+        >
           <div className="flex items-center justify-between px-3 py-2 bg-slate-800 border-b border-slate-700/50">
             <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Livestream</span>
             <button
@@ -1745,10 +1750,9 @@ export default function CompetitionPage() {
           </div>
           <iframe
             src={`https://player.twitch.tv/?channel=${encodeURIComponent(data.twitchChannel)}&parent=${typeof window !== "undefined" ? window.location.hostname : "localhost"}&muted=true`}
-            width={480}
-            height={270}
             allowFullScreen
-            className="block"
+            className="block w-full"
+            style={{ aspectRatio: "16/9" }}
           />
         </div>
       )}

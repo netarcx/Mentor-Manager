@@ -28,7 +28,7 @@ export async function GET() {
       return NextResponse.json({ enabled: false });
     }
 
-    const [event, matches, teamStatus, eventTeams, rankings, checklistItems, checklistState, branding, robotImageSetting, batteries, pitNoteSettings, pitTimerSetting, twitchChannelSetting] =
+    const [event, matches, teamStatus, eventTeams, rankings, checklistItems, checklistState, branding, robotImageSetting, batteries, pitNoteSettings, pitTimerSetting, twitchChannelSetting, twitchPopupSizeSetting] =
       await Promise.all([
         fetchEvent(config.eventKey, config.tbaApiKey),
         fetchTeamMatches(config.teamKey, config.eventKey, config.tbaApiKey),
@@ -52,6 +52,7 @@ export async function GET() {
         }),
         prisma.setting.findUnique({ where: { key: "competition_pit_timer_enabled" } }),
         prisma.setting.findUnique({ where: { key: "competition_twitch_channel" } }),
+        prisma.setting.findUnique({ where: { key: "competition_twitch_popup_size" } }),
       ]);
 
     const teamNames: Record<string, string> = {};
@@ -128,6 +129,7 @@ export async function GET() {
       robotImageSource: robotImageSetting?.value || "none",
       pitTimerEnabled: pitTimerSetting?.value === "true",
       twitchChannel: twitchChannelSetting?.value || "",
+      twitchPopupSize: parseInt(twitchPopupSizeSetting?.value || "30", 10),
       batteries: batteries.map((b) => ({
         id: b.id,
         label: b.label,
