@@ -226,22 +226,18 @@ function StatusBar({
   const nextTime = nextMatch?.predicted_time || nextMatch?.time || null;
 
   return (
-    <div className="bg-slate-800/80 border-t border-slate-700 px-4 py-3 flex items-center justify-between gap-4 text-sm flex-shrink-0 flex-wrap">
-      {/* Rank */}
+    <div className="bg-slate-800/80 border-t border-slate-700 px-3 md:px-4 py-2 md:py-3 flex items-center justify-between gap-2 md:gap-4 text-xs md:text-sm flex-shrink-0">
+      {/* Rank + Record (combined on mobile) */}
       <div className="flex items-center gap-2">
         {ranking ? (
           <span className="text-slate-300">
-            <span className="text-white font-bold text-base">Rank {ranking.rank}</span>
-            {numTeams ? <span className="text-slate-500"> of {numTeams}</span> : null}
+            <span className="text-white font-bold text-sm md:text-base">#{ranking.rank}</span>
+            <span className="hidden md:inline text-slate-500"> of {numTeams}</span>
           </span>
         ) : (
-          <span className="text-slate-500">No ranking yet</span>
+          <span className="text-slate-500">No rank</span>
         )}
-      </div>
-
-      {/* Record */}
-      <div className="flex items-center gap-2">
-        {record ? (
+        {record && (
           <span className="text-slate-300">
             <span className="text-green-400 font-semibold">{record.wins}</span>
             <span className="text-slate-600">-</span>
@@ -249,35 +245,32 @@ function StatusBar({
             <span className="text-slate-600">-</span>
             <span className="text-yellow-400 font-semibold">{record.ties}</span>
           </span>
-        ) : (
-          <span className="text-slate-500">0-0-0</span>
         )}
       </div>
 
-      {/* Match gap */}
+      {/* Match gap (hidden on mobile) */}
       {matchGap > 0 && (
-        <div>
+        <div className="hidden md:block">
           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">
             {matchGap} match{matchGap !== 1 ? "es" : ""} away
           </span>
         </div>
       )}
 
-      {/* Alliance (playoffs) */}
+      {/* Alliance (playoffs, hidden on mobile) */}
       {alliance && (
-        <div className="text-slate-300">
+        <div className="hidden md:block text-slate-300">
           Alliance <span className="text-white font-bold">{alliance.number}</span>
           <span className="text-slate-500"> (Pick {alliance.pick})</span>
         </div>
       )}
 
       {/* Next match countdown */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
         {nextMatch && nextTime ? (
           <span className="text-slate-300">
-            Next:{" "}
+            <span className="hidden md:inline">Next: </span>
             <span className="text-white font-semibold">{getMatchLabel(nextMatch)}</span>{" "}
-            in{" "}
             <span className="text-emerald-400 font-bold">
               <MatchCountdown targetTime={nextTime} />
             </span>
@@ -314,14 +307,14 @@ function ExpandedNextMatch({
     return (
       <div
         key={key}
-        className={`flex items-baseline gap-2 ${isUs ? "text-white font-bold" : "text-slate-300"}`}
+        className={`flex items-baseline gap-1.5 md:gap-2 min-w-0 ${isUs ? "text-white font-bold" : "text-slate-300"}`}
       >
-        <span className="font-mono text-sm w-12 text-right">{num}</span>
-        <span className={`text-sm truncate ${isUs ? "text-white" : "text-slate-400"}`}>
+        <span className="font-mono text-xs md:text-sm w-10 md:w-12 text-right flex-shrink-0">{num}</span>
+        <span className={`text-xs md:text-sm truncate ${isUs ? "text-white" : "text-slate-400"}`}>
           {name}
         </span>
         {ranking && (
-          <span className="text-xs text-slate-500 flex-shrink-0">
+          <span className="text-xs text-slate-500 flex-shrink-0 hidden md:inline">
             #{ranking.rank} ({ranking.record.wins}-{ranking.record.losses}-{ranking.record.ties})
           </span>
         )}
@@ -330,17 +323,17 @@ function ExpandedNextMatch({
   }
 
   return (
-    <div className="mx-3 mt-2 rounded-xl bg-slate-800/80 border border-emerald-500/40 shadow-lg shadow-emerald-500/5 overflow-hidden flex-shrink-0">
+    <div className="mx-2 md:mx-3 mt-2 rounded-xl bg-slate-800/80 border border-emerald-500/40 shadow-lg shadow-emerald-500/5 overflow-hidden flex-shrink-0">
       {/* Header row */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/50">
-        <span className="text-base font-bold text-emerald-400">{getMatchLabel(match)}</span>
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 md:px-4 py-2 md:py-2.5 border-b border-slate-700/50">
+        <span className="text-sm md:text-base font-bold text-emerald-400">{getMatchLabel(match)}</span>
+        <div className="flex items-center gap-2 md:gap-3">
           {scheduledTime && (
-            <span className="text-emerald-400 font-semibold text-sm bg-emerald-500/10 px-2.5 py-1 rounded-full">
+            <span className="text-emerald-400 font-semibold text-xs md:text-sm bg-emerald-500/10 px-2 md:px-2.5 py-0.5 md:py-1 rounded-full">
               in <MatchCountdown targetTime={scheduledTime} />
             </span>
           )}
-          <span className="text-xs text-slate-400">
+          <span className="text-[10px] md:text-xs text-slate-400 hidden md:inline">
             ~{formatMatchTime(scheduledTime)}
           </span>
         </div>
@@ -349,13 +342,13 @@ function ExpandedNextMatch({
       {/* Alliances */}
       <div className="grid grid-cols-2 divide-x divide-slate-700/50">
         {/* Red alliance */}
-        <div className={`px-4 py-3 space-y-1 ${ourAlliance === "red" ? "bg-red-500/5" : ""}`}>
-          <div className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Red Alliance</div>
+        <div className={`px-2.5 md:px-4 py-2 md:py-3 space-y-1 ${ourAlliance === "red" ? "bg-red-500/5" : ""}`}>
+          <div className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-red-400 mb-1">Red</div>
           {match.alliances.red.team_keys.map(renderTeamRow)}
         </div>
         {/* Blue alliance */}
-        <div className={`px-4 py-3 space-y-1 ${ourAlliance === "blue" ? "bg-blue-500/5" : ""}`}>
-          <div className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1.5">Blue Alliance</div>
+        <div className={`px-2.5 md:px-4 py-2 md:py-3 space-y-1 ${ourAlliance === "blue" ? "bg-blue-500/5" : ""}`}>
+          <div className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-blue-400 mb-1">Blue</div>
           {match.alliances.blue.team_keys.map(renderTeamRow)}
         </div>
       </div>
@@ -391,14 +384,14 @@ function ExpandedLastMatch({
     return (
       <div
         key={key}
-        className={`flex items-baseline gap-2 ${isUs ? "text-white font-bold" : "text-slate-300"}`}
+        className={`flex items-baseline gap-1.5 md:gap-2 min-w-0 ${isUs ? "text-white font-bold" : "text-slate-300"}`}
       >
-        <span className="font-mono text-sm w-12 text-right">{num}</span>
-        <span className={`text-sm truncate ${isUs ? "text-white" : "text-slate-400"}`}>
+        <span className="font-mono text-xs md:text-sm w-10 md:w-12 text-right flex-shrink-0">{num}</span>
+        <span className={`text-xs md:text-sm truncate ${isUs ? "text-white" : "text-slate-400"}`}>
           {name}
         </span>
         {ranking && (
-          <span className="text-xs text-slate-500 flex-shrink-0">
+          <span className="text-xs text-slate-500 flex-shrink-0 hidden md:inline">
             #{ranking.rank} ({ranking.record.wins}-{ranking.record.losses}-{ranking.record.ties})
           </span>
         )}
@@ -407,15 +400,15 @@ function ExpandedLastMatch({
   }
 
   return (
-    <div className={`mx-3 mt-2 rounded-xl bg-slate-800/80 border ${borderColor} shadow-lg overflow-hidden flex-shrink-0 opacity-80`}>
+    <div className={`mx-2 md:mx-3 mt-2 rounded-xl bg-slate-800/80 border ${borderColor} shadow-lg overflow-hidden flex-shrink-0 opacity-80`}>
       {/* Header row */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/50">
-        <span className={`text-base font-bold ${resultColor}`}>{getMatchLabel(match)}</span>
-        <div className="flex items-center gap-3">
-          <span className={`font-bold text-sm ${resultColor}`}>
+      <div className="flex items-center justify-between px-3 md:px-4 py-2 md:py-2.5 border-b border-slate-700/50">
+        <span className={`text-sm md:text-base font-bold ${resultColor}`}>{getMatchLabel(match)}</span>
+        <div className="flex items-center gap-2 md:gap-3">
+          <span className={`font-bold text-xs md:text-sm ${resultColor}`}>
             {resultLabel}
           </span>
-          <div className="flex items-center gap-1.5 text-sm">
+          <div className="flex items-center gap-1 md:gap-1.5 text-xs md:text-sm">
             <span className={`font-mono font-bold ${ourAlliance === "red" ? "text-red-400" : "text-red-400/60"}`}>
               {redScore}
             </span>
@@ -429,12 +422,12 @@ function ExpandedLastMatch({
 
       {/* Alliances */}
       <div className="grid grid-cols-2 divide-x divide-slate-700/50">
-        <div className={`px-4 py-3 space-y-1 ${ourAlliance === "red" ? "bg-red-500/5" : ""}`}>
-          <div className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Red Alliance</div>
+        <div className={`px-2.5 md:px-4 py-2 md:py-3 space-y-1 ${ourAlliance === "red" ? "bg-red-500/5" : ""}`}>
+          <div className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-red-400 mb-1">Red</div>
           {match.alliances.red.team_keys.map(renderTeamRow)}
         </div>
-        <div className={`px-4 py-3 space-y-1 ${ourAlliance === "blue" ? "bg-blue-500/5" : ""}`}>
-          <div className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1.5">Blue Alliance</div>
+        <div className={`px-2.5 md:px-4 py-2 md:py-3 space-y-1 ${ourAlliance === "blue" ? "bg-blue-500/5" : ""}`}>
+          <div className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-blue-400 mb-1">Blue</div>
           {match.alliances.blue.team_keys.map(renderTeamRow)}
         </div>
       </div>
@@ -1272,52 +1265,52 @@ export default function CompetitionPage() {
   return (
     <div className="h-screen bg-slate-900 text-white flex flex-col overflow-hidden" style={{ zoom: `${zoom}%` }}>
       {/* Header */}
-      <div className="bg-slate-800/90 border-b border-slate-700 px-5 py-3 flex items-center justify-between flex-shrink-0 relative">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="bg-slate-800/90 border-b border-slate-700 px-3 md:px-5 py-2 md:py-3 flex items-center justify-between flex-shrink-0 relative gap-2">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
           {branding.logoPath && (
-            <img src="/api/logo" alt="" className="h-10 w-auto flex-shrink-0" />
+            <img src="/api/logo" alt="" className="h-8 md:h-10 w-auto flex-shrink-0" />
           )}
           <div className="min-w-0">
-            <h1 className="text-xl font-bold truncate">
+            <h1 className="text-base md:text-xl font-bold truncate">
               {event ? event.name : branding.appName}
             </h1>
             {event && (
-              <p className="text-xs text-slate-400 truncate">
+              <p className="text-[10px] md:text-xs text-slate-400 truncate">
                 {event.city}, {event.stateProv} &middot; {event.eventTypeString}
                 {event.week !== null && event.week !== undefined ? ` &middot; Week ${event.week}` : ""}
               </p>
             )}
           </div>
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 text-xl font-bold tracking-tight text-slate-200 tabular-nums">
+        <div className="hidden md:block absolute left-1/2 -translate-x-1/2 text-xl font-bold tracking-tight text-slate-200 tabular-nums">
           <LiveClock />
         </div>
-        <div className="flex items-center gap-4 flex-shrink-0">
+        <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
           {data.twitchChannel && (
             <button
               onClick={() => setShowTwitch((s) => !s)}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+              className={`w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center transition-colors ${
                 showTwitch
                   ? "bg-purple-500/30 text-purple-300 border border-purple-500/40"
                   : "bg-slate-700/50 text-slate-400 border border-slate-600/50 hover:text-white hover:bg-slate-700"
               }`}
               title={showTwitch ? "Hide Livestream" : "Show Livestream"}
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
               </svg>
             </button>
           )}
           {exampleMode && (
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            <span className="hidden md:inline text-xs font-bold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
               EXAMPLE
             </span>
           )}
           <div className="text-right">
-            <div className="text-2xl font-bold tracking-tight text-emerald-400">
+            <div className="text-xl md:text-2xl font-bold tracking-tight text-emerald-400">
               {teamNumber}
             </div>
-            <div className="text-[10px] uppercase tracking-widest text-slate-500">Team</div>
+            <div className="text-[10px] uppercase tracking-widest text-slate-500 hidden md:block">Team</div>
           </div>
         </div>
       </div>
@@ -1463,8 +1456,8 @@ export default function CompetitionPage() {
                         />
 
                         {/* Match label */}
-                        <div className="min-w-[6.5rem] flex-shrink-0">
-                          <span className="text-base font-bold text-slate-200">
+                        <div className="min-w-[5rem] md:min-w-[6.5rem] flex-shrink-0">
+                          <span className="text-sm md:text-base font-bold text-slate-200">
                             {getMatchLabel(match)}
                           </span>
                         </div>
@@ -1472,7 +1465,7 @@ export default function CompetitionPage() {
                         {/* Scores / Time */}
                         <div className="flex-1 flex items-center gap-2 min-w-0">
                           {completed ? (
-                            <div className="flex items-center gap-2 text-base">
+                            <div className="flex items-center gap-1.5 md:gap-2 text-sm md:text-base">
                               <span className={`font-mono font-bold ${alliance === "red" ? "text-red-400" : "text-red-400/60"}`}>
                                 {redScore}
                               </span>
@@ -1518,25 +1511,25 @@ export default function CompetitionPage() {
                       {/* Expanded alliance details */}
                       {isExpanded && (
                         <div className="grid grid-cols-2 divide-x divide-slate-700/50 bg-slate-800/40">
-                          <div className={`px-4 py-2.5 space-y-0.5 ${alliance === "red" ? "bg-red-500/5" : ""}`}>
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-1">Red Alliance</div>
+                          <div className={`px-2.5 md:px-4 py-2 md:py-2.5 space-y-0.5 ${alliance === "red" ? "bg-red-500/5" : ""}`}>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-1">Red</div>
                             {match.alliances.red.team_keys.map((k) => {
                               const isUs = k === teamKey;
                               return (
-                                <div key={k} className={`flex items-baseline gap-2 ${isUs ? "text-white font-bold" : "text-slate-300"}`}>
-                                  <span className="font-mono text-xs w-10 text-right">{teamNumberFromKey(k)}</span>
+                                <div key={k} className={`flex items-baseline gap-1.5 min-w-0 ${isUs ? "text-white font-bold" : "text-slate-300"}`}>
+                                  <span className="font-mono text-xs w-10 text-right flex-shrink-0">{teamNumberFromKey(k)}</span>
                                   <span className={`text-xs truncate ${isUs ? "text-white" : "text-slate-500"}`}>{teamNames[k] || ""}</span>
                                 </div>
                               );
                             })}
                           </div>
-                          <div className={`px-4 py-2.5 space-y-0.5 ${alliance === "blue" ? "bg-blue-500/5" : ""}`}>
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-400 mb-1">Blue Alliance</div>
+                          <div className={`px-2.5 md:px-4 py-2 md:py-2.5 space-y-0.5 ${alliance === "blue" ? "bg-blue-500/5" : ""}`}>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-400 mb-1">Blue</div>
                             {match.alliances.blue.team_keys.map((k) => {
                               const isUs = k === teamKey;
                               return (
-                                <div key={k} className={`flex items-baseline gap-2 ${isUs ? "text-white font-bold" : "text-slate-300"}`}>
-                                  <span className="font-mono text-xs w-10 text-right">{teamNumberFromKey(k)}</span>
+                                <div key={k} className={`flex items-baseline gap-1.5 min-w-0 ${isUs ? "text-white font-bold" : "text-slate-300"}`}>
+                                  <span className="font-mono text-xs w-10 text-right flex-shrink-0">{teamNumberFromKey(k)}</span>
                                   <span className={`text-xs truncate ${isUs ? "text-white" : "text-slate-500"}`}>{teamNames[k] || ""}</span>
                                 </div>
                               );
@@ -1669,38 +1662,38 @@ export default function CompetitionPage() {
           {/* Battery Panel */}
           {data.batteries && data.batteries.length > 0 && (
             <div className="flex-shrink-0 border-t border-slate-700/50 flex flex-col max-h-[40%]">
-              <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+              <div className="px-3 md:px-5 py-2 md:py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
+                <h2 className="text-xs md:text-sm font-semibold uppercase tracking-wider text-slate-400">
                   Batteries
                 </h2>
                 {nextBattery && (
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">
+                  <span className="text-[10px] md:text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">
                     Next: {nextBattery.label}
                   </span>
                 )}
               </div>
-              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
+              <div className="flex-1 overflow-y-auto px-2 md:px-3 py-2 space-y-1.5">
                 {data.batteries.map((battery) => {
                   const isNext = nextBattery?.id === battery.id;
                   return (
                     <div
                       key={battery.id}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${
+                      className={`flex items-center gap-2 md:gap-3 rounded-lg px-2 md:px-3 py-2 md:py-2.5 transition-all flex-wrap ${
                         isNext
                           ? "bg-green-500/10 border border-green-500/30 ring-1 ring-green-500/20"
                           : "bg-slate-800/50 border border-slate-700/30"
                       }`}
                     >
                       {/* Status dot */}
-                      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${batteryStatusColor(battery.currentStatus)}`} />
+                      <div className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full flex-shrink-0 ${batteryStatusColor(battery.currentStatus)}`} />
 
                       {/* Label */}
-                      <span className={`text-sm font-medium flex-shrink-0 ${isNext ? "text-green-300" : "text-slate-200"}`}>
+                      <span className={`text-xs md:text-sm font-medium flex-shrink-0 ${isNext ? "text-green-300" : "text-slate-200"}`}>
                         {battery.label}
                       </span>
 
                       {/* Status badge */}
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${batteryStatusBadgeClass(battery.currentStatus)}`}>
+                      <span className={`text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 rounded-full font-medium ${batteryStatusBadgeClass(battery.currentStatus)}`}>
                         {batteryStatusLabel(battery.currentStatus)}
                       </span>
 
@@ -1711,7 +1704,7 @@ export default function CompetitionPage() {
 
                       {/* Next up indicator */}
                       {isNext && (
-                        <span className="text-xs font-bold text-green-400 flex-shrink-0">
+                        <span className="text-[10px] md:text-xs font-bold text-green-400 flex-shrink-0">
                           NEXT
                         </span>
                       )}
@@ -1733,8 +1726,8 @@ export default function CompetitionPage() {
       {/* Twitch Popup */}
       {showTwitch && data.twitchChannel && (
         <div
-          className="fixed bottom-16 left-4 z-50 rounded-xl overflow-hidden shadow-2xl border border-slate-600/50 bg-slate-900"
-          style={{ width: `${data.twitchPopupSize || 30}vw` }}
+          className="fixed bottom-14 md:bottom-16 left-2 right-2 md:left-4 md:right-auto z-50 rounded-xl overflow-hidden shadow-2xl border border-slate-600/50 bg-slate-900 md:w-[var(--twitch-w)]"
+          style={{ "--twitch-w": `${data.twitchPopupSize || 30}vw` } as React.CSSProperties}
         >
           <div className="flex items-center justify-between px-3 py-2 bg-slate-800 border-b border-slate-700/50">
             <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Livestream</span>
