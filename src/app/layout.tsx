@@ -1,10 +1,9 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { getBranding } from "@/lib/branding";
-import { getCompetitionConfig } from "@/lib/tba";
-import { prisma } from "@/lib/db";
 import NavBrand from "@/components/NavBrand";
 import NavDashboardLink from "@/components/NavDashboardLink";
+import NavConditionalLinks from "@/components/NavConditionalLinks";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,13 +29,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [branding, competitionConfig, studentsEnabled] = await Promise.all([
-    getBranding(),
-    getCompetitionConfig(),
-    prisma.setting.findUnique({ where: { key: "student_attendance_enabled" } })
-      .then((row) => row?.value === "true")
-      .catch(() => false),
-  ]);
+  const branding = await getBranding();
 
   const cssOverrides = `:root {
   --primary: ${branding.colorPrimary};
@@ -69,22 +62,7 @@ export default async function RootLayout({
                   Sign Up
                 </Link>
                 <NavDashboardLink className="font-semibold hover:text-primary-light transition-colors" />
-                {studentsEnabled && (
-                  <Link
-                    href="/student"
-                    className="font-semibold hover:text-primary-light transition-colors"
-                  >
-                    Students
-                  </Link>
-                )}
-                {competitionConfig.enabled && (
-                  <Link
-                    href="/competition"
-                    className="font-semibold hover:text-primary-light transition-colors"
-                  >
-                    Competition
-                  </Link>
-                )}
+                <NavConditionalLinks className="font-semibold hover:text-primary-light transition-colors" />
                 <Link
                   href="/leaderboard"
                   className="font-semibold hover:text-primary-light transition-colors"

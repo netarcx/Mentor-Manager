@@ -1282,7 +1282,10 @@ export default function CompetitionPage() {
             )}
           </div>
         </div>
-        <div className="hidden md:block absolute left-1/2 -translate-x-1/2 text-xl font-bold tracking-tight text-slate-200 tabular-nums">
+        <div
+          className="hidden md:block absolute left-1/2 -translate-x-1/2 text-xl font-bold tracking-tight text-slate-200 tabular-nums cursor-pointer"
+          onDoubleClick={() => window.location.href = "/"}
+        >
           <LiveClock />
         </div>
         <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
