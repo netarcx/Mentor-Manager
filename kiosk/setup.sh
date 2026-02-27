@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================================
-# UV PitCrew — Raspberry Pi Kiosk Setup
+# UV PitCrew — Raspberry Pi Kiosk Setup (TUI Installer)
 # ============================================================================
 #
 # Turns a Raspberry Pi 3 into a dedicated kiosk that auto-boots into the
@@ -12,12 +12,16 @@
 #   3. Boot the Pi and SSH in
 #   4. Copy this script to the Pi and run it:
 #
-#        bash setup.sh https://your-server-address/dashboard
+#        sudo bash setup.sh
+#
+#   Or with a URL argument to skip the prompt:
+#
+#        sudo bash setup.sh https://your-server-address/dashboard
 #
 #   5. The Pi will reboot and launch the dashboard in fullscreen.
 #
 # To change the URL later:
-#   Edit /home/kiosk/url.txt and reboot (or run: sudo systemctl restart kiosk)
+#   Edit /home/kiosk/url.txt and reboot
 #
 # To exit kiosk mode on a connected keyboard:
 #   Ctrl+Alt+F2  → switch to tty2, log in, and run commands
@@ -27,79 +31,195 @@
 
 set -euo pipefail
 
-DASHBOARD_URL="${1:-}"
-
-if [ -z "$DASHBOARD_URL" ]; then
-  echo "Usage: bash setup.sh <dashboard-url>"
-  echo "  e.g. bash setup.sh https://mentors.example.com/dashboard"
-  exit 1
-fi
+LOG="/tmp/kiosk-setup.log"
+> "$LOG"
 
 # Must run as root
 if [ "$(id -u)" -ne 0 ]; then
-  echo "Please run with sudo: sudo bash setup.sh $DASHBOARD_URL"
+  echo "Please run with sudo: sudo bash setup.sh"
   exit 1
 fi
 
-echo "=== UV PitCrew Kiosk Setup ==="
-echo "URL: $DASHBOARD_URL"
-echo ""
+# --------------------------------------------------------------------------
+# TUI helpers (whiptail is pre-installed on Raspberry Pi OS)
+# --------------------------------------------------------------------------
+W=70
+H=16
+
+msg() {
+  whiptail --title "UV PitCrew Kiosk Setup" --msgbox "$1" "$H" "$W"
+}
+
+err() {
+  whiptail --title "Error" --msgbox "$1" "$H" "$W"
+}
+
+yesno() {
+  whiptail --title "UV PitCrew Kiosk Setup" --yesno "$1" "$H" "$W"
+}
 
 # --------------------------------------------------------------------------
-# 1. Create a dedicated kiosk user
+# Welcome
 # --------------------------------------------------------------------------
-echo "[1/7] Creating kiosk user..."
-if ! id -u kiosk &>/dev/null; then
-  useradd -m -s /bin/bash kiosk
-  usermod -aG video,audio,input,tty kiosk
+msg "Welcome to the UV PitCrew Kiosk installer!
+
+This will configure your Raspberry Pi as a
+dedicated fullscreen dashboard display.
+
+What it does:
+  * Creates a dedicated kiosk user
+  * Installs X11, Openbox, and Chromium
+  * Configures auto-login and auto-start
+  * Disables screen blanking
+  * Enables Bluetooth and USB tethering
+  * Sets hostname to mentor-kiosk"
+
+# --------------------------------------------------------------------------
+# Dashboard URL (accept via CLI arg or prompt interactively)
+# --------------------------------------------------------------------------
+DASHBOARD_URL="${1:-}"
+
+if [ -z "$DASHBOARD_URL" ]; then
+  BASE_URL=$(whiptail --title "Server URL" \
+    --inputbox "Enter the base URL of your server:" \
+    10 "$W" "https://" \
+    3>&1 1>&2 2>&3) || exit 1
+
+  if [ -z "$BASE_URL" ]; then
+    err "No URL provided. Aborting."
+    exit 1
+  fi
+
+  # Strip trailing slash
+  BASE_URL="${BASE_URL%/}"
+
+  DASH_TYPE=$(whiptail --title "Dashboard Type" \
+    --menu "Which dashboard should the kiosk display?" \
+    12 "$W" 2 \
+    "dashboard"   "Standard dashboard (mentoring sessions)" \
+    "competition"  "Competition dashboard (live scores)" \
+    3>&1 1>&2 2>&3) || exit 1
+
+  DASHBOARD_URL="$BASE_URL/$DASH_TYPE"
 fi
 
-# Save the dashboard URL so it's easy to change later
-echo "$DASHBOARD_URL" > /home/kiosk/url.txt
-chown kiosk:kiosk /home/kiosk/url.txt
+if [ -z "$DASHBOARD_URL" ]; then
+  err "No URL provided. Aborting."
+  exit 1
+fi
 
 # --------------------------------------------------------------------------
-# 2. Install packages
+# Confirm before installing
 # --------------------------------------------------------------------------
-echo "[2/7] Installing packages (this may take a few minutes)..."
-apt-get update -qq
-apt-get install -y -qq \
-  xserver-xorg \
-  x11-xserver-utils \
-  xinit \
-  openbox \
-  chromium-browser \
-  unclutter \
-  fonts-liberation \
-  libgles2 \
-  > /dev/null
+# Derive display label for the dashboard type
+case "$DASHBOARD_URL" in
+  */competition) DASH_LABEL="Competition" ;;
+  *)             DASH_LABEL="Standard" ;;
+esac
+
+yesno "Ready to install with these settings:
+
+  URL:       $DASHBOARD_URL
+  Dashboard: $DASH_LABEL
+  Hostname:  mentor-kiosk
+  Auto-login: enabled
+  Screen blanking: disabled
+  Mouse cursor: visible
+
+Continue?" || exit 0
 
 # --------------------------------------------------------------------------
-# 3. Configure auto-login on tty1
+# Installation with progress gauge
 # --------------------------------------------------------------------------
-echo "[3/7] Configuring auto-login..."
-mkdir -p /etc/systemd/system/getty@tty1.service.d
-cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'EOF'
+FAIL_FILE="/tmp/kiosk-setup-fail"
+rm -f "$FAIL_FILE"
+
+(
+  # --- 1. Create kiosk user ------------------------------------------------
+  echo "XXX"
+  echo 5
+  echo "Creating kiosk user..."
+  echo "XXX"
+  {
+    if ! id -u kiosk &>/dev/null; then
+      useradd -m -s /bin/bash kiosk
+      usermod -aG video,audio,input,tty kiosk
+    fi
+    echo "$DASHBOARD_URL" > /home/kiosk/url.txt
+    chown kiosk:kiosk /home/kiosk/url.txt
+  } >> "$LOG" 2>&1 || { echo "Creating kiosk user" > "$FAIL_FILE"; exit 1; }
+
+  # --- 2. Update package lists ---------------------------------------------
+  echo "XXX"
+  echo 15
+  echo "Updating package lists..."
+  echo "XXX"
+  apt-get update -qq >> "$LOG" 2>&1 || { echo "Updating package lists" > "$FAIL_FILE"; exit 1; }
+
+  # --- 3. Install packages -------------------------------------------------
+  echo "XXX"
+  echo 25
+  echo "Installing packages (this takes a few minutes)..."
+  echo "XXX"
+  apt-get install -y -qq \
+    xserver-xorg \
+    x11-xserver-utils \
+    xinit \
+    openbox \
+    chromium \
+    xdotool \
+    fonts-liberation \
+    libgles2 \
+    network-manager \
+    bluez \
+    >> "$LOG" 2>&1 || { echo "Installing packages" > "$FAIL_FILE"; exit 1; }
+
+  # --- 4. Enable NetworkManager and Bluetooth --------------------------------
+  echo "XXX"
+  echo 45
+  echo "Enabling tethering support..."
+  echo "XXX"
+  {
+    # Ensure eth0 keeps its DHCP address for SSH access at home.
+    # On Bookworm, NetworkManager is the default — give eth0 a high-priority
+    # wired connection so NM keeps it up and prefers it over tethered interfaces.
+    nmcli con add type ethernet con-name "Wired ETH0" ifname eth0 \
+      ipv4.method auto connection.autoconnect yes \
+      connection.autoconnect-priority 100 2>/dev/null || true
+    # Enable Bluetooth
+    systemctl enable bluetooth
+  } >> "$LOG" 2>&1 || { echo "Enabling tethering support" > "$FAIL_FILE"; exit 1; }
+
+  # --- 5. Configure auto-login on tty1 -------------------------------------
+  echo "XXX"
+  echo 55
+  echo "Configuring auto-login..."
+  echo "XXX"
+  {
+    mkdir -p /etc/systemd/system/getty@tty1.service.d
+    cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'EOF'
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty --autologin kiosk --noclear %I $TERM
 EOF
+  } >> "$LOG" 2>&1 || { echo "Configuring auto-login" > "$FAIL_FILE"; exit 1; }
 
-# --------------------------------------------------------------------------
-# 4. Configure X and Chromium kiosk startup
-# --------------------------------------------------------------------------
-echo "[4/7] Configuring kiosk startup..."
-
-# The kiosk user's .bash_profile starts X on tty1
-cat > /home/kiosk/.bash_profile << 'PROFILE'
+  # --- 6. Configure X and Chromium kiosk startup ----------------------------
+  echo "XXX"
+  echo 65
+  echo "Configuring kiosk startup..."
+  echo "XXX"
+  {
+    # .bash_profile starts X on tty1
+    cat > /home/kiosk/.bash_profile << 'PROFILE'
 # Auto-start X on tty1 only
 if [ "$(tty)" = "/dev/tty1" ]; then
-  exec startx -- -nocursor 2>/dev/null
+  exec startx 2>/dev/null
 fi
 PROFILE
 
-# .xinitrc launches openbox + chromium
-cat > /home/kiosk/.xinitrc << 'XINITRC'
+    # .xinitrc launches openbox + chromium
+    cat > /home/kiosk/.xinitrc << 'XINITRC'
 #!/bin/bash
 
 # Read dashboard URL and append ?tv=1 for TV mode
@@ -116,9 +236,6 @@ fi
 xset s off
 xset s noblank
 xset -dpms
-
-# Hide the mouse cursor after 0.5 seconds of inactivity
-unclutter -idle 0.5 -root &
 
 # Window manager (needed for Chromium to go fullscreen)
 openbox &
@@ -151,81 +268,71 @@ exec chromium-browser \
   "$URL"
 XINITRC
 
-chown kiosk:kiosk /home/kiosk/.bash_profile /home/kiosk/.xinitrc
-chmod +x /home/kiosk/.xinitrc
+    chown kiosk:kiosk /home/kiosk/.bash_profile /home/kiosk/.xinitrc
+    chmod +x /home/kiosk/.xinitrc
+  } >> "$LOG" 2>&1 || { echo "Configuring kiosk startup" > "$FAIL_FILE"; exit 1; }
+
+  # --- 7. Disable screen blanking at kernel level ---------------------------
+  echo "XXX"
+  echo 80
+  echo "Disabling screen blanking..."
+  echo "XXX"
+  {
+    CMDLINE="/boot/cmdline.txt"
+    if [ -f /boot/firmware/cmdline.txt ]; then
+      CMDLINE="/boot/firmware/cmdline.txt"
+    fi
+    if ! grep -q "consoleblank=0" "$CMDLINE"; then
+      sed -i 's/$/ consoleblank=0/' "$CMDLINE"
+    fi
+
+    CONFIG="/boot/config.txt"
+    if [ -f /boot/firmware/config.txt ]; then
+      CONFIG="/boot/firmware/config.txt"
+    fi
+    if ! grep -q "^gpu_mem=" "$CONFIG"; then
+      echo "gpu_mem=128" >> "$CONFIG"
+    fi
+  } >> "$LOG" 2>&1 || { echo "Disabling screen blanking" > "$FAIL_FILE"; exit 1; }
+
+  # --- 8. Set hostname ------------------------------------------------------
+  echo "XXX"
+  echo 95
+  echo "Setting hostname to mentor-kiosk..."
+  echo "XXX"
+  hostnamectl set-hostname mentor-kiosk >> "$LOG" 2>&1 || true
+
+  echo "XXX"
+  echo 100
+  echo "Complete!"
+  echo "XXX"
+  sleep 1
+
+) | whiptail --title "UV PitCrew Kiosk Setup" --gauge "Starting installation..." 8 "$W" 0 || true
 
 # --------------------------------------------------------------------------
-# 5. Systemd service for easy restart / management
+# Check for errors
 # --------------------------------------------------------------------------
-echo "[5/7] Creating systemd service..."
-cat > /etc/systemd/system/kiosk.service << 'SERVICE'
-[Unit]
-Description=UV PitCrew Kiosk
-After=network-online.target
-Wants=network-online.target
+if [ -f "$FAIL_FILE" ]; then
+  FAILED=$(cat "$FAIL_FILE")
+  err "Installation failed at: $FAILED
 
-[Service]
-Type=simple
-User=kiosk
-Environment=DISPLAY=:0
-ExecStart=/usr/bin/startx -- -nocursor
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-SERVICE
-
-# We use the auto-login approach rather than the service, but keep the
-# service available for manual restart: sudo systemctl restart kiosk
-
-# --------------------------------------------------------------------------
-# 6. Disable screen blanking at kernel level
-# --------------------------------------------------------------------------
-echo "[6/7] Disabling screen blanking..."
-
-# Add kernel params to prevent blanking
-CMDLINE="/boot/cmdline.txt"
-# Also check /boot/firmware/cmdline.txt (Bookworm)
-if [ -f /boot/firmware/cmdline.txt ]; then
-  CMDLINE="/boot/firmware/cmdline.txt"
+Check the log for details:
+  cat $LOG"
+  exit 1
 fi
 
-if ! grep -q "consoleblank=0" "$CMDLINE"; then
-  sed -i 's/$/ consoleblank=0/' "$CMDLINE"
-fi
-
-# GPU memory split — give more to GPU for smooth rendering
-CONFIG="/boot/config.txt"
-if [ -f /boot/firmware/config.txt ]; then
-  CONFIG="/boot/firmware/config.txt"
-fi
-
-if ! grep -q "^gpu_mem=" "$CONFIG"; then
-  echo "gpu_mem=128" >> "$CONFIG"
-fi
-
 # --------------------------------------------------------------------------
-# 7. Optional: set hostname
+# Done — offer reboot
 # --------------------------------------------------------------------------
-echo "[7/7] Setting hostname to mentor-kiosk..."
-hostnamectl set-hostname mentor-kiosk 2>/dev/null || true
+if yesno "Setup complete!
 
-# --------------------------------------------------------------------------
-# Done!
-# --------------------------------------------------------------------------
-echo ""
-echo "=== Setup complete! ==="
-echo ""
-echo "The Pi will now reboot into the dashboard kiosk."
-echo ""
-echo "  Dashboard URL: $DASHBOARD_URL"
-echo "  Change URL:    Edit /home/kiosk/url.txt and reboot"
-echo "  SSH in:        ssh kiosk@mentor-kiosk.local"
-echo "  Switch TTY:    Ctrl+Alt+F2 (exit kiosk: Ctrl+Alt+F1 to return)"
-echo ""
-read -p "Reboot now? [Y/n] " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+  Dashboard: $DASHBOARD_URL
+  Hostname:  mentor-kiosk
+  Change URL: edit /home/kiosk/url.txt
+  SSH:  ssh kiosk@mentor-kiosk.local
+  TTY:  Ctrl+Alt+F2 (back: F1)
+
+Reboot now?"; then
   reboot
 fi
