@@ -6,12 +6,16 @@
 # Run on the Pi:  sudo bash fix-usb-tether.sh
 #
 # What this does:
-#   1. Loads kernel modules for USB tethering (RNDIS, CDC-ECM, CDC-NCM)
-#   2. Persists them so they load on every boot
-#   3. Creates a NetworkManager connection that auto-connects any USB
-#      network interface (usb0, usb1, enx*)
-#   4. Adds a udev rule so NM immediately manages hotplugged USB adapters
-#   5. Detects a currently-plugged phone and brings it online
+#   1. Installs iPhone tethering packages (usbmuxd, libimobiledevice)
+#   2. Loads kernel modules for USB tethering (RNDIS, CDC-ECM, CDC-NCM,
+#      ipheth for iPhone)
+#   3. Persists them so they load on every boot
+#   4. Creates NetworkManager connections that auto-connect USB tether
+#      interfaces (usb0, enx*, iPhone eth)
+#   5. Adds a udev rule so NM immediately manages hotplugged USB adapters
+#   6. Detects a currently-plugged phone and brings it online
+#
+# Supports: Android (RNDIS/ECM/NCM) and iPhone (ipheth via libimobiledevice)
 #
 # After running this, just plug in your phone and turn on USB tethering.
 # ============================================================================
@@ -27,10 +31,29 @@ echo "=== USB Tethering Fix ==="
 echo ""
 
 # --------------------------------------------------------------------------
-# 1. Load kernel modules (covers Android RNDIS, iPhone/Android ECM, NCM)
+# 1. Install iPhone tethering packages
 # --------------------------------------------------------------------------
-echo "[1/5] Loading USB tethering kernel modules..."
-MODULES=(rndis_host cdc_ether cdc_ncm)
+echo "[1/6] Installing iPhone tethering support..."
+apt-get update -qq
+apt-get install -y -qq \
+  usbmuxd \
+  libimobiledevice6 \
+  libimobiledevice-utils \
+  > /dev/null 2>&1 && echo "  Installed: usbmuxd, libimobiledevice" \
+  || echo "  Warning: could not install iPhone packages (may already be present)"
+
+# usbmuxd must be running for iPhone USB communication
+systemctl enable usbmuxd 2>/dev/null || true
+systemctl start usbmuxd 2>/dev/null || true
+echo "  usbmuxd service: $(systemctl is-active usbmuxd 2>/dev/null || echo 'not running')"
+
+# --------------------------------------------------------------------------
+# 2. Load kernel modules
+#    Android: rndis_host, cdc_ether, cdc_ncm
+#    iPhone:  ipheth (iPhone USB ethernet, paired with usbmuxd)
+# --------------------------------------------------------------------------
+echo "[2/6] Loading USB tethering kernel modules..."
+MODULES=(rndis_host cdc_ether cdc_ncm ipheth)
 
 for mod in "${MODULES[@]}"; do
   if modprobe "$mod" 2>/dev/null; then
@@ -41,9 +64,9 @@ for mod in "${MODULES[@]}"; do
 done
 
 # --------------------------------------------------------------------------
-# 2. Persist modules across reboots
+# 3. Persist modules across reboots
 # --------------------------------------------------------------------------
-echo "[2/5] Persisting modules in /etc/modules..."
+echo "[3/6] Persisting modules in /etc/modules..."
 for mod in "${MODULES[@]}"; do
   if ! grep -qx "$mod" /etc/modules 2>/dev/null; then
     echo "$mod" >> /etc/modules
@@ -54,14 +77,16 @@ for mod in "${MODULES[@]}"; do
 done
 
 # --------------------------------------------------------------------------
-# 3. Create a NetworkManager connection for USB tethering
+# 4. Create NetworkManager connections for USB tethering
 # --------------------------------------------------------------------------
-echo "[3/5] Configuring NetworkManager for USB tethering..."
+echo "[4/6] Configuring NetworkManager for USB tethering..."
 
 # Remove stale profiles if they exist (idempotent re-run)
 nmcli con delete "USB Tether" 2>/dev/null && echo "  Removed old profile" || true
+nmcli con delete "USB Tether Alt" 2>/dev/null || true
+nmcli con delete "iPhone Tether" 2>/dev/null || true
 
-# Wildcard connection: matches usb0, usb1, etc. (classic naming)
+# Android: matches usb0, usb1, etc. (classic naming)
 nmcli con add \
   type ethernet \
   con-name "USB Tether" \
@@ -73,8 +98,7 @@ nmcli con add \
   > /dev/null 2>&1
 echo "  Created profile: USB Tether (usb0)"
 
-# Some kernels use predictable names (enx...) — add a second profile
-nmcli con delete "USB Tether Alt" 2>/dev/null || true
+# Predictable names (enx...) — covers some Android and iPhone setups
 nmcli con add \
   type ethernet \
   con-name "USB Tether Alt" \
@@ -86,16 +110,32 @@ nmcli con add \
   > /dev/null 2>&1 || true
 echo "  Created profile: USB Tether Alt (enx*)"
 
+# iPhone: ipheth creates eth1 (or eth2, etc.) — use a wildcard keyfile
+# NM doesn't support eth* wildcards in nmcli, so write the profile directly
+cat > /etc/NetworkManager/conf.d/20-iphone-tether.conf << 'NMCONF'
+# Auto-manage iPhone tethering interface (ipheth driver)
+[device-iphone]
+match-device=driver:ipheth
+managed=1
+NMCONF
+echo "  Created NM config: iPhone ipheth auto-managed"
+
 # --------------------------------------------------------------------------
-# 4. Udev rule — tell NM to manage hotplugged USB network devices
+# 5. Udev rules — tell NM to manage hotplugged USB network devices
 # --------------------------------------------------------------------------
-echo "[4/5] Adding udev rule for USB network devices..."
+echo "[5/6] Adding udev rules for USB network devices..."
 
 UDEV_RULE="/etc/udev/rules.d/90-usb-tether.rules"
 cat > "$UDEV_RULE" << 'UDEV'
 # Auto-manage USB tethering interfaces with NetworkManager
-# Matches Android RNDIS, iPhone NCM/ECM, and generic USB ethernet
-ACTION=="add", SUBSYSTEM=="net", DRIVERS=="rndis_host|cdc_ether|cdc_ncm", ENV{NM_UNMANAGED}="0"
+# Android: RNDIS, CDC-ECM, CDC-NCM
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="rndis_host", ENV{NM_UNMANAGED}="0"
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="cdc_ether", ENV{NM_UNMANAGED}="0"
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="cdc_ncm", ENV{NM_UNMANAGED}="0"
+# iPhone: ipheth
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="ipheth", ENV{NM_UNMANAGED}="0"
+# Trigger NM to pick up iPhone tether when usbmuxd pairs the device
+ACTION=="add", SUBSYSTEM=="net", ATTRS{idVendor}=="05ac", ENV{NM_UNMANAGED}="0"
 UDEV
 echo "  Wrote $UDEV_RULE"
 
@@ -104,37 +144,70 @@ udevadm trigger --subsystem-match=net
 echo "  Reloaded udev rules"
 
 # --------------------------------------------------------------------------
-# 5. Detect & connect any currently-plugged USB tether
+# 6. Detect & connect any currently-plugged phone
 # --------------------------------------------------------------------------
-echo "[5/5] Scanning for active USB network interfaces..."
+echo "[6/6] Scanning for active USB network interfaces..."
 
+# Restart services to pick up all changes
+systemctl restart NetworkManager
+systemctl restart usbmuxd 2>/dev/null || true
+sleep 2
+
+echo ""
 nmcli device status 2>/dev/null || true
+echo ""
 
-# Try to bring up any disconnected USB interface
+# Check for an iPhone specifically
+if lsusb 2>/dev/null | grep -qi "apple"; then
+  echo "  iPhone detected on USB!"
+  # Verify pairing — iPhone needs to be trusted ("Trust This Computer")
+  if command -v idevicepair &>/dev/null; then
+    echo "  Checking iPhone pairing..."
+    if idevicepair validate 2>/dev/null; then
+      echo "  iPhone is paired and trusted"
+    else
+      echo "  >>> Unlock your iPhone and tap 'Trust This Computer' <<<"
+      echo "  Then re-run this script or run: idevicepair pair"
+    fi
+  fi
+fi
+
+# Try to bring up any disconnected tether interface
 FOUND=false
-for iface in /sys/class/net/usb* /sys/class/net/enx*; do
+for iface in /sys/class/net/usb* /sys/class/net/enx* /sys/class/net/eth*; do
   [ -e "$iface" ] || continue
   NAME=$(basename "$iface")
-  echo "  Found: $NAME"
-  # Kick NM to pick it up
-  nmcli dev set "$NAME" managed yes 2>/dev/null || true
-  nmcli dev connect "$NAME" 2>/dev/null && echo "  Connected: $NAME" || echo "  Waiting for phone tethering to be enabled"
-  FOUND=true
+  # Skip the main ethernet port
+  [ "$NAME" = "eth0" ] && continue
+  # Check if this is a USB device (not built-in ethernet)
+  DEVPATH=$(readlink -f "$iface/device" 2>/dev/null || echo "")
+  if echo "$DEVPATH" | grep -q "usb"; then
+    echo "  Found USB interface: $NAME"
+    nmcli dev set "$NAME" managed yes 2>/dev/null || true
+    nmcli dev connect "$NAME" 2>/dev/null && echo "  Connected: $NAME" || echo "  Waiting for phone tethering to be enabled"
+    FOUND=true
+  fi
 done
 
 if [ "$FOUND" = false ]; then
   echo "  No USB tethering interface detected."
-  echo "  Plug in your phone and enable USB tethering — it will auto-connect."
+  echo ""
+  echo "  For iPhone:"
+  echo "    1. Plug in via USB cable"
+  echo "    2. Unlock and tap 'Trust This Computer' if prompted"
+  echo "    3. Enable Personal Hotspot in Settings"
+  echo "    4. Re-run this script or wait a moment for auto-connect"
+  echo ""
+  echo "  For Android:"
+  echo "    1. Plug in via USB cable"
+  echo "    2. Enable USB tethering in Settings"
 fi
-
-# Restart NM to pick up all changes
-systemctl restart NetworkManager
 
 echo ""
 echo "=== Done ==="
 echo ""
-echo "USB tethering should now work automatically."
-echo "Just plug in your phone and enable USB tethering."
+echo "USB tethering should now work automatically for iPhone and Android."
 echo ""
-echo "To check status:  nmcli device status"
-echo "To see IP:        ip addr show usb0"
+echo "  Check status:  nmcli device status"
+echo "  See IP:         ip addr"
+echo "  iPhone paired:  idevicepair validate"

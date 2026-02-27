@@ -173,6 +173,9 @@ rm -f "$FAIL_FILE"
     unclutter \
     network-manager \
     bluez \
+    usbmuxd \
+    libimobiledevice6 \
+    libimobiledevice-utils \
     >> "$LOG" 2>&1 || { echo "Installing packages" > "$FAIL_FILE"; exit 1; }
 
   # --- 4. Enable NetworkManager and Bluetooth --------------------------------
@@ -181,8 +184,8 @@ rm -f "$FAIL_FILE"
   echo "Enabling tethering support..."
   echo "XXX"
   {
-    # Load USB tethering kernel modules (Android RNDIS, iPhone/Android ECM, NCM)
-    for mod in rndis_host cdc_ether cdc_ncm; do
+    # Load USB tethering kernel modules (Android RNDIS/ECM/NCM, iPhone ipheth)
+    for mod in rndis_host cdc_ether cdc_ncm ipheth; do
       modprobe "$mod" 2>/dev/null || true
       grep -qx "$mod" /etc/modules 2>/dev/null || echo "$mod" >> /etc/modules
     done
@@ -200,10 +203,24 @@ rm -f "$FAIL_FILE"
       ipv4.method auto connection.autoconnect yes \
       connection.autoconnect-priority 50 2>/dev/null || true
 
-    # Udev rule — tell NM to manage hotplugged USB network devices
+    # Auto-manage iPhone tethering interface (ipheth driver)
+    cat > /etc/NetworkManager/conf.d/20-iphone-tether.conf << 'NMCONF'
+[device-iphone]
+match-device=driver:ipheth
+managed=1
+NMCONF
+
+    # Udev rules — tell NM to manage hotplugged USB network devices
     cat > /etc/udev/rules.d/90-usb-tether.rules << 'UDEV'
-ACTION=="add", SUBSYSTEM=="net", DRIVERS=="rndis_host|cdc_ether|cdc_ncm", ENV{NM_UNMANAGED}="0"
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="rndis_host", ENV{NM_UNMANAGED}="0"
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="cdc_ether", ENV{NM_UNMANAGED}="0"
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="cdc_ncm", ENV{NM_UNMANAGED}="0"
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="ipheth", ENV{NM_UNMANAGED}="0"
+ACTION=="add", SUBSYSTEM=="net", ATTRS{idVendor}=="05ac", ENV{NM_UNMANAGED}="0"
 UDEV
+
+    # Enable usbmuxd for iPhone USB communication
+    systemctl enable usbmuxd 2>/dev/null || true
 
     # Enable Bluetooth
     systemctl enable bluetooth
