@@ -50,8 +50,9 @@ PKGS_TO_INSTALL="usbmuxd libimobiledevice-utils"
 # Check what's available in the repos
 echo "  Checking available packages..."
 AVAILABLE=""
-for pkg in usbmuxd libimobiledevice-utils libimobiledevice6 libimobiledevice-1.0-6; do
-  if apt-cache show "$pkg" &>/dev/null; then
+for pkg in usbmuxd libimobiledevice-utils libimobiledevice-1.0-6; do
+  if apt-cache policy "$pkg" 2>/dev/null | grep -q "Candidate:" && \
+     ! apt-cache policy "$pkg" 2>/dev/null | grep -q "Candidate: (none)"; then
     AVAILABLE="$AVAILABLE $pkg"
   fi
 done
