@@ -160,15 +160,45 @@ echo ""
 # Check for an iPhone specifically (use sysfs — lsusb may not be installed on Lite)
 if grep -rql "05ac" /sys/bus/usb/devices/*/idVendor 2>/dev/null; then
   echo "  iPhone detected on USB!"
-  # Verify pairing — iPhone needs to be trusted ("Trust This Computer")
-  if command -v idevicepair &>/dev/null; then
-    echo "  Checking iPhone pairing..."
-    if idevicepair validate 2>/dev/null; then
-      echo "  iPhone is paired and trusted"
+
+  # Step 1: Check if usbmuxd can see the device at all
+  if command -v idevice_id &>/dev/null; then
+    DEVICE_ID=$(idevice_id -l 2>/dev/null || true)
+    if [ -n "$DEVICE_ID" ]; then
+      echo "  Device ID: $DEVICE_ID"
+
+      # Step 2: Attempt to pair (triggers 'Trust This Computer' on the phone)
+      echo "  Initiating pairing..."
+      echo "  >>> If prompted, unlock your iPhone and tap 'Trust This Computer' <<<"
+      idevicepair pair 2>&1 | while IFS= read -r line; do echo "  $line"; done
+
+      # Give the user a moment to tap Trust, then check again
+      sleep 3
+      if idevicepair pair 2>/dev/null; then
+        echo "  iPhone paired successfully"
+      else
+        echo "  Pairing incomplete — unlock iPhone, tap Trust, then run:"
+        echo "    idevicepair pair"
+      fi
     else
-      echo "  >>> Unlock your iPhone and tap 'Trust This Computer' <<<"
-      echo "  Then re-run this script or run: idevicepair pair"
+      echo "  iPhone on USB bus but usbmuxd can't see it yet."
+      echo "  Restarting usbmuxd..."
+      systemctl restart usbmuxd 2>/dev/null || true
+      sleep 2
+      DEVICE_ID=$(idevice_id -l 2>/dev/null || true)
+      if [ -n "$DEVICE_ID" ]; then
+        echo "  Now visible: $DEVICE_ID"
+        echo "  >>> Unlock iPhone and tap 'Trust This Computer' if prompted <<<"
+        idevicepair pair 2>&1 | while IFS= read -r line; do echo "  $line"; done
+      else
+        echo "  Still not visible. Try:"
+        echo "    1. Unplug and re-plug the iPhone"
+        echo "    2. Unlock the iPhone"
+        echo "    3. Run: sudo bash fix-usb-tether.sh"
+      fi
     fi
+  else
+    echo "  Warning: idevice_id not found — libimobiledevice-utils may not be installed"
   fi
 fi
 
