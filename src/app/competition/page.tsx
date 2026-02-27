@@ -1306,6 +1306,30 @@ export default function CompetitionPage() {
               EXAMPLE
             </span>
           )}
+          <div className="hidden md:flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={() => setZoom((z) => Math.max(40, z - 10))}
+              className="w-7 h-7 rounded-md bg-slate-700/50 hover:bg-slate-600 text-slate-400 hover:text-white text-sm font-bold transition-colors border border-slate-600/50"
+              title="Zoom Out"
+            >
+              &minus;
+            </button>
+            <span className="text-[10px] text-slate-500 min-w-[2rem] text-center tabular-nums">{zoom}%</span>
+            <button
+              onClick={() => setZoom((z) => Math.min(150, z + 10))}
+              className="w-7 h-7 rounded-md bg-slate-700/50 hover:bg-slate-600 text-slate-400 hover:text-white text-sm font-bold transition-colors border border-slate-600/50"
+              title="Zoom In"
+            >
+              +
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              className="w-7 h-7 rounded-md bg-slate-700/50 hover:bg-slate-600 text-slate-400 hover:text-white text-lg transition-colors border border-slate-600/50 flex items-center justify-center"
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              &#x26F6;
+            </button>
+          </div>
           <div className="text-right">
             <div className="text-xl md:text-2xl font-bold tracking-tight text-emerald-400">
               {teamNumber}
@@ -1750,31 +1774,6 @@ export default function CompetitionPage() {
         </div>
       )}
 
-      {/* Floating controls (bottom-right, hidden on mobile) */}
-      <div className="fixed bottom-14 right-4 hidden md:flex items-center gap-1.5 z-50">
-        <button
-          onClick={() => setZoom((z) => Math.max(40, z - 10))}
-          className="w-8 h-8 rounded-md bg-slate-800/70 hover:bg-slate-700 text-slate-400 hover:text-white text-sm font-bold transition-colors backdrop-blur-sm border border-slate-700/50"
-          title="Zoom Out"
-        >
-          &minus;
-        </button>
-        <span className="text-[10px] text-slate-500 min-w-[2rem] text-center">{zoom}%</span>
-        <button
-          onClick={() => setZoom((z) => Math.min(150, z + 10))}
-          className="w-8 h-8 rounded-md bg-slate-800/70 hover:bg-slate-700 text-slate-400 hover:text-white text-sm font-bold transition-colors backdrop-blur-sm border border-slate-700/50"
-          title="Zoom In"
-        >
-          +
-        </button>
-        <button
-          onClick={toggleFullscreen}
-          className="w-8 h-8 rounded-md bg-slate-800/70 hover:bg-slate-700 text-slate-400 hover:text-white text-lg transition-colors backdrop-blur-sm border border-slate-700/50 flex items-center justify-center"
-          title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-        >
-          &#x26F6;
-        </button>
-      </div>
     </div>
   );
 }
