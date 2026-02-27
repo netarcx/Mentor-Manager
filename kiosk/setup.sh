@@ -222,8 +222,8 @@ UDEV
     # Enable usbmuxd for iPhone USB communication
     systemctl enable usbmuxd 2>/dev/null || true
 
-    # Enable Bluetooth
-    systemctl enable bluetooth
+    # Enable Bluetooth (optional — may not exist on all boards)
+    systemctl enable bluetooth 2>/dev/null || true
   } >> "$LOG" 2>&1 || { echo "Enabling tethering support" > "$FAIL_FILE"; exit 1; }
 
   # --- 5. Configure auto-login on tty1 -------------------------------------

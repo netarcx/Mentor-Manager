@@ -157,8 +157,8 @@ echo ""
 nmcli device status 2>/dev/null || true
 echo ""
 
-# Check for an iPhone specifically
-if lsusb 2>/dev/null | grep -qi "apple"; then
+# Check for an iPhone specifically (use sysfs — lsusb may not be installed on Lite)
+if grep -rql "05ac" /sys/bus/usb/devices/*/idVendor 2>/dev/null; then
   echo "  iPhone detected on USB!"
   # Verify pairing — iPhone needs to be trusted ("Trust This Computer")
   if command -v idevicepair &>/dev/null; then
@@ -177,9 +177,7 @@ FOUND=false
 for iface in /sys/class/net/usb* /sys/class/net/enx* /sys/class/net/eth*; do
   [ -e "$iface" ] || continue
   NAME=$(basename "$iface")
-  # Skip the main ethernet port
-  [ "$NAME" = "eth0" ] && continue
-  # Check if this is a USB device (not built-in ethernet)
+  # Only act on USB-backed interfaces (skips built-in ethernet like Pi 3/4 eth0)
   DEVPATH=$(readlink -f "$iface/device" 2>/dev/null || echo "")
   if echo "$DEVPATH" | grep -q "usb"; then
     echo "  Found USB interface: $NAME"
