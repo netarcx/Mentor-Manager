@@ -41,40 +41,23 @@ DISTRO_LIKE=$(. /etc/os-release 2>/dev/null && echo "${ID_LIKE:-}" || echo "")
 echo "[1/6] Installing iPhone tethering support..."
 apt-get update -qq 2>&1 | tail -3
 
-# The key packages:
-#   usbmuxd             — USB multiplexing daemon for iPhone communication
-#   libimobiledevice-utils — CLI tools (idevice_id, idevicepair, etc.)
-# On some distros the shared lib is a separate package; on others it's a dep.
-PKGS_TO_INSTALL="usbmuxd libimobiledevice-utils"
-
-# Check what's available in the repos
-echo "  Checking available packages..."
-AVAILABLE=""
+# Try to install each package individually so one failure doesn't block the rest
+SKIP_IPHONE=false
+INSTALLED_ANY=false
 for pkg in usbmuxd libimobiledevice-utils libimobiledevice-1.0-6; do
-  if apt-cache policy "$pkg" 2>/dev/null | grep -q "Candidate:" && \
-     ! apt-cache policy "$pkg" 2>/dev/null | grep -q "Candidate: (none)"; then
-    AVAILABLE="$AVAILABLE $pkg"
+  echo "  Installing $pkg..."
+  if apt-get install -y "$pkg" 2>&1; then
+    INSTALLED_ANY=true
+  else
+    echo "  Skipped: $pkg (not available in repos)"
   fi
 done
-echo "  Available in repos:$AVAILABLE"
 
-if [ -z "$AVAILABLE" ]; then
+if [ "$INSTALLED_ANY" = false ]; then
   echo ""
-  echo "  WARNING: No iPhone tethering packages found in repos."
-  echo "  Your sources.list may be missing standard Debian/Ubuntu repos."
-  echo ""
-  echo "  Checking sources..."
-  grep -rh "^deb " /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | head -5
-  echo ""
-  echo "  You may need to add the universe (Ubuntu) or main (Debian) repo."
+  echo "  WARNING: No iPhone tethering packages could be installed."
   echo "  Continuing with Android-only tethering support..."
-  echo ""
   SKIP_IPHONE=true
-else
-  SKIP_IPHONE=false
-  echo "  Installing:$AVAILABLE"
-  # shellcheck disable=SC2086
-  apt-get install -y $AVAILABLE 2>&1 | tail -10
 fi
 
 # Verify the binaries actually exist
