@@ -174,7 +174,6 @@ rm -f "$FAIL_FILE"
     network-manager \
     bluez \
     usbmuxd \
-    libimobiledevice6 \
     libimobiledevice-utils \
     >> "$LOG" 2>&1 || { echo "Installing packages" > "$FAIL_FILE"; exit 1; }
 
