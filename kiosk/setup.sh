@@ -1,16 +1,17 @@
 #!/bin/bash
 # ============================================================================
-# UV PitCrew — Raspberry Pi Kiosk Setup (TUI Installer)
+# UV PitCrew — Orange Pi 5B Kiosk Setup (TUI Installer)
 # ============================================================================
 #
-# Turns a Raspberry Pi 3 into a dedicated kiosk that auto-boots into the
-# UV PitCrew dashboard in fullscreen Chromium.
+# Turns an Orange Pi 5B (RK3588S / Mali-G610 GPU) into a dedicated kiosk
+# that auto-boots into the UV PitCrew dashboard in fullscreen Chromium
+# with hardware GPU acceleration.
 #
 # Prerequisites:
-#   1. Flash Raspberry Pi OS Lite (Bookworm, 32-bit) to an SD card
-#   2. Enable SSH and configure Wi-Fi via Raspberry Pi Imager (or raspi-config)
-#   3. Boot the Pi and SSH in
-#   4. Copy this script to the Pi and run it:
+#   1. Flash Armbian or Ubuntu to the Orange Pi 5B
+#   2. Enable SSH and configure Wi-Fi
+#   3. SSH in and copy this script to the board
+#   4. Run it:
 #
 #        sudo bash setup.sh
 #
@@ -18,7 +19,7 @@
 #
 #        sudo bash setup.sh https://your-server-address/dashboard
 #
-#   5. The Pi will reboot and launch the dashboard in fullscreen.
+#   5. The board will reboot and launch the dashboard in fullscreen.
 #
 # To change the URL later:
 #   Edit /home/kiosk/url.txt and reboot
@@ -170,6 +171,7 @@ rm -f "$FAIL_FILE"
     xdotool \
     fonts-liberation \
     libgles2 \
+    mesa-utils \
     unclutter \
     network-manager \
     bluez \
@@ -315,7 +317,8 @@ sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$CHROMIUM_DIR/Preference
 # Refresh the page after 10 seconds to ensure full load
 (sleep 10 && xdotool key F5) &
 
-# Launch Chromium in kiosk mode
+# Launch Chromium in kiosk mode with GPU acceleration
+# The Orange Pi 5B has a Mali-G610 MP4 GPU — use it!
 exec chromium \
   --kiosk \
   --noerrdialogs \
@@ -329,7 +332,11 @@ exec chromium \
   --disable-features=Translate \
   --disable-pinch \
   --overscroll-history-navigation=0 \
-  --disable-gpu-compositing \
+  --use-gl=egl \
+  --enable-gpu-rasterization \
+  --enable-zero-copy \
+  --ignore-gpu-blocklist \
+  --enable-features=VaapiVideoDecoder \
   "$URL"
 XINITRC
 
@@ -343,21 +350,39 @@ XINITRC
   echo "Disabling screen blanking..."
   echo "XXX"
   {
-    CMDLINE="/boot/cmdline.txt"
-    if [ -f /boot/firmware/cmdline.txt ]; then
-      CMDLINE="/boot/firmware/cmdline.txt"
-    fi
-    if ! grep -q "consoleblank=0" "$CMDLINE"; then
-      sed -i 's/$/ consoleblank=0/' "$CMDLINE"
+    # Orange Pi 5B uses /boot/orangepiEnv.txt or /boot/armbianEnv.txt
+    # Raspberry Pi uses /boot/cmdline.txt or /boot/firmware/cmdline.txt
+    if [ -f /boot/armbianEnv.txt ]; then
+      # Armbian — add extraargs if not present
+      if ! grep -q "consoleblank=0" /boot/armbianEnv.txt; then
+        if grep -q "^extraargs=" /boot/armbianEnv.txt; then
+          sed -i 's/^extraargs=\(.*\)/extraargs=\1 consoleblank=0/' /boot/armbianEnv.txt
+        else
+          echo "extraargs=consoleblank=0" >> /boot/armbianEnv.txt
+        fi
+      fi
+    elif [ -f /boot/orangepiEnv.txt ]; then
+      # Orange Pi OS — same approach
+      if ! grep -q "consoleblank=0" /boot/orangepiEnv.txt; then
+        if grep -q "^extraargs=" /boot/orangepiEnv.txt; then
+          sed -i 's/^extraargs=\(.*\)/extraargs=\1 consoleblank=0/' /boot/orangepiEnv.txt
+        else
+          echo "extraargs=consoleblank=0" >> /boot/orangepiEnv.txt
+        fi
+      fi
+    else
+      # Fallback for RPi-style cmdline.txt
+      CMDLINE="/boot/cmdline.txt"
+      if [ -f /boot/firmware/cmdline.txt ]; then
+        CMDLINE="/boot/firmware/cmdline.txt"
+      fi
+      if [ -f "$CMDLINE" ] && ! grep -q "consoleblank=0" "$CMDLINE"; then
+        sed -i 's/$/ consoleblank=0/' "$CMDLINE"
+      fi
     fi
 
-    CONFIG="/boot/config.txt"
-    if [ -f /boot/firmware/config.txt ]; then
-      CONFIG="/boot/firmware/config.txt"
-    fi
-    if ! grep -q "^gpu_mem=" "$CONFIG"; then
-      echo "gpu_mem=128" >> "$CONFIG"
-    fi
+    # Note: gpu_mem is a Raspberry Pi-specific setting and does not apply to
+    # the Orange Pi 5B (RK3588S). The Mali-G610 GPU uses system RAM directly.
   } >> "$LOG" 2>&1 || { echo "Disabling screen blanking" > "$FAIL_FILE"; exit 1; }
 
   # --- 8. Set hostname ------------------------------------------------------

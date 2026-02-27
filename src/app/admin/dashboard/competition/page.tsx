@@ -52,6 +52,16 @@ export default function CompetitionPage() {
   const [batteryShowForm, setBatteryShowForm] = useState(false);
   const [batteryEditingId, setBatteryEditingId] = useState<number | null>(null);
   const [batteryFormLabel, setBatteryFormLabel] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyDays, setHistoryDays] = useState<
+    {
+      date: string;
+      totalChanges: number;
+      batteries: { label: string; changes: number; matches: number }[];
+    }[]
+  >([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   async function fetchConfig() {
     const res = await fetch("/api/admin/settings/competition");
@@ -297,6 +307,37 @@ export default function CompetitionPage() {
       idle: "Not in Use",
     };
     return labels[status] || status;
+  }
+
+  async function handleBatteryReset() {
+    if (!confirm("Reset all active batteries to 'Not in Use'? Log history will be preserved.")) return;
+    setResetting(true);
+    try {
+      const res = await fetch("/api/admin/competition/batteries/reset", { method: "POST" });
+      const data = await res.json();
+      if (data.reset !== undefined) {
+        fetchBatteries();
+        // Refresh history if it was already loaded
+        if (historyLoaded) fetchBatteryHistory();
+      }
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  async function fetchBatteryHistory() {
+    const res = await fetch("/api/admin/competition/batteries/history");
+    const data = await res.json();
+    setHistoryDays(data.days || []);
+    setHistoryLoaded(true);
+  }
+
+  function toggleHistory() {
+    const opening = !historyOpen;
+    setHistoryOpen(opening);
+    if (opening && !historyLoaded) {
+      fetchBatteryHistory();
+    }
   }
 
   return (
@@ -762,13 +803,22 @@ export default function CompetitionPage() {
         <h2 className="text-lg font-semibold">Battery Tracking</h2>
         <div className="flex gap-2">
           {batteries.length > 0 && (
-            <a
-              href="/admin/dashboard/competition/batteries/print"
-              target="_blank"
-              className="bg-navy text-white px-4 py-2 rounded-lg hover:bg-navy-dark transition-colors text-sm"
-            >
-              Print QR Codes
-            </a>
+            <>
+              <a
+                href="/admin/dashboard/competition/batteries/print"
+                target="_blank"
+                className="bg-navy text-white px-4 py-2 rounded-lg hover:bg-navy-dark transition-colors text-sm"
+              >
+                Print QR Codes
+              </a>
+              <button
+                onClick={handleBatteryReset}
+                disabled={resetting}
+                className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition-colors text-sm disabled:opacity-50"
+              >
+                {resetting ? "Resetting..." : "Reset All"}
+              </button>
+            </>
           )}
           <button
             onClick={() => {
@@ -888,6 +938,61 @@ export default function CompetitionPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Battery Usage Log */}
+      {batteries.length > 0 && (
+        <div className="mt-6">
+          <button
+            onClick={toggleHistory}
+            className="text-sm text-slate-600 hover:text-slate-900 flex items-center gap-1"
+          >
+            <span className={`inline-block transition-transform ${historyOpen ? "rotate-90" : ""}`}>
+              &#9654;
+            </span>
+            Battery Usage Log
+          </button>
+
+          {historyOpen && (
+            <div className="mt-3 space-y-4">
+              {!historyLoaded ? (
+                <p className="text-slate-500 text-sm">Loading...</p>
+              ) : historyDays.length === 0 ? (
+                <p className="text-slate-500 text-sm italic">No battery activity in the last 14 days.</p>
+              ) : (
+                historyDays.map((day) => (
+                  <div
+                    key={day.date}
+                    className="bg-white rounded-xl shadow border border-slate-100 p-4"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold text-sm">{day.date}</h4>
+                      <span className="text-xs text-slate-400">
+                        {day.totalChanges} status change{day.totalChanges !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {day.batteries.map((b) => (
+                        <div
+                          key={b.label}
+                          className="bg-slate-50 rounded-lg px-3 py-2 text-sm"
+                        >
+                          <span className="font-medium">{b.label}</span>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            {b.matches > 0 && (
+                              <span className="mr-2">{b.matches} match{b.matches !== 1 ? "es" : ""}</span>
+                            )}
+                            {b.changes} change{b.changes !== 1 ? "s" : ""}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
