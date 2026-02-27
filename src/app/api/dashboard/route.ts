@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { todayISO, currentTimeStr } from "@/lib/utils";
+import { todayISO, currentTimeStr, shiftDurationHours } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +77,7 @@ export async function GET() {
         // Countdown settings
         prisma.setting.findMany({
           where: {
-            key: { in: ["countdown_enabled", "countdown_target_date", "countdown_label"] },
+            key: { in: ["countdown_enabled", "countdown_target_date", "countdown_label", "countdown_show_shop_hours"] },
           },
         }),
         // Cleanup settings
@@ -153,10 +153,36 @@ export async function GET() {
     // Build countdown object
     const countdownMap: Record<string, string> = {};
     for (const s of countdownSettings) countdownMap[s.key] = s.value;
+    const showShopHours = countdownMap.countdown_show_shop_hours === "true";
+    const countdownEnabled = countdownMap.countdown_enabled === "true";
+    const countdownTargetDate = countdownMap.countdown_target_date || "";
+
+    // Calculate shop hours remaining if enabled
+    let shopHoursRemaining = 0;
+    if (countdownEnabled && showShopHours && countdownTargetDate) {
+      const remainingShifts = await prisma.shift.findMany({
+        where: {
+          cancelled: false,
+          date: { gte: today, lte: countdownTargetDate },
+        },
+        select: { date: true, startTime: true, endTime: true },
+      });
+
+      for (const shift of remainingShifts) {
+        // Skip today's shifts that have already ended
+        if (shift.date === today && shift.endTime <= now) continue;
+        shopHoursRemaining += shiftDurationHours(shift.startTime, shift.endTime);
+      }
+
+      shopHoursRemaining = Math.round(shopHoursRemaining * 10) / 10;
+    }
+
     const countdown = {
-      enabled: countdownMap.countdown_enabled === "true",
-      targetDate: countdownMap.countdown_target_date || "",
+      enabled: countdownEnabled,
+      targetDate: countdownTargetDate,
       label: countdownMap.countdown_label || "Event",
+      showShopHours,
+      shopHoursRemaining,
     };
 
     // Build announcement object

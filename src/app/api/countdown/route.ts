@@ -8,7 +8,7 @@ export async function GET() {
     const settings = await prisma.setting.findMany({
       where: {
         key: {
-          in: ["countdown_enabled", "countdown_target_date", "countdown_label"],
+          in: ["countdown_enabled", "countdown_target_date", "countdown_label", "countdown_show_shop_hours"],
         },
       },
     });
@@ -22,6 +22,7 @@ export async function GET() {
       enabled: settingsMap.countdown_enabled === "true",
       targetDate: settingsMap.countdown_target_date || "",
       label: settingsMap.countdown_label || "Event",
+      showShopHours: settingsMap.countdown_show_shop_hours === "true",
     });
   } catch (error) {
     console.error(error);

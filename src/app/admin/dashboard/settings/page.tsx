@@ -71,6 +71,7 @@ export default function SettingsPage() {
   const [countdownEnabled, setCountdownEnabled] = useState(false);
   const [countdownDate, setCountdownDate] = useState("");
   const [countdownLabel, setCountdownLabel] = useState("");
+  const [countdownShowShopHours, setCountdownShowShopHours] = useState(false);
 
   // Notification state
   const [notifEnabled, setNotifEnabled] = useState(false);
@@ -134,6 +135,7 @@ export default function SettingsPage() {
         setCountdownEnabled(data.enabled);
         setCountdownDate(data.targetDate);
         setCountdownLabel(data.label);
+        setCountdownShowShopHours(data.showShopHours || false);
       } catch {
         // Use defaults
       }
@@ -1136,6 +1138,7 @@ export default function SettingsPage() {
           enabled: countdownEnabled,
           targetDate: countdownDate,
           label: countdownLabel,
+          showShopHours: countdownShowShopHours,
         }),
       });
 
@@ -2045,6 +2048,21 @@ export default function SettingsPage() {
                     className="w-full border border-slate-300 rounded-lg px-3 py-2"
                   />
                 </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="countdown-shop-hours"
+                    checked={countdownShowShopHours}
+                    onChange={(e) => setCountdownShowShopHours(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300"
+                  />
+                  <label htmlFor="countdown-shop-hours" className="text-sm font-medium">
+                    Show shop hours remaining
+                  </label>
+                </div>
+                <p className="text-xs text-slate-500 -mt-2 ml-6">
+                  Displays total scheduled shift hours between now and the target date
+                </p>
               </>
             )}
 

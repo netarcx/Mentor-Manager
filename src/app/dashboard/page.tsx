@@ -28,6 +28,8 @@ interface CountdownConfig {
   enabled: boolean;
   targetDate: string;
   label: string;
+  showShopHours: boolean;
+  shopHoursRemaining: number;
 }
 
 interface QuoteData {
@@ -107,6 +109,12 @@ const CountdownTimer = memo(function CountdownTimer({
           </div>
         ))}
       </div>
+      {config.showShopHours && (
+        <div className={`mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-white/20 text-center`}>
+          <span className={`${tv ? "text-3xl" : "text-xl sm:text-3xl"} font-bold`}>{config.shopHoursRemaining}</span>
+          <span className={`${tv ? "text-base" : "text-sm sm:text-base"} opacity-90 ml-2`}>shop hours remaining</span>
+        </div>
+      )}
     </div>
   );
 });
@@ -432,7 +440,7 @@ export default function DashboardPage() {
   const [cleanupConfig, setCleanupConfig] = useState({ soundMinutes: 20, displayMinutes: 10, soundVolume: 0.5 });
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [branding, setBranding] = useState<Branding>({ appName: "UV PitCrew", logoPath: "" });
-  const [countdown, setCountdown] = useState<CountdownConfig>({ enabled: false, targetDate: "", label: "" });
+  const [countdown, setCountdown] = useState<CountdownConfig>({ enabled: false, targetDate: "", label: "", showShopHours: false, shopHoursRemaining: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [quote, setQuote] = useState<QuoteData | null>(null);
   const [zoom, setZoom] = useState(100);

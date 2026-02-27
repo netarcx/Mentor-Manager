@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { enabled, targetDate, label } = await request.json();
+    const { enabled, targetDate, label, showShopHours } = await request.json();
 
     // Save countdown settings
     await prisma.setting.upsert({
@@ -27,6 +27,12 @@ export async function POST(request: NextRequest) {
       where: { key: "countdown_label" },
       update: { value: label || "" },
       create: { key: "countdown_label", value: label || "" },
+    });
+
+    await prisma.setting.upsert({
+      where: { key: "countdown_show_shop_hours" },
+      update: { value: showShopHours ? "true" : "false" },
+      create: { key: "countdown_show_shop_hours", value: showShopHours ? "true" : "false" },
     });
 
     return NextResponse.json({ success: true });
