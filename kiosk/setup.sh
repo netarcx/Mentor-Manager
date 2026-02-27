@@ -318,26 +318,35 @@ sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$CHROMIUM_DIR/Preference
 (sleep 10 && xdotool key F5) &
 
 # Launch Chromium in kiosk mode with GPU acceleration
-# The Orange Pi 5B has a Mali-G610 MP4 GPU — use it!
-exec chromium \
-  --kiosk \
-  --noerrdialogs \
-  --disable-infobars \
-  --disable-session-crashed-bubble \
-  --disable-translate \
-  --no-first-run \
-  --start-fullscreen \
-  --autoplay-policy=no-user-gesture-required \
-  --check-for-update-interval=31536000 \
-  --disable-features=Translate \
-  --disable-pinch \
-  --overscroll-history-navigation=0 \
-  --use-gl=egl \
-  --enable-gpu-rasterization \
-  --enable-zero-copy \
-  --ignore-gpu-blocklist \
-  --enable-features=VaapiVideoDecoder \
-  "$URL"
+# The Orange Pi 5B has a Mali-G610 MP4 GPU (Panfrost driver).
+# Notes:
+#   - VaapiVideoDecoder is Intel/AMD only — do NOT enable on ARM
+#   - --enable-zero-copy can cause Mali driver crashes over time
+#   - --disable-gpu-sandbox prevents the sandbox from killing the GPU
+#     process when Panfrost does something the sandbox doesn't expect
+#   - Loop so Chromium restarts automatically on GPU crash
+while true; do
+  chromium \
+    --kiosk \
+    --noerrdialogs \
+    --disable-infobars \
+    --disable-session-crashed-bubble \
+    --disable-translate \
+    --no-first-run \
+    --start-fullscreen \
+    --autoplay-policy=no-user-gesture-required \
+    --check-for-update-interval=31536000 \
+    --disable-features=Translate \
+    --disable-pinch \
+    --overscroll-history-navigation=0 \
+    --use-gl=egl \
+    --enable-gpu-rasterization \
+    --ignore-gpu-blocklist \
+    --disable-gpu-sandbox \
+    "$URL"
+  # If Chromium exits (GPU crash), wait briefly and relaunch
+  sleep 2
+done
 XINITRC
 
     chown kiosk:kiosk /home/kiosk/.bash_profile /home/kiosk/.xinitrc
