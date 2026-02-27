@@ -5,17 +5,8 @@
 #
 # Run on the Pi:  sudo bash fix-usb-tether.sh
 #
-# What this does:
-#   1. Installs iPhone tethering packages (usbmuxd, libimobiledevice)
-#   2. Loads kernel modules for USB tethering (RNDIS, CDC-ECM, CDC-NCM,
-#      ipheth for iPhone)
-#   3. Persists them so they load on every boot
-#   4. Creates NetworkManager connections that auto-connect USB tether
-#      interfaces (usb0, enx*, iPhone eth)
-#   5. Adds a udev rule so NM immediately manages hotplugged USB adapters
-#   6. Detects a currently-plugged phone and brings it online
-#
-# Supports: Android (RNDIS/ECM/NCM) and iPhone (ipheth via libimobiledevice)
+# Supports: Raspberry Pi OS, Armbian, Orange Pi OS (Debian/Ubuntu based)
+# Phones:   Android (RNDIS/ECM/NCM) and iPhone (ipheth + usbmuxd)
 #
 # After running this, just plug in your phone and turn on USB tethering.
 # ============================================================================
@@ -31,70 +22,119 @@ echo "=== USB Tethering Fix ==="
 echo ""
 
 # --------------------------------------------------------------------------
+# 0. System info (diagnostics)
+# --------------------------------------------------------------------------
+echo "[0] System info"
+echo "  Board:   $(cat /proc/device-tree/model 2>/dev/null || echo 'unknown')"
+echo "  Distro:  $(. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME" || echo 'unknown')"
+echo "  Kernel:  $(uname -r)"
+echo "  Arch:    $(uname -m)"
+echo ""
+
+# Detect distro family for package manager differences
+DISTRO_ID=$(. /etc/os-release 2>/dev/null && echo "${ID:-unknown}" || echo "unknown")
+DISTRO_LIKE=$(. /etc/os-release 2>/dev/null && echo "${ID_LIKE:-}" || echo "")
+
+# --------------------------------------------------------------------------
 # 1. Install iPhone tethering packages
 # --------------------------------------------------------------------------
 echo "[1/6] Installing iPhone tethering support..."
-apt-get update -qq
+apt-get update -qq 2>&1 | tail -3
 
-# Try the standard Bookworm package names first
-if ! apt-get install -y usbmuxd libimobiledevice-utils 2>&1 | tail -5; then
-  echo "  Standard packages failed, trying alternative names..."
-  # Some distros (Armbian, older Debian) use different names
-  apt-get install -y usbmuxd libimobiledevice6 libimobiledevice-utils 2>&1 | tail -5 || true
+# The key packages:
+#   usbmuxd             — USB multiplexing daemon for iPhone communication
+#   libimobiledevice-utils — CLI tools (idevice_id, idevicepair, etc.)
+# On some distros the shared lib is a separate package; on others it's a dep.
+PKGS_TO_INSTALL="usbmuxd libimobiledevice-utils"
+
+# Check what's available in the repos
+echo "  Checking available packages..."
+AVAILABLE=""
+for pkg in usbmuxd libimobiledevice-utils libimobiledevice6 libimobiledevice-1.0-6; do
+  if apt-cache show "$pkg" &>/dev/null; then
+    AVAILABLE="$AVAILABLE $pkg"
+  fi
+done
+echo "  Available in repos:$AVAILABLE"
+
+if [ -z "$AVAILABLE" ]; then
+  echo ""
+  echo "  WARNING: No iPhone tethering packages found in repos."
+  echo "  Your sources.list may be missing standard Debian/Ubuntu repos."
+  echo ""
+  echo "  Checking sources..."
+  grep -rh "^deb " /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | head -5
+  echo ""
+  echo "  You may need to add the universe (Ubuntu) or main (Debian) repo."
+  echo "  Continuing with Android-only tethering support..."
+  echo ""
+  SKIP_IPHONE=true
+else
+  SKIP_IPHONE=false
+  echo "  Installing:$AVAILABLE"
+  # shellcheck disable=SC2086
+  apt-get install -y $AVAILABLE 2>&1 | tail -10
 fi
 
 # Verify the binaries actually exist
 echo ""
 echo "  Checking installed binaries:"
-for cmd in usbmuxd idevice_id idevicepair ideviceinfo; do
+MISSING_BINS=false
+for cmd in usbmuxd idevice_id idevicepair; do
   BIN=$(command -v "$cmd" 2>/dev/null || true)
   if [ -n "$BIN" ]; then
     echo "    $cmd -> $BIN"
   else
-    # Search common paths that might not be in $PATH
-    for dir in /usr/bin /usr/sbin /usr/local/bin /sbin; do
+    # Search paths that might not be in root's $PATH
+    for dir in /usr/bin /usr/sbin /usr/local/bin /sbin /usr/lib/usbmuxd; do
       if [ -x "$dir/$cmd" ]; then
         BIN="$dir/$cmd"
-        echo "    $cmd -> $BIN (not in PATH!)"
-        # Symlink it into /usr/local/bin so it's accessible
+        echo "    $cmd -> $BIN (not in PATH — symlinking)"
         ln -sf "$BIN" /usr/local/bin/"$cmd"
-        echo "    Symlinked to /usr/local/bin/$cmd"
         break
       fi
     done
     if [ -z "$BIN" ]; then
       echo "    $cmd -> NOT FOUND"
+      MISSING_BINS=true
     fi
   fi
 done
 
-# Also check with dpkg what actually got installed
+# Show package status
 echo ""
-echo "  Installed packages:"
-dpkg -l usbmuxd libimobiledevice-utils 2>/dev/null | grep -E "^ii" || echo "    (none found)"
+dpkg -l usbmuxd libimobiledevice-utils 2>/dev/null | grep -E "^(ii|rc|un)" || echo "  (packages not in dpkg database)"
 echo ""
 
-# usbmuxd must be running for iPhone USB communication
-systemctl enable usbmuxd 2>/dev/null || true
-systemctl restart usbmuxd 2>/dev/null || true
-echo "  usbmuxd service: $(systemctl is-active usbmuxd 2>/dev/null || echo 'not running')"
+# Start usbmuxd
+if [ "$SKIP_IPHONE" = false ]; then
+  systemctl enable usbmuxd 2>/dev/null || true
+  systemctl restart usbmuxd 2>/dev/null || true
+  USBMUXD_STATUS=$(systemctl is-active usbmuxd 2>/dev/null || echo "not running")
+  echo "  usbmuxd service: $USBMUXD_STATUS"
 
-# If usbmuxd isn't found as a service, check if the binary exists and start it directly
-if ! systemctl is-active usbmuxd &>/dev/null; then
-  USBMUXD_BIN=$(command -v usbmuxd 2>/dev/null || true)
-  if [ -n "$USBMUXD_BIN" ]; then
-    echo "  Starting usbmuxd directly..."
-    "$USBMUXD_BIN" -v 2>&1 &
-    sleep 1
-    echo "  usbmuxd PID: $(pgrep usbmuxd 2>/dev/null || echo 'not running')"
+  # If systemd can't start it, try directly
+  if [ "$USBMUXD_STATUS" != "active" ]; then
+    USBMUXD_BIN=$(command -v usbmuxd 2>/dev/null || true)
+    if [ -n "$USBMUXD_BIN" ]; then
+      echo "  Trying to start usbmuxd directly..."
+      killall usbmuxd 2>/dev/null || true
+      "$USBMUXD_BIN" -f -v &
+      disown
+      sleep 2
+      if pgrep -x usbmuxd &>/dev/null; then
+        echo "  usbmuxd running (PID $(pgrep -x usbmuxd))"
+      else
+        echo "  usbmuxd failed to start"
+      fi
+    fi
   fi
 fi
 
 # --------------------------------------------------------------------------
 # 2. Load kernel modules
-#    Android: rndis_host, cdc_ether, cdc_ncm
-#    iPhone:  ipheth (iPhone USB ethernet, paired with usbmuxd)
 # --------------------------------------------------------------------------
+echo ""
 echo "[2/6] Loading USB tethering kernel modules..."
 MODULES=(rndis_host cdc_ether cdc_ncm ipheth)
 
@@ -102,13 +142,39 @@ for mod in "${MODULES[@]}"; do
   if modprobe "$mod" 2>/dev/null; then
     echo "  Loaded: $mod"
   else
-    echo "  Skipped: $mod (not available on this kernel)"
+    echo "  Skipped: $mod (not in this kernel)"
+    # Check if the module exists but couldn't be loaded
+    if find /lib/modules/"$(uname -r)" -name "${mod}.ko*" 2>/dev/null | grep -q .; then
+      echo "    Module file exists but failed to load — check: dmesg | tail"
+    fi
   fi
 done
+
+# Check kernel config for ipheth support
+KCONFIG="/boot/config-$(uname -r)"
+if [ -f "$KCONFIG" ]; then
+  IPHETH_CFG=$(grep -i "CONFIG_USB_IPHETH" "$KCONFIG" 2>/dev/null || echo "not set")
+  echo "  Kernel ipheth config: $IPHETH_CFG"
+  if echo "$IPHETH_CFG" | grep -q "not set"; then
+    echo "  WARNING: This kernel was NOT built with iPhone USB tethering (ipheth)."
+    echo "  iPhone tethering will NOT work until the kernel is rebuilt or updated."
+    echo "  Android USB tethering should still work."
+  fi
+elif [ -f /proc/config.gz ]; then
+  IPHETH_CFG=$(zcat /proc/config.gz 2>/dev/null | grep -i "CONFIG_USB_IPHETH" || echo "not set")
+  echo "  Kernel ipheth config: $IPHETH_CFG"
+  if echo "$IPHETH_CFG" | grep -q "not set"; then
+    echo "  WARNING: This kernel was NOT built with iPhone USB tethering (ipheth)."
+    echo "  iPhone tethering will NOT work until the kernel is rebuilt or updated."
+  fi
+else
+  echo "  Kernel config not found — cannot verify ipheth support"
+fi
 
 # --------------------------------------------------------------------------
 # 3. Persist modules across reboots
 # --------------------------------------------------------------------------
+echo ""
 echo "[3/6] Persisting modules in /etc/modules..."
 for mod in "${MODULES[@]}"; do
   if ! grep -qx "$mod" /etc/modules 2>/dev/null; then
@@ -122,100 +188,86 @@ done
 # --------------------------------------------------------------------------
 # 4. Create NetworkManager connections for USB tethering
 # --------------------------------------------------------------------------
+echo ""
 echo "[4/6] Configuring NetworkManager for USB tethering..."
 
-# Remove stale profiles if they exist (idempotent re-run)
-nmcli con delete "USB Tether" 2>/dev/null && echo "  Removed old profile" || true
-nmcli con delete "USB Tether Alt" 2>/dev/null || true
-nmcli con delete "iPhone Tether" 2>/dev/null || true
+# Remove stale profiles (idempotent re-run)
+for name in "USB Tether" "USB Tether Alt" "iPhone Tether"; do
+  nmcli con delete "$name" 2>/dev/null || true
+done
 
-# Android: matches usb0, usb1, etc. (classic naming)
-nmcli con add \
-  type ethernet \
-  con-name "USB Tether" \
-  ifname usb0 \
-  ipv4.method auto \
-  ipv6.method auto \
-  connection.autoconnect yes \
-  connection.autoconnect-priority 50 \
-  > /dev/null 2>&1
-echo "  Created profile: USB Tether (usb0)"
+# Android: usb0
+nmcli con add type ethernet con-name "USB Tether" ifname usb0 \
+  ipv4.method auto ipv6.method auto \
+  connection.autoconnect yes connection.autoconnect-priority 50 \
+  > /dev/null 2>&1 && echo "  Created: USB Tether (usb0)" || echo "  Warning: could not create usb0 profile"
 
-# Predictable names (enx...) — covers some Android and iPhone setups
-nmcli con add \
-  type ethernet \
-  con-name "USB Tether Alt" \
-  ifname "enx*" \
-  ipv4.method auto \
-  ipv6.method auto \
-  connection.autoconnect yes \
-  connection.autoconnect-priority 50 \
-  > /dev/null 2>&1 || true
-echo "  Created profile: USB Tether Alt (enx*)"
+# Predictable names (enx...)
+nmcli con add type ethernet con-name "USB Tether Alt" ifname "enx*" \
+  ipv4.method auto ipv6.method auto \
+  connection.autoconnect yes connection.autoconnect-priority 50 \
+  > /dev/null 2>&1 && echo "  Created: USB Tether Alt (enx*)" || echo "  Warning: could not create enx* profile"
 
-# iPhone: ipheth creates eth1 (or eth2, etc.) — use a wildcard keyfile
-# NM doesn't support eth* wildcards in nmcli, so write the profile directly
+# iPhone ipheth driver auto-managed by NM
+mkdir -p /etc/NetworkManager/conf.d
 cat > /etc/NetworkManager/conf.d/20-iphone-tether.conf << 'NMCONF'
-# Auto-manage iPhone tethering interface (ipheth driver)
 [device-iphone]
 match-device=driver:ipheth
 managed=1
 NMCONF
-echo "  Created NM config: iPhone ipheth auto-managed"
+echo "  Created: NM config for ipheth auto-manage"
 
 # --------------------------------------------------------------------------
-# 5. Udev rules — tell NM to manage hotplugged USB network devices
+# 5. Udev rules
 # --------------------------------------------------------------------------
+echo ""
 echo "[5/6] Adding udev rules for USB network devices..."
 
-UDEV_RULE="/etc/udev/rules.d/90-usb-tether.rules"
-cat > "$UDEV_RULE" << 'UDEV'
-# Auto-manage USB tethering interfaces with NetworkManager
+cat > /etc/udev/rules.d/90-usb-tether.rules << 'UDEV'
 # Android: RNDIS, CDC-ECM, CDC-NCM
 ACTION=="add", SUBSYSTEM=="net", DRIVERS=="rndis_host", ENV{NM_UNMANAGED}="0"
 ACTION=="add", SUBSYSTEM=="net", DRIVERS=="cdc_ether", ENV{NM_UNMANAGED}="0"
 ACTION=="add", SUBSYSTEM=="net", DRIVERS=="cdc_ncm", ENV{NM_UNMANAGED}="0"
 # iPhone: ipheth
 ACTION=="add", SUBSYSTEM=="net", DRIVERS=="ipheth", ENV{NM_UNMANAGED}="0"
-# Trigger NM to pick up iPhone tether when usbmuxd pairs the device
+# Apple devices by vendor ID
 ACTION=="add", SUBSYSTEM=="net", ATTRS{idVendor}=="05ac", ENV{NM_UNMANAGED}="0"
 UDEV
-echo "  Wrote $UDEV_RULE"
+echo "  Wrote /etc/udev/rules.d/90-usb-tether.rules"
 
 udevadm control --reload-rules
 udevadm trigger --subsystem-match=net
 echo "  Reloaded udev rules"
 
 # --------------------------------------------------------------------------
-# 6. Detect & connect any currently-plugged phone
+# 6. Detect & connect
 # --------------------------------------------------------------------------
-echo "[6/6] Scanning for active USB network interfaces..."
+echo ""
+echo "[6/6] Scanning for connected phones..."
 
-# Restart services to pick up all changes
 systemctl restart NetworkManager
-systemctl restart usbmuxd 2>/dev/null || true
+[ "$SKIP_IPHONE" = false ] && { systemctl restart usbmuxd 2>/dev/null || true; }
 sleep 2
 
 echo ""
+echo "  Network devices:"
 nmcli device status 2>/dev/null || true
 echo ""
 
-# Check for an iPhone specifically (use sysfs — lsusb may not be installed on Lite)
+# Check for iPhone on USB bus
 if grep -rql "05ac" /sys/bus/usb/devices/*/idVendor 2>/dev/null; then
-  echo "  iPhone detected on USB!"
+  echo "  iPhone detected on USB bus!"
 
-  # Step 1: Check if usbmuxd can see the device at all
-  if command -v idevice_id &>/dev/null; then
+  if [ "$SKIP_IPHONE" = true ] || [ "$MISSING_BINS" = true ]; then
+    echo "  But iPhone tools are not installed — only Android tethering will work."
+    echo "  To fix: install usbmuxd and libimobiledevice-utils from a working repo."
+  elif command -v idevice_id &>/dev/null; then
     DEVICE_ID=$(idevice_id -l 2>/dev/null || true)
     if [ -n "$DEVICE_ID" ]; then
       echo "  Device ID: $DEVICE_ID"
-
-      # Step 2: Attempt to pair (triggers 'Trust This Computer' on the phone)
       echo "  Initiating pairing..."
-      echo "  >>> If prompted, unlock your iPhone and tap 'Trust This Computer' <<<"
+      echo "  >>> Unlock your iPhone and tap 'Trust This Computer' if prompted <<<"
       idevicepair pair 2>&1 | while IFS= read -r line; do echo "  $line"; done
-
-      # Give the user a moment to tap Trust, then check again
       sleep 3
       if idevicepair pair 2>/dev/null; then
         echo "  iPhone paired successfully"
@@ -224,38 +276,35 @@ if grep -rql "05ac" /sys/bus/usb/devices/*/idVendor 2>/dev/null; then
         echo "    idevicepair pair"
       fi
     else
-      echo "  iPhone on USB bus but usbmuxd can't see it yet."
+      echo "  iPhone on bus but usbmuxd can't see it."
       echo "  Restarting usbmuxd..."
-      systemctl restart usbmuxd 2>/dev/null || true
-      sleep 2
+      systemctl restart usbmuxd 2>/dev/null || killall usbmuxd 2>/dev/null; usbmuxd -f -v & disown
+      sleep 3
       DEVICE_ID=$(idevice_id -l 2>/dev/null || true)
       if [ -n "$DEVICE_ID" ]; then
         echo "  Now visible: $DEVICE_ID"
-        echo "  >>> Unlock iPhone and tap 'Trust This Computer' if prompted <<<"
+        echo "  >>> Unlock iPhone and tap 'Trust This Computer' <<<"
         idevicepair pair 2>&1 | while IFS= read -r line; do echo "  $line"; done
       else
         echo "  Still not visible. Try:"
         echo "    1. Unplug and re-plug the iPhone"
-        echo "    2. Unlock the iPhone"
-        echo "    3. Run: sudo bash fix-usb-tether.sh"
+        echo "    2. Unlock the phone"
+        echo "    3. Re-run: sudo bash fix-usb-tether.sh"
       fi
     fi
-  else
-    echo "  Warning: idevice_id not found — libimobiledevice-utils may not be installed"
   fi
 fi
 
-# Try to bring up any disconnected tether interface
+# Try to bring up any USB tether interface
 FOUND=false
 for iface in /sys/class/net/usb* /sys/class/net/enx* /sys/class/net/eth*; do
   [ -e "$iface" ] || continue
   NAME=$(basename "$iface")
-  # Only act on USB-backed interfaces (skips built-in ethernet like Pi 3/4 eth0)
   DEVPATH=$(readlink -f "$iface/device" 2>/dev/null || echo "")
   if echo "$DEVPATH" | grep -q "usb"; then
     echo "  Found USB interface: $NAME"
     nmcli dev set "$NAME" managed yes 2>/dev/null || true
-    nmcli dev connect "$NAME" 2>/dev/null && echo "  Connected: $NAME" || echo "  Waiting for phone tethering to be enabled"
+    nmcli dev connect "$NAME" 2>/dev/null && echo "  Connected: $NAME" || echo "  Waiting for tethering to be enabled on phone"
     FOUND=true
   fi
 done
@@ -264,21 +313,20 @@ if [ "$FOUND" = false ]; then
   echo "  No USB tethering interface detected."
   echo ""
   echo "  For iPhone:"
-  echo "    1. Plug in via USB cable"
+  echo "    1. Plug in via Lightning/USB-C cable"
   echo "    2. Unlock and tap 'Trust This Computer' if prompted"
-  echo "    3. Enable Personal Hotspot in Settings"
-  echo "    4. Re-run this script or wait a moment for auto-connect"
+  echo "    3. Enable Personal Hotspot in Settings > Personal Hotspot"
+  echo "    4. Re-run this script or wait for auto-connect"
   echo ""
   echo "  For Android:"
   echo "    1. Plug in via USB cable"
-  echo "    2. Enable USB tethering in Settings"
+  echo "    2. Enable USB tethering in Settings > Network > Hotspot"
 fi
 
 echo ""
 echo "=== Done ==="
 echo ""
-echo "USB tethering should now work automatically for iPhone and Android."
-echo ""
-echo "  Check status:  nmcli device status"
-echo "  See IP:         ip addr"
-echo "  iPhone paired:  idevicepair validate"
+echo "  Check status:     nmcli device status"
+echo "  See IP:            ip addr"
+echo "  iPhone device:     idevice_id -l"
+echo "  iPhone pair:       idevicepair pair"
