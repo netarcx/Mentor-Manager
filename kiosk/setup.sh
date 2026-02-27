@@ -251,7 +251,7 @@ sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$CHROMIUM_DIR/Preference
 (sleep 10 && xdotool key F5) &
 
 # Launch Chromium in kiosk mode
-exec chromium-browser \
+exec chromium \
   --kiosk \
   --noerrdialogs \
   --disable-infobars \
