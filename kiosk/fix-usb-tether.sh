@@ -35,17 +35,60 @@ echo ""
 # --------------------------------------------------------------------------
 echo "[1/6] Installing iPhone tethering support..."
 apt-get update -qq
-apt-get install -y -qq \
-  usbmuxd \
-  libimobiledevice6 \
-  libimobiledevice-utils \
-  > /dev/null 2>&1 && echo "  Installed: usbmuxd, libimobiledevice" \
-  || echo "  Warning: could not install iPhone packages (may already be present)"
+
+# Try the standard Bookworm package names first
+if ! apt-get install -y usbmuxd libimobiledevice-utils 2>&1 | tail -5; then
+  echo "  Standard packages failed, trying alternative names..."
+  # Some distros (Armbian, older Debian) use different names
+  apt-get install -y usbmuxd libimobiledevice6 libimobiledevice-utils 2>&1 | tail -5 || true
+fi
+
+# Verify the binaries actually exist
+echo ""
+echo "  Checking installed binaries:"
+for cmd in usbmuxd idevice_id idevicepair ideviceinfo; do
+  BIN=$(command -v "$cmd" 2>/dev/null || true)
+  if [ -n "$BIN" ]; then
+    echo "    $cmd -> $BIN"
+  else
+    # Search common paths that might not be in $PATH
+    for dir in /usr/bin /usr/sbin /usr/local/bin /sbin; do
+      if [ -x "$dir/$cmd" ]; then
+        BIN="$dir/$cmd"
+        echo "    $cmd -> $BIN (not in PATH!)"
+        # Symlink it into /usr/local/bin so it's accessible
+        ln -sf "$BIN" /usr/local/bin/"$cmd"
+        echo "    Symlinked to /usr/local/bin/$cmd"
+        break
+      fi
+    done
+    if [ -z "$BIN" ]; then
+      echo "    $cmd -> NOT FOUND"
+    fi
+  fi
+done
+
+# Also check with dpkg what actually got installed
+echo ""
+echo "  Installed packages:"
+dpkg -l usbmuxd libimobiledevice-utils 2>/dev/null | grep -E "^ii" || echo "    (none found)"
+echo ""
 
 # usbmuxd must be running for iPhone USB communication
 systemctl enable usbmuxd 2>/dev/null || true
-systemctl start usbmuxd 2>/dev/null || true
+systemctl restart usbmuxd 2>/dev/null || true
 echo "  usbmuxd service: $(systemctl is-active usbmuxd 2>/dev/null || echo 'not running')"
+
+# If usbmuxd isn't found as a service, check if the binary exists and start it directly
+if ! systemctl is-active usbmuxd &>/dev/null; then
+  USBMUXD_BIN=$(command -v usbmuxd 2>/dev/null || true)
+  if [ -n "$USBMUXD_BIN" ]; then
+    echo "  Starting usbmuxd directly..."
+    "$USBMUXD_BIN" -v 2>&1 &
+    sleep 1
+    echo "  usbmuxd PID: $(pgrep usbmuxd 2>/dev/null || echo 'not running')"
+  fi
+fi
 
 # --------------------------------------------------------------------------
 # 2. Load kernel modules
