@@ -170,6 +170,7 @@ rm -f "$FAIL_FILE"
     xdotool \
     fonts-liberation \
     libgles2 \
+    unclutter \
     network-manager \
     bluez \
     >> "$LOG" 2>&1 || { echo "Installing packages" > "$FAIL_FILE"; exit 1; }
@@ -236,6 +237,9 @@ fi
 xset s off
 xset s noblank
 xset -dpms
+
+# Hide mouse cursor after 3 seconds of inactivity
+unclutter -idle 3 -root &
 
 # Window manager (needed for Chromium to go fullscreen)
 openbox &
