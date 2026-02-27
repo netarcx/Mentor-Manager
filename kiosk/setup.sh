@@ -181,12 +181,30 @@ rm -f "$FAIL_FILE"
   echo "Enabling tethering support..."
   echo "XXX"
   {
+    # Load USB tethering kernel modules (Android RNDIS, iPhone/Android ECM, NCM)
+    for mod in rndis_host cdc_ether cdc_ncm; do
+      modprobe "$mod" 2>/dev/null || true
+      grep -qx "$mod" /etc/modules 2>/dev/null || echo "$mod" >> /etc/modules
+    done
+
     # Ensure eth0 keeps its DHCP address for SSH access at home.
     # On Bookworm, NetworkManager is the default — give eth0 a high-priority
     # wired connection so NM keeps it up and prefers it over tethered interfaces.
     nmcli con add type ethernet con-name "Wired ETH0" ifname eth0 \
       ipv4.method auto connection.autoconnect yes \
       connection.autoconnect-priority 100 2>/dev/null || true
+
+    # Auto-connect USB tethering interfaces
+    nmcli con delete "USB Tether" 2>/dev/null || true
+    nmcli con add type ethernet con-name "USB Tether" ifname usb0 \
+      ipv4.method auto connection.autoconnect yes \
+      connection.autoconnect-priority 50 2>/dev/null || true
+
+    # Udev rule — tell NM to manage hotplugged USB network devices
+    cat > /etc/udev/rules.d/90-usb-tether.rules << 'UDEV'
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="rndis_host|cdc_ether|cdc_ncm", ENV{NM_UNMANAGED}="0"
+UDEV
+
     # Enable Bluetooth
     systemctl enable bluetooth
   } >> "$LOG" 2>&1 || { echo "Enabling tethering support" > "$FAIL_FILE"; exit 1; }
