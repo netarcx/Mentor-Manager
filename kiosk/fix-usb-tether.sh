@@ -240,10 +240,56 @@ udevadm trigger --subsystem-match=net
 echo "  Reloaded udev rules"
 
 # --------------------------------------------------------------------------
-# 6. Detect & connect
+# 6. Install auto-pair service (runs on boot + hotplug)
 # --------------------------------------------------------------------------
 echo ""
-echo "[6/6] Scanning for connected phones..."
+echo "[6/7] Installing iPhone auto-pair service..."
+
+# Copy the auto-pair script
+AUTOPAIR_SRC="$(dirname "$0")/iphone-autopair.sh"
+AUTOPAIR_DST="/usr/local/bin/iphone-autopair.sh"
+
+if [ -f "$AUTOPAIR_SRC" ]; then
+  cp "$AUTOPAIR_SRC" "$AUTOPAIR_DST"
+else
+  # If run standalone without the repo, download or create inline
+  echo "  iphone-autopair.sh not found next to this script, skipping service install."
+  echo "  Copy iphone-autopair.sh to the Pi and place it at $AUTOPAIR_DST"
+  AUTOPAIR_DST=""
+fi
+
+if [ -n "$AUTOPAIR_DST" ]; then
+  chmod +x "$AUTOPAIR_DST"
+
+  cat > /etc/systemd/system/iphone-autopair.service << EOF
+[Unit]
+Description=iPhone USB auto-pair and tether
+After=network.target usbmuxd.service
+Wants=usbmuxd.service
+
+[Service]
+Type=simple
+ExecStart=$AUTOPAIR_DST
+Restart=always
+RestartSec=5
+Environment=POLL_INTERVAL=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable iphone-autopair.service
+  systemctl restart iphone-autopair.service
+  echo "  Installed and started: iphone-autopair.service"
+  echo "  Service status: $(systemctl is-active iphone-autopair 2>/dev/null || echo 'not running')"
+fi
+
+# --------------------------------------------------------------------------
+# 7. Detect & connect
+# --------------------------------------------------------------------------
+echo ""
+echo "[7/7] Scanning for connected phones..."
 
 systemctl restart NetworkManager
 [ "$SKIP_IPHONE" = false ] && { systemctl restart usbmuxd 2>/dev/null || true; }
@@ -326,7 +372,15 @@ fi
 echo ""
 echo "=== Done ==="
 echo ""
-echo "  Check status:     nmcli device status"
-echo "  See IP:            ip addr"
-echo "  iPhone device:     idevice_id -l"
-echo "  iPhone pair:       idevicepair pair"
+echo "  The iphone-autopair service will now automatically pair and tether"
+echo "  any previously-trusted iPhone on boot or hotplug."
+echo ""
+echo "  First time with a new iPhone: plug in, unlock, tap 'Trust This Computer'."
+echo "  After that, tethering is fully automatic."
+echo ""
+echo "  Check status:      nmcli device status"
+echo "  See IP:             ip addr"
+echo "  iPhone device:      idevice_id -l"
+echo "  iPhone pair:        idevicepair pair"
+echo "  Auto-pair service:  systemctl status iphone-autopair"
+echo "  Auto-pair logs:     journalctl -u iphone-autopair -f"

@@ -222,6 +222,33 @@ UDEV
     # Enable usbmuxd for iPhone USB communication
     systemctl enable usbmuxd 2>/dev/null || true
 
+    # Install iPhone auto-pair service (pairs + tethers on boot/hotplug)
+    AUTOPAIR_SRC="$(dirname "$0")/iphone-autopair.sh"
+    if [ -f "$AUTOPAIR_SRC" ]; then
+      cp "$AUTOPAIR_SRC" /usr/local/bin/iphone-autopair.sh
+      chmod +x /usr/local/bin/iphone-autopair.sh
+
+      cat > /etc/systemd/system/iphone-autopair.service << 'AUTOPAIR'
+[Unit]
+Description=iPhone USB auto-pair and tether
+After=network.target usbmuxd.service
+Wants=usbmuxd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/iphone-autopair.sh
+Restart=always
+RestartSec=5
+Environment=POLL_INTERVAL=5
+
+[Install]
+WantedBy=multi-user.target
+AUTOPAIR
+
+      systemctl daemon-reload
+      systemctl enable iphone-autopair.service 2>/dev/null || true
+    fi
+
     # Enable Bluetooth (optional — may not exist on all boards)
     systemctl enable bluetooth 2>/dev/null || true
   } >> "$LOG" 2>&1 || { echo "Enabling tethering support" > "$FAIL_FILE"; exit 1; }
