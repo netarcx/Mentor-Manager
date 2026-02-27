@@ -325,13 +325,16 @@ const ShiftCard = memo(function ShiftCard({
   isCurrent,
   tv,
   onCheckIn,
+  onUndoCheckIn,
 }: {
   shift: ShiftWithSignups | null;
   title: string;
   isCurrent?: boolean;
   tv: boolean;
   onCheckIn?: (signupId: number) => void;
+  onUndoCheckIn?: (signupId: number) => void;
 }) {
+  const tapCountRef = useRef<Map<number, { count: number; timer: ReturnType<typeof setTimeout> | null }>>(new Map());
   if (!shift) {
     return (
       <div className={`bg-slate-800 rounded-2xl ${tv ? "p-6 flex flex-col" : "p-5 sm:p-8"} flex-1 min-h-0`}>
@@ -381,6 +384,24 @@ const ShiftCard = memo(function ShiftCard({
                 onClick={() => {
                   if (isCurrent && onCheckIn && !signup.checkedInAt) {
                     onCheckIn(signup.id);
+                    return;
+                  }
+                  // Triple-tap detection for undo check-in
+                  if (isCurrent && onUndoCheckIn && signup.checkedInAt) {
+                    const entry = tapCountRef.current.get(signup.id) || { count: 0, timer: null };
+                    if (entry.timer) clearTimeout(entry.timer);
+                    entry.count++;
+                    if (entry.count >= 3) {
+                      entry.count = 0;
+                      tapCountRef.current.set(signup.id, entry);
+                      onUndoCheckIn(signup.id);
+                      return;
+                    }
+                    entry.timer = setTimeout(() => {
+                      entry.count = 0;
+                      tapCountRef.current.set(signup.id, entry);
+                    }, 600);
+                    tapCountRef.current.set(signup.id, entry);
                   }
                 }}
                 className={`flex items-center gap-2 rounded-lg ${tv ? "px-4 py-3" : "px-2.5 py-2 sm:px-3"} ${
@@ -691,6 +712,32 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const handleUndoCheckIn = useCallback(async (signupId: number) => {
+    try {
+      const res = await fetch("/api/check-in/undo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signupId }),
+      });
+      if (res.ok) {
+        // Clear checkedInAt for this mentor across all shifts (mirrors auto-check-in behavior)
+        const clearCheckIn = (signups: ShiftWithSignups["signups"]) => {
+          const mentor = signups.find((s) => s.id === signupId)?.mentor;
+          if (!mentor) return signups;
+          return signups.map((s) =>
+            s.mentor.id === mentor.id ? { ...s, checkedInAt: null } : s
+          );
+        };
+
+        setCurrentShift((prev) => prev ? { ...prev, signups: clearCheckIn(prev.signups) } : prev);
+        setNextShift((prev) => prev ? { ...prev, signups: clearCheckIn(prev.signups) } : prev);
+        setFutureShifts((prev) => prev.map((shift) => ({ ...shift, signups: clearCheckIn(shift.signups) })));
+      }
+    } catch {
+      // Silent fail
+    }
+  }, []);
+
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -823,6 +870,7 @@ export default function DashboardPage() {
                 isCurrent={!isBrowsing && !!currentShift}
                 tv={tvMode}
                 onCheckIn={!isBrowsing ? handleCheckIn : undefined}
+                onUndoCheckIn={!isBrowsing ? handleUndoCheckIn : undefined}
               />
               <ShiftCard shift={displayRight} title={displayRightTitle} tv={tvMode} />
             </div>
