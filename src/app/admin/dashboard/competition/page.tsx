@@ -44,6 +44,7 @@ export default function CompetitionPage() {
   const [exampleMode, setExampleMode] = useState(false);
   const [twitchChannel, setTwitchChannel] = useState("");
   const [twitchPopupSize, setTwitchPopupSize] = useState(30);
+  const [announcement, setAnnouncement] = useState("");
   const [robotImageSource, setRobotImageSource] = useState<"none" | "tba" | "upload">("none");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -93,6 +94,7 @@ export default function CompetitionPage() {
     setExampleMode(data.exampleMode ?? false);
     setTwitchChannel(data.twitchChannel ?? "");
     setTwitchPopupSize(data.twitchPopupSize ?? 30);
+    setAnnouncement(data.announcement ?? "");
   }
 
   async function fetchChecklist() {
@@ -123,6 +125,7 @@ export default function CompetitionPage() {
       pollInterval,
       twitchChannel: twitchChannel.trim(),
       twitchPopupSize,
+      announcement,
     };
     if (tbaApiKey.trim()) {
       body.tbaApiKey = tbaApiKey.trim();
@@ -691,10 +694,25 @@ export default function CompetitionPage() {
         </div>
       </div>
 
+      {/* Quick Announcement */}
+      <div className="bg-white rounded-xl shadow border border-slate-100 p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-2">Quick Announcement</h2>
+        <textarea
+          value={announcement}
+          onChange={(e) => setAnnouncement(e.target.value)}
+          rows={2}
+          className="w-full border border-slate-300 rounded-lg px-3 py-2"
+          placeholder='e.g. "Bumper swap after Q12" or "Alliance selection at 3pm"'
+        />
+        <p className="text-xs text-slate-400 mt-1">
+          Displayed on the competition dashboard. Leave blank to hide.
+        </p>
+      </div>
+
       {/* Save Settings Bar */}
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-8 flex items-center justify-between">
         <p className="text-sm text-slate-500">
-          Save changes to TBA configuration and livestream settings.
+          Save changes to TBA configuration, livestream, and announcement settings.
           <br />
           <span className="text-xs text-slate-400">Toggles and robot image save automatically.</span>
         </p>

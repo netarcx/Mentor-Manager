@@ -23,6 +23,7 @@ export async function GET() {
             "competition_example_mode",
             "competition_twitch_channel",
             "competition_twitch_popup_size",
+            "competition_announcement",
           ],
         },
       },
@@ -49,6 +50,7 @@ export async function GET() {
       exampleMode: map.get("competition_example_mode") === "true",
       twitchChannel: map.get("competition_twitch_channel") || "",
       twitchPopupSize: parseInt(map.get("competition_twitch_popup_size") || "30", 10),
+      announcement: map.get("competition_announcement") || "",
     });
   } catch (error) {
     console.error(error);
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { enabled, tbaApiKey, teamKey, eventKey, pollInterval, pitTimerEnabled, exampleMode, twitchChannel, twitchPopupSize } = await request.json();
+    const { enabled, tbaApiKey, teamKey, eventKey, pollInterval, pitTimerEnabled, exampleMode, twitchChannel, twitchPopupSize, announcement } = await request.json();
 
     const updates: { key: string; value: string }[] = [];
 
@@ -96,6 +98,9 @@ export async function POST(request: NextRequest) {
     if (twitchPopupSize !== undefined) {
       const size = Math.max(10, Math.min(100, parseInt(twitchPopupSize, 10) || 30));
       updates.push({ key: "competition_twitch_popup_size", value: String(size) });
+    }
+    if (announcement !== undefined) {
+      updates.push({ key: "competition_announcement", value: announcement.trim() });
     }
 
     if (updates.length > 0) {

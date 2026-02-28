@@ -107,6 +107,7 @@ interface CompetitionData {
   pitTimerEnabled: boolean;
   twitchChannel: string;
   twitchPopupSize: number;
+  announcement: string;
 }
 
 // --- Helpers ---
@@ -985,6 +986,7 @@ function generateExampleData(): CompetitionData {
     pitTimerEnabled: true,
     twitchChannel: "",
     twitchPopupSize: 30,
+    announcement: "Bumper swap after Q12 — Battery C is weak",
   };
 }
 
@@ -1592,6 +1594,13 @@ export default function CompetitionPage() {
             </div>
           ) : null}
 
+          {/* Quick Announcement */}
+          {data.announcement && (
+            <div className="flex-shrink-0 px-4 py-2.5 bg-amber-500/15 border-b border-amber-500/30 text-center">
+              <p className="text-sm md:text-base font-bold text-amber-300">{data.announcement}</p>
+            </div>
+          )}
+
           {/* Pre-Match Checklist */}
           <div className="flex-1 flex flex-col min-h-0">
             <div className="px-5 py-3 border-b border-slate-700/50 flex items-center justify-between flex-shrink-0">
@@ -1706,7 +1715,8 @@ export default function CompetitionPage() {
                   return (
                     <div
                       key={battery.id}
-                      className={`flex items-center gap-2 md:gap-3 rounded-lg px-2 md:px-3 py-2 md:py-2.5 transition-all flex-wrap ${
+                      onDoubleClick={() => window.open(`/battery/${battery.id}`, "_blank")}
+                      className={`flex items-center gap-2 md:gap-3 rounded-lg px-2 md:px-3 py-2 md:py-2.5 transition-all flex-wrap cursor-pointer ${
                         isNext
                           ? "bg-green-500/10 border border-green-500/30 ring-1 ring-green-500/20"
                           : "bg-slate-800/50 border border-slate-700/30"

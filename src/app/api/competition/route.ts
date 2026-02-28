@@ -28,7 +28,7 @@ export async function GET() {
       return NextResponse.json({ enabled: false });
     }
 
-    const [event, matches, teamStatus, eventTeams, rankings, checklistItems, checklistState, branding, robotImageSetting, batteries, pitNoteSettings, pitTimerSetting, twitchChannelSetting, twitchPopupSizeSetting, batteryCycleCounts] =
+    const [event, matches, teamStatus, eventTeams, rankings, checklistItems, checklistState, branding, robotImageSetting, batteries, pitNoteSettings, pitTimerSetting, twitchChannelSetting, twitchPopupSizeSetting, announcementSetting, batteryCycleCounts] =
       await Promise.all([
         fetchEvent(config.eventKey, config.tbaApiKey),
         fetchTeamMatches(config.teamKey, config.eventKey, config.tbaApiKey),
@@ -53,6 +53,7 @@ export async function GET() {
         prisma.setting.findUnique({ where: { key: "competition_pit_timer_enabled" } }),
         prisma.setting.findUnique({ where: { key: "competition_twitch_channel" } }),
         prisma.setting.findUnique({ where: { key: "competition_twitch_popup_size" } }),
+        prisma.setting.findUnique({ where: { key: "competition_announcement" } }),
         prisma.batteryLog.groupBy({
           by: ["batteryId"],
           where: { status: "in_robot_match" },
@@ -135,6 +136,7 @@ export async function GET() {
       pitTimerEnabled: pitTimerSetting?.value === "true",
       twitchChannel: twitchChannelSetting?.value || "",
       twitchPopupSize: parseInt(twitchPopupSizeSetting?.value || "30", 10),
+      announcement: announcementSetting?.value || "",
       batteries: batteries.map((b) => {
         const cycleEntry = batteryCycleCounts.find((c) => c.batteryId === b.id);
         return {
