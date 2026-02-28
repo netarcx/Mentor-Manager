@@ -10,14 +10,56 @@ interface Battery {
   retired: boolean;
 }
 
+interface Preset {
+  label: string;
+  width: number;
+  height: number;
+  qrScale: number;
+  textSize: number;
+}
+
+const PRESETS: Preset[] = [
+  { label: '2" x 2"', width: 2, height: 2, qrScale: 70, textSize: 14 },
+  { label: '2" x 2\u2075\u2044\u2081\u2086"', width: 2, height: 2.3125, qrScale: 65, textSize: 14 },
+];
+
+function formatDim(v: number): string {
+  const whole = Math.floor(v);
+  const frac = v - whole;
+  if (frac === 0) return `${whole}`;
+  // common fractions
+  const fracs: [number, string][] = [
+    [0.0625, "\u00B9\u2044\u2081\u2086"],
+    [0.125, "\u00B9\u2044\u2088"],
+    [0.1875, "\u00B3\u2044\u2081\u2086"],
+    [0.25, "\u00BC"],
+    [0.3125, "\u2075\u2044\u2081\u2086"],
+    [0.375, "\u00B3\u2044\u2088"],
+    [0.4375, "\u2077\u2044\u2081\u2086"],
+    [0.5, "\u00BD"],
+    [0.5625, "\u2079\u2044\u2081\u2086"],
+    [0.625, "\u2075\u2044\u2088"],
+    [0.6875, "\u00B9\u00B9\u2044\u2081\u2086"],
+    [0.75, "\u00BE"],
+    [0.8125, "\u00B9\u00B3\u2044\u2081\u2086"],
+    [0.875, "\u2077\u2044\u2088"],
+    [0.9375, "\u00B9\u2075\u2044\u2081\u2086"],
+  ];
+  for (const [f, s] of fracs) {
+    if (Math.abs(frac - f) < 0.001) return whole > 0 ? `${whole}${s}` : s;
+  }
+  return v.toFixed(2);
+}
+
 export default function BatteryPrintPage() {
   const [batteries, setBatteries] = useState<Battery[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Configurable label settings
-  const [stickerSize, setStickerSize] = useState(2); // inches
-  const [qrScale, setQrScale] = useState(70); // % of sticker width
-  const [textSize, setTextSize] = useState(14); // pt
+  const [stickerWidth, setStickerWidth] = useState(2);
+  const [stickerHeight, setStickerHeight] = useState(2);
+  const [qrScale, setQrScale] = useState(70);
+  const [textSize, setTextSize] = useState(14);
 
   useEffect(() => {
     fetch("/api/admin/competition/batteries")
@@ -32,9 +74,21 @@ export default function BatteryPrintPage() {
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-  // Derived values
-  const qrPrintSize = stickerSize * (qrScale / 100); // inches
-  const qrScreenSize = Math.round(96 * qrPrintSize); // px at 96dpi for screen preview
+  // QR code sized relative to the smaller dimension so it always fits
+  const minDim = Math.min(stickerWidth, stickerHeight);
+  const qrPrintSize = minDim * (qrScale / 100);
+  const qrScreenSize = Math.round(96 * qrPrintSize);
+
+  function applyPreset(p: Preset) {
+    setStickerWidth(p.width);
+    setStickerHeight(p.height);
+    setQrScale(p.qrScale);
+    setTextSize(p.textSize);
+  }
+
+  const activePreset = PRESETS.find(
+    (p) => p.width === stickerWidth && p.height === stickerHeight && p.qrScale === qrScale && p.textSize === textSize
+  );
 
   if (loading) {
     return (
@@ -61,8 +115,8 @@ export default function BatteryPrintPage() {
             padding: 0.25in !important;
           }
           .qr-card {
-            width: ${stickerSize}in !important;
-            height: ${stickerSize}in !important;
+            width: ${stickerWidth}in !important;
+            height: ${stickerHeight}in !important;
             padding: 0.1in !important;
             margin: 0 !important;
             border: none !important;
@@ -95,19 +149,36 @@ export default function BatteryPrintPage() {
 
       {/* Settings panel */}
       <div className="no-print bg-white rounded-xl shadow border border-slate-100 p-5 mb-6">
-        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Label Settings</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Label Settings</h2>
+          <div className="flex gap-2">
+            {PRESETS.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => applyPreset(p)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+                  activePreset === p
+                    ? "bg-primary/10 border-primary text-primary"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
           <div>
             <label className="block text-sm font-medium mb-1">
-              Sticker Size: {stickerSize}&Prime; &times; {stickerSize}&Prime;
+              Width: {formatDim(stickerWidth)}&Prime;
             </label>
             <input
               type="range"
-              value={stickerSize}
-              onChange={(e) => setStickerSize(Number(e.target.value))}
+              value={stickerWidth}
+              onChange={(e) => setStickerWidth(Number(e.target.value))}
               min={1}
               max={4}
-              step={0.25}
+              step={0.0625}
               className="w-full accent-primary"
             />
             <div className="flex justify-between text-xs text-slate-400 mt-0.5">
@@ -117,7 +188,25 @@ export default function BatteryPrintPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">
-              QR Code: {qrScale}% of sticker
+              Height: {formatDim(stickerHeight)}&Prime;
+            </label>
+            <input
+              type="range"
+              value={stickerHeight}
+              onChange={(e) => setStickerHeight(Number(e.target.value))}
+              min={1}
+              max={4}
+              step={0.0625}
+              className="w-full accent-primary"
+            />
+            <div className="flex justify-between text-xs text-slate-400 mt-0.5">
+              <span>1&Prime;</span>
+              <span>4&Prime;</span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              QR Code: {qrScale}%
             </label>
             <input
               type="range"
@@ -135,7 +224,7 @@ export default function BatteryPrintPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">
-              Text Size: {textSize}pt
+              Text: {textSize}pt
             </label>
             <input
               type="range"
@@ -159,7 +248,7 @@ export default function BatteryPrintPage() {
           <div
             key={battery.id}
             className="qr-card flex flex-col items-center justify-center gap-1.5 p-4"
-            style={{ width: `${stickerSize}in`, height: `${stickerSize}in` }}
+            style={{ width: `${stickerWidth}in`, height: `${stickerHeight}in` }}
           >
             <QRCodeSVG
               value={`${origin}/battery/${battery.id}`}
