@@ -14,8 +14,22 @@ interface BatteryItem {
   label: string;
   sortOrder: number;
   active: boolean;
+  retired: boolean;
+  cycleCount: number;
+  lastVoltage: number | null;
   currentStatus: string | null;
   statusSince: string | null;
+}
+
+interface MatchAuditEntry {
+  matchKey: string;
+  batteries: {
+    label: string;
+    status: string;
+    voltage: number | null;
+    note: string;
+    createdAt: string;
+  }[];
 }
 
 export default function CompetitionPage() {
@@ -62,6 +76,9 @@ export default function CompetitionPage() {
     }[]
   >([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [matchAuditOpen, setMatchAuditOpen] = useState(false);
+  const [matchAuditData, setMatchAuditData] = useState<MatchAuditEntry[]>([]);
+  const [matchAuditLoaded, setMatchAuditLoaded] = useState(false);
 
   async function fetchConfig() {
     const res = await fetch("/api/admin/settings/competition");
@@ -337,6 +354,41 @@ export default function CompetitionPage() {
     setHistoryOpen(opening);
     if (opening && !historyLoaded) {
       fetchBatteryHistory();
+    }
+  }
+
+  async function handleRetireBattery(battery: BatteryItem) {
+    if (battery.retired) {
+      // Unretire — just clear retired flag (admin manually re-activates)
+      if (!confirm(`Unretire "${battery.label}"?`)) return;
+      await fetch(`/api/admin/competition/batteries/${battery.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retired: false }),
+      });
+    } else {
+      if (!confirm(`Retire "${battery.label}"? It will be deactivated and hidden from the dashboard.`)) return;
+      await fetch(`/api/admin/competition/batteries/${battery.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retired: true, active: false }),
+      });
+    }
+    fetchBatteries();
+  }
+
+  async function fetchMatchAudit() {
+    const res = await fetch("/api/admin/competition/batteries/matches");
+    const data = await res.json();
+    setMatchAuditData(data.matches || []);
+    setMatchAuditLoaded(true);
+  }
+
+  function toggleMatchAudit() {
+    const opening = !matchAuditOpen;
+    setMatchAuditOpen(opening);
+    if (opening && !matchAuditLoaded) {
+      fetchMatchAudit();
     }
   }
 
@@ -890,10 +942,16 @@ export default function CompetitionPage() {
                 <th className="px-4 py-3 text-left text-sm font-semibold w-40">
                   Current Status
                 </th>
+                <th className="px-4 py-3 text-center text-sm font-semibold w-20">
+                  Cycles
+                </th>
+                <th className="px-4 py-3 text-center text-sm font-semibold w-24">
+                  Last V
+                </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold w-24">
                   Status
                 </th>
-                <th className="px-4 py-3 text-right text-sm font-semibold w-32">
+                <th className="px-4 py-3 text-right text-sm font-semibold w-44">
                   Actions
                 </th>
               </tr>
@@ -902,11 +960,22 @@ export default function CompetitionPage() {
               {batteries.map((battery) => (
                 <tr
                   key={battery.id}
-                  className="border-t border-slate-100 hover:bg-slate-50"
+                  className={`border-t border-slate-100 hover:bg-slate-50 ${battery.retired ? "opacity-50" : ""}`}
                 >
-                  <td className="px-4 py-3 font-medium">{battery.label}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {battery.label}
+                    {battery.retired && (
+                      <span className="ml-2 text-xs font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-700">RETIRED</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-slate-500">
                     {batteryStatusLabel(battery.currentStatus)}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm text-slate-500 tabular-nums">
+                    {battery.cycleCount}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm font-mono text-slate-500">
+                    {battery.lastVoltage !== null ? `${battery.lastVoltage.toFixed(1)}V` : "--"}
                   </td>
                   <td className="px-4 py-3">
                     <button
@@ -926,6 +995,12 @@ export default function CompetitionPage() {
                       className="text-sm text-primary hover:underline"
                     >
                       Edit
+                    </button>
+                    <button
+                      onClick={() => handleRetireBattery(battery)}
+                      className={`text-sm hover:underline ${battery.retired ? "text-green-600" : "text-amber-600"}`}
+                    >
+                      {battery.retired ? "Unretire" : "Retire"}
                     </button>
                     <button
                       onClick={() => deleteBattery(battery.id)}
@@ -985,6 +1060,62 @@ export default function CompetitionPage() {
                             )}
                             {b.changes} change{b.changes !== 1 ? "s" : ""}
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Match Battery Audit */}
+      {batteries.length > 0 && (
+        <div className="mt-4">
+          <button
+            onClick={toggleMatchAudit}
+            className="text-sm text-slate-600 hover:text-slate-900 flex items-center gap-1"
+          >
+            <span className={`inline-block transition-transform ${matchAuditOpen ? "rotate-90" : ""}`}>
+              &#9654;
+            </span>
+            Match Battery Audit
+          </button>
+
+          {matchAuditOpen && (
+            <div className="mt-3 space-y-4">
+              {!matchAuditLoaded ? (
+                <p className="text-slate-500 text-sm">Loading...</p>
+              ) : matchAuditData.length === 0 ? (
+                <p className="text-slate-500 text-sm italic">No match battery logs yet.</p>
+              ) : (
+                matchAuditData.map((match) => (
+                  <div
+                    key={match.matchKey}
+                    className="bg-white rounded-xl shadow border border-slate-100 p-4"
+                  >
+                    <h4 className="font-semibold text-sm mb-2">{match.matchKey}</h4>
+                    <div className="space-y-1.5">
+                      {match.batteries.map((b, i) => (
+                        <div key={i} className="flex items-center gap-3 text-sm">
+                          <span className="font-medium w-24 flex-shrink-0">{b.label}</span>
+                          <span className="text-xs text-slate-500 w-28 flex-shrink-0">{batteryStatusLabel(b.status)}</span>
+                          <span className="text-xs font-mono text-slate-500 w-14 flex-shrink-0">
+                            {b.voltage !== null ? `${b.voltage.toFixed(1)}V` : "--"}
+                          </span>
+                          {b.note && (
+                            <span className="text-xs text-slate-400 italic truncate">{b.note}</span>
+                          )}
+                          <span className="text-xs text-slate-400 ml-auto flex-shrink-0">
+                            {new Date(b.createdAt).toLocaleTimeString("en-US", {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                              timeZone: "America/Chicago",
+                            })}
+                          </span>
                         </div>
                       ))}
                     </div>

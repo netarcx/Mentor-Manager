@@ -20,6 +20,7 @@ export async function PUT(
         ...(data.label !== undefined && { label: data.label }),
         ...(data.active !== undefined && { active: data.active }),
         ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+        ...(data.retired !== undefined && { retired: data.retired }),
       },
     });
 

@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: "Battery not found" }, { status: 404 });
     }
 
-    const { status, matchKey, note } = await request.json();
+    const { status, matchKey, note, voltage } = await request.json();
 
     if (!status || !VALID_STATUSES.includes(status)) {
       return NextResponse.json(
@@ -25,12 +25,22 @@ export async function POST(
       );
     }
 
+    if (voltage !== undefined && voltage !== null) {
+      if (typeof voltage !== "number" || voltage < 0 || voltage > 20) {
+        return NextResponse.json(
+          { error: "voltage must be a number between 0 and 20" },
+          { status: 400 }
+        );
+      }
+    }
+
     const log = await prisma.batteryLog.create({
       data: {
         batteryId,
         status,
         matchKey: matchKey || "",
         note: note || "",
+        ...(voltage !== undefined && voltage !== null && { voltage }),
       },
     });
 

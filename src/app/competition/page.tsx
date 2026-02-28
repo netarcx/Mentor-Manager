@@ -70,6 +70,7 @@ interface BatteryInfo {
   currentStatus: string | null;
   statusSince: string | null;
   matchKey: string;
+  cycleCount: number;
 }
 
 interface TeamRanking {
@@ -976,10 +977,10 @@ function generateExampleData(): CompetitionData {
     pollInterval: 60,
     robotImageSource: "none",
     batteries: [
-      { id: 1, label: "Battery A", currentStatus: "charging", statusSince: new Date(Date.now() - 45 * 60000).toISOString(), matchKey: "" },
-      { id: 2, label: "Battery B", currentStatus: "in_robot_match", statusSince: new Date(Date.now() - 5 * 60000).toISOString(), matchKey: "2024wila_qm6" },
-      { id: 3, label: "Battery C", currentStatus: "charging", statusSince: new Date(Date.now() - 20 * 60000).toISOString(), matchKey: "" },
-      { id: 4, label: "Battery D", currentStatus: "idle", statusSince: new Date(Date.now() - 10 * 60000).toISOString(), matchKey: "" },
+      { id: 1, label: "Battery A", currentStatus: "charging", statusSince: new Date(Date.now() - 45 * 60000).toISOString(), matchKey: "", cycleCount: 5 },
+      { id: 2, label: "Battery B", currentStatus: "in_robot_match", statusSince: new Date(Date.now() - 5 * 60000).toISOString(), matchKey: "2024wila_qm6", cycleCount: 3 },
+      { id: 3, label: "Battery C", currentStatus: "charging", statusSince: new Date(Date.now() - 20 * 60000).toISOString(), matchKey: "", cycleCount: 0 },
+      { id: 4, label: "Battery D", currentStatus: "idle", statusSince: new Date(Date.now() - 10 * 60000).toISOString(), matchKey: "", cycleCount: 2 },
     ],
     pitTimerEnabled: true,
     twitchChannel: "",
@@ -1717,6 +1718,9 @@ export default function CompetitionPage() {
                       {/* Label */}
                       <span className={`text-xs md:text-sm font-medium flex-shrink-0 ${isNext ? "text-green-300" : "text-slate-200"}`}>
                         {battery.label}
+                        {battery.cycleCount > 0 && (
+                          <span className="ml-1 text-[10px] md:text-xs text-slate-500 font-normal">{battery.cycleCount}x</span>
+                        )}
                       </span>
 
                       {/* Status badge */}

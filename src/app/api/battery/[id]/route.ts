@@ -7,15 +7,22 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const battery = await prisma.battery.findUnique({
-      where: { id: parseInt(id, 10) },
-      include: {
-        logs: {
-          orderBy: { createdAt: "desc" },
-          take: 10,
+    const batteryId = parseInt(id, 10);
+
+    const [battery, cycleCount] = await Promise.all([
+      prisma.battery.findUnique({
+        where: { id: batteryId },
+        include: {
+          logs: {
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          },
         },
-      },
-    });
+      }),
+      prisma.batteryLog.count({
+        where: { batteryId, status: "in_robot_match" },
+      }),
+    ]);
 
     if (!battery) {
       return NextResponse.json({ error: "Battery not found" }, { status: 404 });
@@ -27,6 +34,8 @@ export async function GET(
       id: battery.id,
       label: battery.label,
       active: battery.active,
+      retired: battery.retired,
+      cycleCount,
       currentStatus: latestLog?.status || null,
       statusSince: latestLog?.createdAt || null,
       matchKey: latestLog?.matchKey || "",
@@ -35,6 +44,7 @@ export async function GET(
         status: l.status,
         matchKey: l.matchKey,
         note: l.note,
+        voltage: l.voltage,
         createdAt: l.createdAt,
       })),
     });

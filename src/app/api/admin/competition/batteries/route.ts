@@ -7,15 +7,31 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const batteries = await prisma.battery.findMany({
-    orderBy: { sortOrder: "asc" },
-    include: {
-      logs: {
-        take: 1,
-        orderBy: { createdAt: "desc" },
+  const [batteries, cycleCounts, lastVoltages] = await Promise.all([
+    prisma.battery.findMany({
+      orderBy: { sortOrder: "asc" },
+      include: {
+        logs: {
+          take: 1,
+          orderBy: { createdAt: "desc" },
+        },
       },
-    },
-  });
+    }),
+    prisma.batteryLog.groupBy({
+      by: ["batteryId"],
+      where: { status: "in_robot_match" },
+      _count: { id: true },
+    }),
+    prisma.batteryLog.findMany({
+      where: { voltage: { not: null } },
+      orderBy: { createdAt: "desc" },
+      distinct: ["batteryId"],
+      select: { batteryId: true, voltage: true },
+    }),
+  ]);
+
+  const cycleMap = new Map(cycleCounts.map((c) => [c.batteryId, c._count.id]));
+  const voltageMap = new Map(lastVoltages.map((v) => [v.batteryId, v.voltage]));
 
   return NextResponse.json({
     batteries: batteries.map((b) => ({
@@ -23,6 +39,9 @@ export async function GET() {
       label: b.label,
       sortOrder: b.sortOrder,
       active: b.active,
+      retired: b.retired,
+      cycleCount: cycleMap.get(b.id) || 0,
+      lastVoltage: voltageMap.get(b.id) ?? null,
       currentStatus: b.logs[0]?.status || null,
       statusSince: b.logs[0]?.createdAt || null,
     })),

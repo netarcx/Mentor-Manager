@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, useCallback, useRef, use } from "react";
 
 interface BatteryLog {
   id: number;
   status: string;
   matchKey: string;
   note: string;
+  voltage: number | null;
   createdAt: string;
 }
 
@@ -14,6 +15,8 @@ interface BatteryData {
   id: number;
   label: string;
   active: boolean;
+  retired: boolean;
+  cycleCount: number;
   currentStatus: string | null;
   statusSince: string | null;
   matchKey: string;
@@ -101,6 +104,13 @@ export default function BatteryPage({ params }: { params: Promise<{ id: string }
   const [submitting, setSubmitting] = useState(false);
   const [nextMatch, setNextMatch] = useState<NextMatchInfo | null>(null);
 
+  // Extras panel state
+  const [extrasLogId, setExtrasLogId] = useState<number | null>(null);
+  const [extrasVoltage, setExtrasVoltage] = useState("");
+  const [extrasNote, setExtrasNote] = useState("");
+  const [extrasSaving, setExtrasSaving] = useState(false);
+  const extrasTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const fetchBattery = useCallback(async () => {
     try {
       const res = await fetch(`/api/battery/${id}`);
@@ -154,9 +164,24 @@ export default function BatteryPage({ params }: { params: Promise<{ id: string }
     };
   }, []);
 
+  // Auto-dismiss extras panel
+  useEffect(() => {
+    return () => {
+      if (extrasTimerRef.current) clearTimeout(extrasTimerRef.current);
+    };
+  }, []);
+
+  function dismissExtras() {
+    if (extrasTimerRef.current) clearTimeout(extrasTimerRef.current);
+    setExtrasLogId(null);
+    setExtrasVoltage("");
+    setExtrasNote("");
+  }
+
   async function handleStatusChange(status: string) {
     if (submitting) return;
     setSubmitting(true);
+    dismissExtras();
 
     const body: { status: string; matchKey?: string } = { status };
     if (status === "in_robot_match" && nextMatch) {
@@ -164,19 +189,51 @@ export default function BatteryPage({ params }: { params: Promise<{ id: string }
     }
 
     try {
-      await fetch(`/api/battery/${id}/log`, {
+      const res = await fetch(`/api/battery/${id}/log`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      const log = await res.json();
       setFlash(statusLabel(status));
       setTimeout(() => setFlash(null), 2000);
       await fetchBattery();
+
+      // Show extras panel
+      if (log.id) {
+        setExtrasLogId(log.id);
+        setExtrasVoltage("");
+        setExtrasNote("");
+        extrasTimerRef.current = setTimeout(dismissExtras, 8000);
+      }
     } catch {
       // Silent fail
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleExtrasSave() {
+    if (!extrasLogId) return;
+    setExtrasSaving(true);
+    if (extrasTimerRef.current) clearTimeout(extrasTimerRef.current);
+
+    const body: { voltage?: number; note?: string } = {};
+    const v = parseFloat(extrasVoltage);
+    if (extrasVoltage && !isNaN(v)) body.voltage = v;
+    if (extrasNote.trim()) body.note = extrasNote.trim();
+
+    if (Object.keys(body).length > 0) {
+      await fetch(`/api/battery/${id}/log/${extrasLogId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      await fetchBattery();
+    }
+
+    setExtrasSaving(false);
+    dismissExtras();
   }
 
   if (loading) {
@@ -200,6 +257,8 @@ export default function BatteryPage({ params }: { params: Promise<{ id: string }
     );
   }
 
+  const isRetired = data.retired;
+
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Flash notification */}
@@ -209,9 +268,21 @@ export default function BatteryPage({ params }: { params: Promise<{ id: string }
         </div>
       )}
 
+      {/* Retired banner */}
+      {isRetired && (
+        <div className="bg-red-600/90 text-white px-5 py-3 text-center font-semibold text-sm">
+          This battery is retired and can no longer be used.
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-5 pt-6 pb-4">
-        <h1 className="text-2xl font-bold">{data.label}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">{data.label}</h1>
+          {data.cycleCount > 0 && (
+            <span className="text-sm text-slate-400">{data.cycleCount} match{data.cycleCount !== 1 ? "es" : ""}</span>
+          )}
+        </div>
         <div className="mt-2 flex items-center gap-3">
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${statusColor(data.currentStatus)}`}>
             {statusLabel(data.currentStatus)}
@@ -235,7 +306,7 @@ export default function BatteryPage({ params }: { params: Promise<{ id: string }
           <button
             key={opt.value}
             onClick={() => handleStatusChange(opt.value)}
-            disabled={submitting || data.currentStatus === opt.value}
+            disabled={submitting || data.currentStatus === opt.value || isRetired}
             className={`w-full py-4 rounded-xl text-lg font-semibold transition-all flex items-center justify-center gap-3 ${opt.color} ${
               data.currentStatus === opt.value
                 ? "ring-2 ring-white/40 opacity-60"
@@ -253,6 +324,48 @@ export default function BatteryPage({ params }: { params: Promise<{ id: string }
         ))}
       </div>
 
+      {/* Post-tap extras panel */}
+      {extrasLogId && (
+        <div className="px-5 pb-4 animate-[slideDown_0.2s_ease-out]">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 space-y-3">
+            <p className="text-sm text-slate-400 font-medium">Add details (optional)</p>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={extrasVoltage}
+                onChange={(e) => setExtrasVoltage(e.target.value)}
+                placeholder="12.8"
+                className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500"
+              />
+              <span className="self-center text-sm text-slate-400">V</span>
+            </div>
+            <input
+              type="text"
+              value={extrasNote}
+              onChange={(e) => setExtrasNote(e.target.value)}
+              placeholder="Note (e.g. swollen, weak)"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={handleExtrasSave}
+                disabled={extrasSaving}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {extrasSaving ? "Saving..." : "Save"}
+              </button>
+              <button
+                onClick={dismissExtras}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-lg text-sm font-semibold transition-colors"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Recent history */}
       {data.recentLogs.length > 0 && (
         <div className="px-5 py-4">
@@ -263,19 +376,27 @@ export default function BatteryPage({ params }: { params: Promise<{ id: string }
             {data.recentLogs.map((log) => (
               <div
                 key={log.id}
-                className="flex items-center justify-between bg-slate-800/60 rounded-lg px-4 py-2.5"
+                className="bg-slate-800/60 rounded-lg px-4 py-2.5"
               >
-                <div className="flex items-center gap-3">
-                  <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${statusColor(log.status)}`}>
-                    {statusLabel(log.status)}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${statusColor(log.status)}`}>
+                      {statusLabel(log.status)}
+                    </span>
+                    {log.matchKey && (
+                      <span className="text-xs text-slate-500">{log.matchKey}</span>
+                    )}
+                    {log.voltage !== null && (
+                      <span className="text-xs font-mono text-yellow-400">{log.voltage.toFixed(1)}V</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    <LogTimeDisplay createdAt={log.createdAt} />
                   </span>
-                  {log.matchKey && (
-                    <span className="text-xs text-slate-500">{log.matchKey}</span>
-                  )}
                 </div>
-                <span className="text-xs text-slate-500">
-                  <LogTimeDisplay createdAt={log.createdAt} />
-                </span>
+                {log.note && (
+                  <p className="text-xs text-slate-500 italic mt-1 truncate">{log.note}</p>
+                )}
               </div>
             ))}
           </div>

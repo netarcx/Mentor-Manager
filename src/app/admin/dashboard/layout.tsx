@@ -57,8 +57,8 @@ export default function AdminDashboardLayout({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)]">
-      <aside className="w-56 bg-navy text-white p-4 flex flex-col">
+    <div className="flex min-h-[calc(100vh-4rem)] print:block">
+      <aside className="w-56 bg-navy text-white p-4 flex flex-col print:hidden">
         <h2 className="text-lg font-bold text-primary-light mb-6">Admin Panel</h2>
         <nav className="flex-1 space-y-4">
           {navGroups.map((group, gi) => (
@@ -91,7 +91,7 @@ export default function AdminDashboardLayout({
           Logout
         </button>
       </aside>
-      <div className="flex-1 p-8">{children}</div>
+      <div className="flex-1 p-8 print:p-0">{children}</div>
     </div>
   );
 }

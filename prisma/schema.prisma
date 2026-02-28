@@ -181,6 +181,7 @@ model Battery {
   label     String
   sortOrder Int          @default(0) @map("sort_order")
   active    Boolean      @default(true)
+  retired   Boolean      @default(false)
   createdAt DateTime     @default(now()) @map("created_at")
   logs      BatteryLog[]
 
@@ -193,6 +194,7 @@ model BatteryLog {
   status    String // "charging" | "in_robot_match" | "in_robot_testing" | "idle"
   matchKey  String   @default("") @map("match_key")
   note      String   @default("")
+  voltage   Float?
   createdAt DateTime @default(now()) @map("created_at")
   battery   Battery  @relation(fields: [batteryId], references: [id], onDelete: Cascade)
 

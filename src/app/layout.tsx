@@ -50,7 +50,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}
       >
-        <nav id="main-nav" className="bg-navy text-white shadow-lg">
+        <nav id="main-nav" className="bg-navy text-white shadow-lg print:hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between min-h-16 py-2">
               <NavBrand initialName={branding.appName} />

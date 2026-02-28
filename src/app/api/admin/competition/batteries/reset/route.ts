@@ -9,7 +9,7 @@ export async function POST() {
 
   try {
     const activeBatteries = await prisma.battery.findMany({
-      where: { active: true },
+      where: { active: true, retired: false },
       select: { id: true },
     });
 
