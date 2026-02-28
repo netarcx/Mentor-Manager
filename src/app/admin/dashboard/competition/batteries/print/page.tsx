@@ -20,7 +20,7 @@ interface Preset {
 
 const PRESETS: Preset[] = [
   { label: '2" x 2"', width: 2, height: 2, qrScale: 70, textSize: 14 },
-  { label: '2" x 2\u2075\u2044\u2081\u2086"', width: 2, height: 2.3125, qrScale: 65, textSize: 14 },
+  { label: '2\u2075\u2044\u2081\u2086" x 2"', width: 2.3125, height: 2, qrScale: 65, textSize: 14 },
 ];
 
 function formatDim(v: number): string {
@@ -105,6 +105,7 @@ export default function BatteryPrintPage() {
   return (
     <div className="p-8 print:p-0">
       <style>{`
+        @page { margin: 0.25in; }
         @media print {
           .no-print { display: none !important; }
           body { background: white !important; margin: 0 !important; padding: 0 !important; }
@@ -112,7 +113,7 @@ export default function BatteryPrintPage() {
             display: flex !important;
             flex-wrap: wrap !important;
             gap: 0 !important;
-            padding: 0.25in !important;
+            padding: 0 !important;
           }
           .qr-card {
             box-sizing: border-box !important;
@@ -123,11 +124,11 @@ export default function BatteryPrintPage() {
             border: none !important;
             border-radius: 0 !important;
             display: flex !important;
-            flex-direction: column !important;
+            flex-direction: ${stickerWidth > stickerHeight ? "row" : "column"} !important;
             align-items: center !important;
             justify-content: center !important;
+            gap: ${stickerWidth > stickerHeight ? "0.1in" : "0.05in"} !important;
             page-break-inside: avoid;
-            overflow: hidden !important;
           }
           .qr-card svg {
             display: block !important;
@@ -138,7 +139,6 @@ export default function BatteryPrintPage() {
           .qr-label {
             font-size: ${textSize}pt !important;
             text-align: center !important;
-            width: 100% !important;
           }
         }
       `}</style>
@@ -253,7 +253,7 @@ export default function BatteryPrintPage() {
         {batteries.map((battery) => (
           <div
             key={battery.id}
-            className="qr-card flex flex-col items-center justify-center gap-1.5 p-4 overflow-hidden"
+            className={`qr-card flex items-center justify-center gap-1.5 p-4 ${stickerWidth > stickerHeight ? "flex-row" : "flex-col"}`}
             style={{ width: `${stickerWidth}in`, height: `${stickerHeight}in`, boxSizing: "border-box" }}
           >
             <QRCodeSVG
