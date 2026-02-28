@@ -115,6 +115,7 @@ export default function BatteryPrintPage() {
             padding: 0.25in !important;
           }
           .qr-card {
+            box-sizing: border-box !important;
             width: ${stickerWidth}in !important;
             height: ${stickerHeight}in !important;
             padding: 0.1in !important;
@@ -126,13 +127,18 @@ export default function BatteryPrintPage() {
             align-items: center !important;
             justify-content: center !important;
             page-break-inside: avoid;
+            overflow: hidden !important;
           }
           .qr-card svg {
+            display: block !important;
             width: ${qrPrintSize}in !important;
             height: ${qrPrintSize}in !important;
+            flex-shrink: 0 !important;
           }
           .qr-label {
             font-size: ${textSize}pt !important;
+            text-align: center !important;
+            width: 100% !important;
           }
         }
       `}</style>
@@ -247,8 +253,8 @@ export default function BatteryPrintPage() {
         {batteries.map((battery) => (
           <div
             key={battery.id}
-            className="qr-card flex flex-col items-center justify-center gap-1.5 p-4"
-            style={{ width: `${stickerWidth}in`, height: `${stickerHeight}in` }}
+            className="qr-card flex flex-col items-center justify-center gap-1.5 p-4 overflow-hidden"
+            style={{ width: `${stickerWidth}in`, height: `${stickerHeight}in`, boxSizing: "border-box" }}
           >
             <QRCodeSVG
               value={`${origin}/battery/${battery.id}`}
